@@ -1,6 +1,6 @@
 // Initialize socket connection
 // const socket = io();
-const SOCKET_SERVER = "https://ujjwalagarwal.com";
+const SOCKET_SERVER = "https://useful-plum-python.glitch.me";
 const socket = io(SOCKET_SERVER);
 
 // Game Constants
