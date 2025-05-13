@@ -1,5 +1,6 @@
 // const SOCKET_SERVER = 'https://wiggly-alder-cornet.glitch.me'; // FOR GLITCH DEPLOYMENT
-const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
+// const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
+const SOCKET_SERVER = 'https://remote-stock-exchange.onrender.com'; // FOR LOCAL TESTING
 // const SOCKET_SERVER = 'ws://remote-stock-exchange-backend.glitch.me'; // Example if using glitch
 
 // Initialize socket connection
