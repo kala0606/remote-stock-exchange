@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Zephyr Stock Exchange</title>
+  <base href="/remote-stock-exchange/">
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div id="lobby" class="screen">
+    <h1>Zephyr Stock Exchange</h1>
+    <div class="controls">
+      <button id="createRoom">Create Room</button>
+      <div class="join-controls">
+        <input type="text" id="roomCode" placeholder="Room Code">
+        <input type="text" id="playerName" placeholder="Your Name">
+        <button id="joinRoom">Join Room</button>
+      </div>
+    </div>
+    <div id="playerList"></div>
+    <button id="startGame" style="display: none;">Start Game</button>
+  </div>
+
+  <div id="game" class="screen" style="display: none;">
+    <div class="game-layout">
+      <div class="game-left">
+        <div id="info-bar">
+          <span id="period">Period 1</span>
+          <span id="cash">Cash: ₹600,000</span>
+        </div>
+        <div id="canvas-container"></div>
+        <div id="controls">
+          <div class="action-buttons">
+            <button id="buy">Buy</button>
+            <button id="sell">Sell</button>
+            <!-- <button id="windfall">Play Windfall</button> -->
+            <button id="pass">Pass</button>
+            <button id="endTurn">End Turn</button>
+          </div>
+          <div class="admin-action-buttons">
+            <button id="advancePeriod" style="display: none;">Advance Period</button>
+          </div>
+        </div>
+        <div id="hand-summary" class="panel" style="display: none;">
+            <h4>Hand Price Impact</h4>
+            <div id="hand-summary-content"></div>
+        </div>
+
+        <div id="price-log-panel" class="panel" style="display: block; max-height: 200px; overflow-y: auto; margin-top: 15px;">
+            <h4>Period Price Log</h4>
+            <table id="price-log-table">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <!-- Company headers will be added dynamically -->
+                    </tr>
+                </thead>
+                <tbody id="price-log-table-body">
+                    <!-- Log rows will be added dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+      </div>
+    </div>
+    
+    <div class="game-right">
+      <div id="leaderboard" class="panel">
+        <h2>Leaderboard</h2>
+        <div class="leaderboard-content"></div>
+      </div>
+    </div>
+
+    <div id="transaction-modal" class="modal">
+        <div class="modal-content">
+            <h2>Transaction</h2>
+            <select id="company"></select>
+            <input type="number" id="quantityInput" placeholder="Quantity (e.g., 1000, 5000)" min="1000" step="1000">
+            <div class="button-group">
+                <button id="confirm">Confirm</button>
+                <button id="cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="suspend-modal" class="modal">
+        <div class="modal-content">
+            <h2>Suspend Price Change</h2>
+            <p>Select a company whose price change you want to suspend for this period's calculation.</p>
+            <select id="suspendCompanySelect"></select>
+            <div class="button-group">
+                <button id="confirmSuspend">Confirm Suspend</button>
+                <button id="cancelSuspend">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rights-issue-modal" class="modal">
+        <div class="modal-content">
+            <h2>Rights Issue</h2>
+            <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price.</p>
+            <select id="rightsCompanySelect"></select>
+            <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
+            <div class="button-group">
+                <button id="confirmRightsIssue">Confirm Purchase</button>
+                <button id="cancelRightsIssue">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+  <script src="sketch.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>

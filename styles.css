@@ -1,0 +1,636 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+  background: linear-gradient(135deg, #e0f7fa 0%, #fce4ec 100%);
+  box-sizing: border-box;
+  color: #495057;
+}
+
+.screen {
+  max-width: 1200px;
+  width: 100%;
+  text-align: center;
+}
+
+h1, h2, h3, h4 {
+  color: #343a40;
+}
+
+h1 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 0;
+  width: 100%;
+}
+
+.join-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.join-controls input[type="text"] {
+  flex-grow: 1;
+}
+
+button {
+  padding: 15px 30px;
+  border-radius: 15px;
+  background: linear-gradient(145deg, #ffffff, #f3f4f7);
+  color: #337ab7;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  border: none;
+  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease-in-out;
+}
+
+button:hover {
+  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+  box-shadow: 3px 6px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+button:active,
+button:focus {
+  background: linear-gradient(145deg, #e9ecef, #f8f9fa);
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(1px);
+  outline: none;
+}
+
+button:disabled,
+button:disabled:hover,
+button:disabled:active {
+  background: #f8f9fa;
+  cursor: not-allowed;
+  color: #999;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
+  transform: none;
+}
+
+#startGame,
+#confirm {
+  color: #28a745;
+}
+
+#startGame:hover,
+#confirm:hover {
+  color: #218838;
+}
+
+#cancel {
+  color: #dc3545;
+}
+
+#cancel:hover {
+  color: #c82333;
+}
+
+#advancePeriod {
+  color: #fd7e14;
+}
+
+#advancePeriod:hover {
+  color: #d39e00;
+}
+
+.admin-controls button {
+  color: #ffc107;
+  background: linear-gradient(145deg, #f5f5f5, #ffffff);
+  padding: 8px 15px;
+  font-size: 12px;
+  border-radius: 10px;
+  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.admin-controls button:hover {
+  color: #e68a00;
+  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(145deg, #ffffff, #f5f5f5);
+}
+
+.admin-controls button:active,
+.admin-controls button:focus {
+  color: #ffc107;
+  background: linear-gradient(145deg, #f0f0f0, #ffffff);
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.player-row button.kick {
+  color: #f44336;
+}
+
+.player-row button.kick:hover {
+  color: #d32f2f;
+}
+
+input, select {
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  padding: 15px 20px;
+  color: #495057;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  font-size: 16px;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.modal-content select {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.game-layout {
+  margin-bottom: 20px;
+}
+
+.game-left {
+  margin-bottom: 20px;
+}
+
+.game-right {
+  width: 100%;
+}
+
+#info-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 15px;
+  margin-bottom: 25px;
+  font-size: 0.95em;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+#info-bar > span {
+    margin: 5px 10px;
+}
+
+#canvas-container {
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.admin-action-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+#hand-section {
+  background: white;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 10px;
+}
+
+.card {
+  padding: 15px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  min-width: 120px;
+  min-height: 160px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 14px;
+  position: relative;
+}
+
+.card .price-change {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-weight: bold;
+}
+
+.card .price-change.positive {
+  color: #4CAF50;
+}
+
+.card .price-change.negative {
+  color: #f44336;
+}
+
+.card .company-name {
+  font-size: 18px;
+  font-weight: bold;
+  margin: auto;
+}
+
+.card .card-subtitle {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+}
+
+.card.windfall-card {
+  background: #fff;
+  border: 1px solid #9C27B0;
+}
+
+.card.price-card {
+  background: #fff;
+  border: 1px solid #2196F3;
+}
+
+.card.currency-card {
+  background: #fff;
+  border: 1px solid #4CAF50;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #ffffff;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 30px;
+  border-radius: 25px;
+  min-width: 350px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+.button-group button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#playerList {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 25px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  text-align: left;
+}
+
+#playerList h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  color: #555;
+  text-align: center;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(5px);
+  padding: 25px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  margin-bottom: 25px;
+}
+
+.leaderboard-content {
+  margin-top: 20px;
+  display: grid;
+  gap: 25px;
+}
+
+.player-stats {
+  padding: 20px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 1.15em;
+  color: #343a40;
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.player-cash {
+  color: #28a745;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+
+.player-portfolio {
+  margin: 15px 0;
+  font-size: 0.9em;
+}
+
+.player-portfolio h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 1em;
+    color: #495057;
+}
+
+.portfolio-entry {
+  display: grid;
+  grid-template-columns: minmax(60px, auto) 1fr minmax(80px, auto);
+  gap: 15px;
+  padding: 8px 0;
+  align-items: center;
+  border-bottom: 1px dotted #dee2e6;
+}
+
+.portfolio-entry:last-child {
+    border-bottom: none;
+}
+
+.portfolio-entry .company-name {
+  font-weight: 500;
+  color: #007bff;
+  font-size: 0.95em;
+}
+
+.portfolio-entry .share-count {
+  color: #495057;
+  text-align: right;
+  padding-right: 10px;
+}
+
+.portfolio-entry .share-value {
+  color: #6c757d;
+  text-align: right;
+  font-size: 0.9em;
+}
+
+.no-shares {
+  color: #6c757d;
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.portfolio-summary {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+  font-weight: 500;
+  font-size: 1.05em;
+}
+
+.portfolio-summary div {
+  margin: 4px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.player-total {
+  color: #17a2b8;
+  font-size: 1.15em;
+  font-weight: bold;
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.player-row:last-child {
+  border-bottom: none;
+}
+
+.admin-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-badge {
+  background: #2196F3;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.session-restore {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #4CAF50;
+  color: white;
+  padding: 15px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.turn-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.turn-indicator.active {
+    background: #4CAF50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+}
+
+.turn-status {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.turn-status.your-turn {
+    background: #4CAF50;
+    color: white;
+    animation: highlight 2s infinite;
+}
+
+@keyframes highlight {
+    0% { background: #4CAF50; }
+    50% { background: #45a049; }
+    100% { background: #4CAF50; }
+}
+
+.current-turn {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+/* Lobby Specific Styles */
+#lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  max-width: 500px;
+}
+
+#startGame {
+  background-color: #4CAF50;
+  margin-top: 10px;
+}
+
+#startGame:hover {
+  background-color: #45a049;
+}
+
+/* --- Price Log Panel --- */
+#price-log-panel {
+    /* Inherits .panel neumorphic style */
+    /* max-height: 200px; overflow-y: auto; margin-top: 15px; */ /* These are from inline styles, keep if needed */
+}
+
+/* --- Price Log Table --- */
+#price-log-panel h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+#price-log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+}
+
+#price-log-table th,
+#price-log-table td {
+    border: 1px solid #dee2e6;
+    padding: 6px 8px;
+    text-align: right;
+}
+
+#price-log-table th {
+    background-color: transparent;
+    background-color: #e9ecef;
+    font-weight: bold;
+    position: sticky; /* Keep header visible when scrolling */
+    top: 0;
+}
+
+#price-log-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+#price-log-table .price-change {
+    font-size: 0.9em;
+    margin-left: 4px;
+    font-weight: bold;
+}
+
+#price-log-table .price-up {
+    color: #28a745; /* Green */
+}
+
+#price-log-table .price-down {
+    color: #dc3545; /* Red */
+}
+
+#price-log-table .price-no-change {
+    color: #6c757d; /* Grey */
+}
+
+/* Update specific panel styles if needed */
+#hand-summary {
+  /* display: none; */ /* Handled by JS */
+}
