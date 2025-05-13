@@ -1,7 +1,9 @@
+// const SOCKET_SERVER = 'https://wiggly-alder-cornet.glitch.me'; // FOR GLITCH DEPLOYMENT
+const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
+// const SOCKET_SERVER = 'ws://remote-stock-exchange-backend.glitch.me'; // Example if using glitch
+
 // Initialize socket connection
-// const socket = io();
-const SOCKET_SERVER = "https://wiggly-alder-cornet.glitch.me";
-const socket = io(SOCKET_SERVER);
+const socket = io();
 
 // Game Constants
 const SHARE_LOTS = [500, 1000, 5000, 10000];
