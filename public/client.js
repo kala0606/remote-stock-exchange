@@ -79,7 +79,8 @@ const handDiv = document.getElementById('hand');
 const transactionModal = document.getElementById('transaction-modal');
 const companySelect = document.getElementById('company');
 const quantityInput = document.getElementById('quantityInput');
-const confirmBtn = document.getElementById('confirm');
+const costInfoDiv = document.getElementById('costInfo');
+const confirmTransactionBtn = document.getElementById('confirm');
 const cancelBtn = document.getElementById('cancel');
 const leaderboardContent = document.querySelector('.leaderboard-content');
 const advancePeriodBtn = document.getElementById('advancePeriod');
@@ -134,6 +135,10 @@ let isRejoining = false;
 let currentPlayerName = null; // Store player name for potential display
 let currentSessionToken = null; // Store the current active session token
 
+// Variables to track the last logged period and round for visual separation
+let lastLoggedPeriodForSeparator = null;
+let lastLoggedRoundForSeparator = null;
+
 // Store the card being played (needed for suspend)
 let cardBeingPlayed = null;
 
@@ -150,7 +155,7 @@ socket.on('connect', () => {
     joinRoomBtn.disabled = false;
 
     // --- NEW: Attempt Rejoin with Token from URL FIRST --- 
-    const urlParams = new URLSearchParams(window.location.search);
+const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('session');
     currentSessionToken = tokenFromUrl || localStorage.getItem('zephyrSessionToken'); // Fallback to localStorage
 
@@ -299,7 +304,14 @@ endTurnBtn.addEventListener('click', () => socket.emit('endTurn', { roomID: curr
 // windfallBtn.addEventListener('click', () => { ... });
 
 function showTransactionModal(action) {
-    console.log('Opening modal for action:', action);
+    console.log('[showTransactionModal] Opening modal for action:', action);
+    
+    currentTransaction = {
+        action: action,
+        company: null, // Explicitly null here
+        quantity: null
+    };
+    console.log('[showTransactionModal] currentTransaction RESET. Company is:', currentTransaction.company);
     
     // Reset transaction state
     currentTransaction = {
@@ -307,6 +319,12 @@ function showTransactionModal(action) {
         company: null,
         quantity: null
     };
+    
+    // --- SET MODAL TITLE ---
+    const transactionTypeTitle = document.getElementById('transaction-type');
+    if (transactionTypeTitle) {
+        transactionTypeTitle.textContent = action === 'buy' ? 'Buy Shares' : 'Sell Shares';
+    }
     
     // Reset select elements
     companySelect.innerHTML = '<option value="" disabled selected>Select a company</option>';
@@ -356,36 +374,38 @@ function showTransactionModal(action) {
     }
     
     transactionModal.style.display = 'flex';
+    console.log('[showTransactionModal] BEFORE initial call to updateTransactionCostInfo. currentTransaction.company:', currentTransaction.company);
+    updateTransactionCostInfo();
 }
 
 // Event Listeners
 companySelect.addEventListener('change', (event) => {
     event.preventDefault();
-    const selectedCompany = event.target.value;
+    const newlySelectedCompanyId = event.target.value;
+    console.log(`[CompanySelect Change] Event triggered. Listener instance: ${Math.random().toString(36).substring(7)}. newlySelectedCompanyId:`, newlySelectedCompanyId);
     
-    console.log('Company selection change:', {
-        previous: currentTransaction.company,
-        new: selectedCompany,
-        currentState: currentTransaction
-    });
+    if (!newlySelectedCompanyId) {
+        console.log('[CompanySelect Change] No company ID selected, returning.');
+        return;
+    }
     
-    if (!selectedCompany) return;
-    
-    currentTransaction.company = selectedCompany;
+    currentTransaction.company = newlySelectedCompanyId;
+    console.log('[CompanySelect Change] currentTransaction.company SET TO:', currentTransaction.company);
     currentTransaction.quantity = null;
     quantityInput.value = '';
     
-    // REMOVE call to updateQuantityOptions();
+    console.log('[CompanySelect Change] About to call updateTransactionCostInfo()');
+    updateTransactionCostInfo();
 });
 
 quantityInput.addEventListener('input', (event) => {
     const quantity = parseInt(event.target.value);
-    // Allow NaN temporarily while typing, validation happens on confirm
     currentTransaction.quantity = isNaN(quantity) ? null : quantity; 
     console.log('Quantity input change:', { value: event.target.value, stateQty: currentTransaction.quantity });
+    updateTransactionCostInfo();
 });
 
-confirmBtn.addEventListener('click', () => {
+confirmTransactionBtn.addEventListener('click', () => {
     const selectedCompany = companySelect.value;
     // Read from input field
     const rawQuantity = quantityInput.value;
@@ -600,7 +620,13 @@ socket.on('gameState', state => {
         turnPlayerName = state.players[turnIndex]?.name || 'Unknown Player';
     }
     
-    periodSpan.textContent = `Period ${currentPeriod} | Round ${roundNumber} | Turn: ${turnPlayerName}`;
+    // periodSpan.textContent = `Period ${currentPeriod} | Round ${roundNumber} | Turn: ${turnPlayerName}`;
+    // New Format: Period X | PlayerZ: Turn Y of 3
+    if (turnPlayerName !== 'Waiting...') {
+        periodSpan.textContent = `Period ${currentPeriod} | ${turnPlayerName}: Turn ${roundNumber} of 3`;
+    } else {
+        periodSpan.textContent = `Period ${currentPeriod} | Round ${roundNumber} | Waiting for player...`;
+    }
     
     // Cash Info - Use currentPlayer.cash from the players array
     if (currentPlayer && currentPlayer.cash !== undefined && currentPlayer.cash !== null) {
@@ -706,12 +732,41 @@ socket.on('dealCards', cards => {
 socket.on('activityLog', (logEntry) => {
     if (!activityLogContent) return; // Guard clause
 
+    // Check for period or round changes to insert separators
+    if (logEntry.period !== undefined && logEntry.round !== undefined) {
+        if (lastLoggedPeriodForSeparator !== null && logEntry.period !== lastLoggedPeriodForSeparator) {
+            const periodSeparator = document.createElement('div');
+            periodSeparator.className = 'log-separator period-separator';
+            periodSeparator.textContent = `--- New Period ${logEntry.period} ---`;
+            activityLogContent.insertBefore(periodSeparator, activityLogContent.firstChild);
+            lastLoggedRoundForSeparator = null; // Reset round when period changes
+        } else if (lastLoggedRoundForSeparator !== null && logEntry.round !== lastLoggedRoundForSeparator && logEntry.period === lastLoggedPeriodForSeparator) {
+            const roundSeparator = document.createElement('div');
+            roundSeparator.className = 'log-separator round-separator';
+            roundSeparator.textContent = `--- Round ${logEntry.round} ---`;
+            activityLogContent.insertBefore(roundSeparator, activityLogContent.firstChild);
+        }
+        lastLoggedPeriodForSeparator = logEntry.period;
+        lastLoggedRoundForSeparator = logEntry.round;
+    } else if (logEntry.actionType === 'PERIOD_RESOLVED' || logEntry.actionType === 'START_GAME') {
+        // For specific system messages that clear old separators, ensure a line break if needed
+        if (activityLogContent.firstChild) { // Add a simple thematic break if there are existing logs
+             const hr = document.createElement('hr');
+             hr.className = 'log-separator-system';
+             activityLogContent.insertBefore(hr, activityLogContent.firstChild);
+        }
+        // Reset last logged period/round so the next player action correctly starts new separators
+        lastLoggedPeriodForSeparator = null;
+        lastLoggedRoundForSeparator = null;
+    }
+
     const logElement = document.createElement('div');
     logElement.classList.add('log-entry'); // For potential styling
 
     // Construct readable log message
     let message = ``;
-    if (logEntry.period && logEntry.round) {
+    // Only add Px Rx if period and round are present in the logEntry
+    if (logEntry.period !== undefined && logEntry.round !== undefined) {
         message += `P${logEntry.period} R${logEntry.round} - `;
     }
     if (logEntry.playerName) {
@@ -1050,15 +1105,16 @@ function updateRightsIssueInfo() {
     const rightsPricePerShare = Math.ceil(initialPrice / 2);
 
     const maxEligibleRaw = Math.floor(ownedShares / 2);
+    const maxEligibleInLots = Math.floor(maxEligibleRaw / 1000) * 1000; // Calculate max in 1000s
 
-    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(selectedCompany)}, eligible for up to <strong>${maxEligibleRaw.toLocaleString()}</strong> raw rights shares.<br>`;
+    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(selectedCompany)}, eligible for up to <strong>${maxEligibleInLots.toLocaleString()}</strong> rights shares (in lots of 1000).<br>`;
 
     const desiredSharesStr = desiredRightsSharesInput.value;
     const desiredSharesNum = parseInt(desiredSharesStr) || 0;
 
     if (desiredSharesNum > 0) {
-        if (desiredSharesNum > maxEligibleRaw) {
-            infoHtml += `<span style="color:red;">Warning: You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for ${maxEligibleRaw.toLocaleString()}.</span><br>`;
+        if (desiredSharesNum > maxEligibleRaw) { // Still check against raw for the warning
+            infoHtml += `<span style="color:red;">Warning: You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for ${maxEligibleInLots.toLocaleString()} (effective).</span><br>`;
         }
 
         const actualOfferedShares = Math.floor(desiredSharesNum / 1000) * 1000;
@@ -1207,15 +1263,16 @@ function updateGeneralRightsCostInfo() {
     const ownedShares = player.portfolio[companyId] || 0;
     const rightsPricePerShare = offerDetails.rightsPricePerShare; // Use price from the offer
     const maxEligibleRaw = Math.floor(ownedShares / 2);
+    const maxEligibleInLots = Math.floor(maxEligibleRaw / 1000) * 1000; // Calculate max in 1000s
 
-    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(companyId)}, eligible for up to <strong>${maxEligibleRaw.toLocaleString()}</strong> raw rights shares under this offer.<br>`;
+    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(companyId)}, eligible for up to <strong>${maxEligibleInLots.toLocaleString()}</strong> rights shares (in lots of 1000) under this offer.<br>`;
 
     const desiredSharesStr = desiredGeneralRightsSharesInput.value;
     const desiredSharesNum = parseInt(desiredSharesStr) || 0;
 
     if (desiredSharesNum > 0) {
-        if (desiredSharesNum > maxEligibleRaw) {
-            infoHtml += `<span style="color:red;">Warning: You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for ${maxEligibleRaw.toLocaleString()}.</span><br>`;
+        if (desiredSharesNum > maxEligibleRaw) { // Still check against raw for the warning
+            infoHtml += `<span style="color:red;">Warning: You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for ${maxEligibleInLots.toLocaleString()} (effective).</span><br>`;
         }
         const actualOfferedShares = Math.floor(desiredSharesNum / 1000) * 1000;
         if (actualOfferedShares > 0) {
@@ -1390,3 +1447,101 @@ function updatePriceLogTable() {
 // Initial population attempt in case gameState arrives before names?
 // Or rely on first update in gameState handler.
 // updatePriceLogTable(); 
+
+function updateTransactionCostInfo() {
+    const selectedCompany = currentTransaction.company;
+    console.log('[updateTransactionCostInfo] CALLED. currentTransaction.company (selectedCompany):', selectedCompany, '| IsTruthy:', Boolean(selectedCompany));
+
+    const quantityStr = quantityInput.value;
+    const quantityNum = parseInt(quantityStr);
+
+    const player = gameState?.players.find(p => p.id === socket.id);
+
+    if (!player) {
+        costInfoDiv.innerHTML = "Waiting for player data...";
+        return;
+    }
+
+    let additionalInfo = "";
+
+    if (selectedCompany) {
+        console.log('[updateTransactionCostInfo] selectedCompany IS TRUTHY. Proceeding with detailed info.');
+        const currentPrice = gameState?.state?.prices[selectedCompany];
+        const ownedShares = player?.portfolio[selectedCompany] || 0;
+        console.log('[updateTransactionCostInfo] Inside if(selectedCompany): player:', player, 'currentPrice:', currentPrice, 'ownedShares:', ownedShares);
+
+        if (currentTransaction.action === 'buy') {
+            additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">You own: ${ownedShares.toLocaleString()} shares. Max per company: ${MAX_SHARES_PER_COMPANY_CLIENT.toLocaleString()}.</p>`;
+            if (currentPrice !== undefined && currentPrice > 0) {
+                const maxAffordableRaw = Math.floor(player.cash / currentPrice);
+                const maxAffordableInLots = Math.floor(maxAffordableRaw / 1000) * 1000;
+                const canBuyUpToLimit = MAX_SHARES_PER_COMPANY_CLIENT - ownedShares;
+                const effectiveMaxBuy = Math.min(maxAffordableInLots, canBuyUpToLimit);
+                console.log('[updateTransactionCostInfo] Buy details: maxAffordableInLots:', maxAffordableInLots, 'canBuyUpToLimit:', canBuyUpToLimit, 'effectiveMaxBuy:', effectiveMaxBuy);
+                
+                if (effectiveMaxBuy > 0) {
+                    const costForEffectiveMax = effectiveMaxBuy * currentPrice;
+                    additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">With ₹${player.cash.toLocaleString()}, you could afford up to <strong>${effectiveMaxBuy.toLocaleString()}</strong> shares (cost: ₹${costForEffectiveMax.toLocaleString()}).</p>`;
+                } else if (canBuyUpToLimit <=0) {
+                     additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">You have reached the maximum share limit for this company.</p>`;
+                } else {
+                    additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">You do not have enough cash to buy any lots of this share at ₹${currentPrice.toLocaleString()}.</p>`;
+                }
+            }
+        } else if (currentTransaction.action === 'sell') {
+            additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">You own: <strong>${ownedShares.toLocaleString()}</strong> shares of ${getCompanyName(selectedCompany)}.</p>`;
+        }
+
+
+        if (quantityNum > 0 && quantityNum % 1000 === 0 && currentPrice !== undefined) {
+            const totalValue = currentPrice * quantityNum;
+            let mainMessage = "";
+            let canProceed = true;
+
+            if (currentTransaction.action === 'buy') {
+                mainMessage = `Total Cost: ₹${totalValue.toLocaleString()}`;
+                if (player.cash < totalValue) {
+                    additionalInfo += `<p class="text-danger">Not enough cash. Need ₹${totalValue.toLocaleString()}</p>`;
+                    canProceed = false;
+                }
+                if (ownedShares + quantityNum > MAX_SHARES_PER_COMPANY_CLIENT) {
+                    additionalInfo += `<p class="text-danger">This purchase would exceed the ${MAX_SHARES_PER_COMPANY_CLIENT.toLocaleString()} share limit.</p>`;
+                    canProceed = false;
+                }
+            } else if (currentTransaction.action === 'sell') {
+                mainMessage = `Total Proceeds: ₹${totalValue.toLocaleString()}`;
+                if (ownedShares < quantityNum) {
+                    additionalInfo += `<p class="text-danger">Not enough shares. You only have ${ownedShares.toLocaleString()}</p>`;
+                    canProceed = false;
+                }
+            }
+            console.log('[DEBUG] Setting innerHTML with detailed info + mainMessage (BLOCK 1A)');
+            costInfoDiv.innerHTML = additionalInfo + mainMessage;
+            confirmTransactionBtn.disabled = !canProceed;
+        } else if (quantityNum > 0 && quantityNum % 1000 !== 0) {
+            console.log('[DEBUG] Setting innerHTML with detailed info + quantity must be 1000s error (BLOCK 1B)');
+            costInfoDiv.innerHTML = additionalInfo + '<p class="text-danger">Quantity must be in multiples of 1,000.</p>';
+            confirmTransactionBtn.disabled = true;
+        } else {
+            console.log('[DEBUG] Setting innerHTML with detailed info + quantity prompt (BLOCK 1C)');
+            costInfoDiv.innerHTML = additionalInfo + 'Enter quantity (multiples of 1000).';
+            confirmTransactionBtn.disabled = true;
+        }
+    } else { 
+        console.log('[updateTransactionCostInfo] selectedCompany IS FALSY. Setting initial prompt text.');
+        if (currentTransaction.action === 'buy') {
+            if (player) { // Ensure player data is available
+                additionalInfo = `<p style="font-size: 0.9em; margin-bottom: 5px;">Your cash: ₹${player.cash.toLocaleString()}. Purchases in multiples of 1,000.</p>`;
+                additionalInfo += '<p style="font-size: 0.9em; margin-bottom: 5px;">Select a company to see specific purchasing options.</p>';
+            } else {
+                additionalInfo = '<p>Loading player data... Select a company to see purchasing options.</p>';
+            }
+        } else if (currentTransaction.action === 'sell') {
+            additionalInfo = '<p style="font-size: 0.9em; margin-bottom: 5px;">Select a company you own shares in to sell.</p>';
+        }
+        console.log('[updateTransactionCostInfo] FINAL additionalInfo before setting innerHTML (no company selected branch):', additionalInfo);
+        console.log('[DEBUG] Setting innerHTML with initial prompt (BLOCK 2, no company)');
+        costInfoDiv.innerHTML = additionalInfo;
+        confirmTransactionBtn.disabled = true;
+    }
+} 

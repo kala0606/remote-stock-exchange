@@ -314,7 +314,7 @@ function getCompanyName(companyId, game) {
 }
 
 // *** NEW: Helper function for logging activity ***
-function logActivity(game, playerName, actionType, detailsOverride = null) {
+function logActivity(game, playerName, actionType, detailsOverride = null, roundOverride = null) {
     if (!game || !game.state) {
         // If game or game.state is not ready (e.g. player joining before game start), log without period/round
         const simpleLogEntry = {
@@ -353,19 +353,27 @@ function logActivity(game, playerName, actionType, detailsOverride = null) {
     }
 
     const logEntry = {
-        period: game.period,
-        round: game.state.roundNumberInPeriod,
         playerName: playerName, // Can be null for system messages like "Period Resolved"
         actionType: actionType, // e.g., "BUY", "SELL", "PLAY_CARD"
         details: details,       // e.g., "Bought 1000 HDF", "Played LOAN card"
         timestamp: Date.now()
     };
 
+    // Conditionally add period and round for client, unless it's a system message type that shouldn't have it
+    if (actionType !== 'START_GAME' && actionType !== 'PERIOD_RESOLVED') {
+        logEntry.period = game.period;
+        logEntry.round = roundOverride !== null ? roundOverride : game.state.roundNumberInPeriod;
+    }
+
     const roomID = Object.keys(games).find(key => games[key] === game);
     if (roomID) {
         io.to(roomID).emit('activityLog', logEntry);
-        // Also console log for server records
-        console.log(`[Activity Log - P${logEntry.period}R${logEntry.round}] ${playerName ? playerName + ': ' : ''}${logEntry.details}`);
+        // Server console log still includes period/round for all relevant game-specific logs for debugging
+        if (game.period && game.state.roundNumberInPeriod) { // Check if game context exists for P/R logging
+            console.log(`[Activity Log - P${game.period}R${roundOverride !== null ? roundOverride : game.state.roundNumberInPeriod}] ${playerName ? playerName + ': ' : ''}${details}`);
+        } else {
+            console.log(`[Activity Log - System] ${playerName ? playerName + ': ' : ''}${details}`);
+        }
     } else {
         console.warn('[logActivity] Could not find roomID to emit log entry (this should not happen if game object is valid).');
     }
@@ -452,7 +460,7 @@ io.on('connection', socket => {
       console.log('Room created:', roomID);
       
       if (typeof callback === 'function') {
-        callback(roomID);
+    callback(roomID);
       }
     } catch (error) {
       console.error('Error creating room:', error);
@@ -882,15 +890,22 @@ io.on('connection', socket => {
         return;
     }
 
-    console.log(`[pass] Player ${game.players[playerIndex].name} (Turn ${playerIndex}, Round ${game.state.roundNumberInPeriod}) is passing.`);
+    const roundAtActionTime = game.state.roundNumberInPeriod; // CAPTURE ROUND NUMBER
+
+    console.log(`[pass] Player ${game.players[playerIndex].name} (Turn ${playerIndex}, Round ${roundAtActionTime}) is passing.`);
 
     // Add remaining transactions to total
     const remainingTransactions = TRANSACTIONS_PER_PERIOD - (game.state.turnTransactions || 0);
     game.state.trans += Math.max(0, remainingTransactions);
     
-    // Calculate next turn index
+    // --- LOG THE PLAYER'S ACTION FIRST ---
+    console.log(`[SERVER TRACER] Logging PASS_TURN for player: ${game.players[playerIndex]?.name} with roundAtActionTime: ${roundAtActionTime}`);
+    logActivity(game, game.players[playerIndex]?.name, 'PASS_TURN', `Passed turn.`, roundAtActionTime);
+
+    // Calculate next turn index and round completion
     const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
-    let roundCompleted = (nextTurnIndex === 0);
+    const periodStarterIndex = (game.period - 1) % game.players.length; // Determine who started the period/round
+    let roundCompleted = (nextTurnIndex === periodStarterIndex); // Round completes if turn returns to starter
     let currentRound = game.state.roundNumberInPeriod || 1;
 
     if (roundCompleted) {
@@ -900,9 +915,9 @@ io.on('connection', socket => {
             game.state.activeRightsOffers = {}; // Clear active rights offers at end of a full round
         }
         if (currentRound > MAX_ROUNDS_PER_PERIOD) {
-            console.log(`[pass] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached. Resolving Period ${game.period}.`);
-            resolvePeriod(roomID);
-            return;
+            console.log(`[pass] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached AFTER player ${game.players[playerIndex]?.name} passed. Resolving Period ${game.period}.`);
+            resolvePeriod(roomID); // resolvePeriod will emit game state
+            return; 
         } else {
             game.state.roundNumberInPeriod = currentRound;
         }
@@ -913,8 +928,8 @@ io.on('connection', socket => {
     game.state.turnTransactions = 0; // Reset transactions for the new player's turn
     
     console.log(`[pass] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
-    logActivity(game, game.players[playerIndex]?.name, 'PASS_TURN', `Passed turn.`);
-    emitGameState(game);
+    // logActivity is now done above, before period resolution check
+    emitGameState(game); // Emit state for normal turn advancement
   });
 
   socket.on('endTurn', ({ roomID }) => {
@@ -927,15 +942,22 @@ io.on('connection', socket => {
         return;
     }
 
-    console.log(`[endTurn] Player ${game.players[playerIndex].name} (Turn ${playerIndex}, Round ${game.state.roundNumberInPeriod}) is ending turn.`);
+    const roundAtActionTime = game.state.roundNumberInPeriod; // CAPTURE ROUND NUMBER
+
+    console.log(`[endTurn] Player ${game.players[playerIndex].name} (Turn ${playerIndex}, Round ${roundAtActionTime}) is ending turn.`);
 
     // Add remaining transactions to total
     const remainingTransactions = TRANSACTIONS_PER_PERIOD - (game.state.turnTransactions || 0);
     game.state.trans += Math.max(0, remainingTransactions);
     
-    // Calculate next turn index
+    // --- LOG THE PLAYER'S ACTION FIRST ---
+    console.log(`[SERVER TRACER] Logging END_TURN for player: ${game.players[playerIndex]?.name} with roundAtActionTime: ${roundAtActionTime}`);
+    logActivity(game, game.players[playerIndex]?.name, 'END_TURN', `Ended turn.`, roundAtActionTime);
+    
+    // Calculate next turn index and round completion
     const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
-    let roundCompleted = (nextTurnIndex === 0); 
+    const periodStarterIndex = (game.period - 1) % game.players.length; // Determine who started the period/round
+    let roundCompleted = (nextTurnIndex === periodStarterIndex); // Round completes if turn returns to starter
     let currentRound = game.state.roundNumberInPeriod || 1;
 
     if (roundCompleted) {
@@ -945,8 +967,8 @@ io.on('connection', socket => {
             game.state.activeRightsOffers = {}; // Clear active rights offers at end of a full round
         }
         if (currentRound > MAX_ROUNDS_PER_PERIOD) {
-            console.log(`[endTurn] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached. Resolving Period ${game.period}.`);
-            resolvePeriod(roomID);
+            console.log(`[endTurn] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached AFTER player ${game.players[playerIndex]?.name} ended turn. Resolving Period ${game.period}.`);
+            resolvePeriod(roomID); // resolvePeriod will emit game state
             return; 
         } else {
             game.state.roundNumberInPeriod = currentRound;
@@ -958,8 +980,8 @@ io.on('connection', socket => {
     game.state.turnTransactions = 0; // Reset transactions for the new player's turn
     
     console.log(`[endTurn] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
-    logActivity(game, game.players[playerIndex]?.name, 'END_TURN', `Ended turn.`);
-    emitGameState(game);
+    // logActivity is now done above, before period resolution check
+    emitGameState(game); // Emit state for normal turn advancement
   });
 
   // --- NEW: Handler for players exercising a general rights offer ---

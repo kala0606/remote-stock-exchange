@@ -10,11 +10,16 @@
   <div id="lobby" class="screen">
     <h1>Zephyr Stock Exchange</h1>
     <div class="controls">
-      <button id="createRoom">Create Room</button>
-      <div class="join-controls">
-        <input type="text" id="roomCode" placeholder="Room Code">
-        <input type="text" id="playerName" placeholder="Your Name">
-        <button id="joinRoom">Join Room</button>
+      <div class="create-room-section">
+        <button id="createRoom">Create Room</button>
+      </div>
+      <div class="join-section">
+        <p>Or Join an Existing Room:</p>
+        <div class="join-controls">
+          <input type="text" id="roomCode" placeholder="Room Code">
+          <input type="text" id="playerName" placeholder="Your Name">
+          <button id="joinRoom">Join Room</button>
+        </div>
       </div>
     </div>
     <div id="playerList"></div>
@@ -90,9 +95,12 @@
 
     <div id="transaction-modal" class="modal">
         <div class="modal-content">
-            <h2>Transaction</h2>
-            <select id="company"></select>
-            <input type="number" id="quantityInput" placeholder="Quantity (e.g., 1000, 5000)" min="1000" step="1000">
+            <h2 id="transaction-type">Buy/Sell Shares</h2>
+            <select id="company">
+              <option value="" disabled selected>Select a company</option>
+            </select>
+            <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+            <div id="costInfo" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select a company and enter quantity.</div>
             <div class="button-group">
                 <button id="confirm">Confirm</button>
                 <button id="cancel">Cancel</button>

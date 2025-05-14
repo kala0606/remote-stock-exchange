@@ -38,35 +38,44 @@ h1 {
 .join-controls {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .join-controls input[type="text"] {
   flex-grow: 1;
+  padding: 15px;
+  border-radius: 15px;
+  border: 1px solid #ced4da;
+  font-size: 16px;
+}
+
+.join-controls button {
+  flex-shrink: 0;
 }
 
 button {
   padding: 15px 30px;
   border-radius: 15px;
-  background: linear-gradient(145deg, #ffffff, #f3f4f7);
-  color: #337ab7;
+  background-color: #343a40;
+  color: #ffffff;
   cursor: pointer;
   font-size: 16px;
   font-weight: 500;
   border: none;
-  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.2);
   transition: all 0.15s ease-in-out;
 }
 
 button:hover {
-  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
-  box-shadow: 3px 6px 12px rgba(0, 0, 0, 0.15);
+  background-color: #495057;
+  box-shadow: 3px 6px 12px rgba(0, 0, 0, 0.3);
   transform: translateY(-1px);
 }
 
 button:active,
 button:focus {
-  background: linear-gradient(145deg, #e9ecef, #f8f9fa);
-  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #23272b;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
   transform: translateY(1px);
   outline: none;
 }
@@ -74,42 +83,42 @@ button:focus {
 button:disabled,
 button:disabled:hover,
 button:disabled:active {
-  background: #f8f9fa;
+  background-color: #6c757d;
   cursor: not-allowed;
-  color: #999;
-  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
+  color: #adb5bd;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   transform: none;
 }
 
 #startGame,
 #confirm {
-  color: #28a745;
+  background-color: #2a3035;
 }
 
 #startGame:hover,
 #confirm:hover {
-  color: #218838;
+  background-color: #3c4248;
 }
 
 #cancel {
-  color: #dc3545;
+  background-color: #2a3035;
 }
 
 #cancel:hover {
-  color: #c82333;
+  background-color: #3c4248;
 }
 
 #advancePeriod {
-  color: #fd7e14;
+  background-color: #2a3035;
 }
 
 #advancePeriod:hover {
-  color: #d39e00;
+  background-color: #3c4248;
 }
 
 .admin-controls button {
-  color: #ffc107;
-  background: linear-gradient(145deg, #f5f5f5, #ffffff);
+  background-color: #495057;
+  color: #ffffff;
   padding: 8px 15px;
   font-size: 12px;
   border-radius: 10px;
@@ -688,4 +697,45 @@ select:focus {
 
 #hand-summary-content td.summary-no-change {
     color: #adb5bd; /* Grey for no change */
+}
+
+/* New styles for lobby layout */
+#lobby .controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.create-room-section button#createRoom {
+  width: 100%;
+  max-width: 300px;
+  padding: 18px 30px;
+  font-size: 18px;
+}
+
+.join-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.join-section p {
+  margin-bottom: 5px;
+  font-size: 1.1em;
+  color: #495057;
+}
+
+#lobby #playerList {
+  margin-top: 20px;
+}
+
+#lobby #startGame {
+  margin-top: 20px;
+  width: 100%;
+  max-width: 300px;
 }

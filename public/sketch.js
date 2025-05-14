@@ -28,6 +28,24 @@ function getCompanyNameForSketch(id) {
     return company ? company.name : (window.companyNames ? window.companyNames[id] : id);
 }
 
+// Helper function to get company color by ID
+function getCompanyColorForSketch(id) {
+    const company = COMPANIES_FOR_SKETCH.find(c => c.id === id);
+    return company ? company.color : '#cccccc'; // Default to grey if not found
+}
+
+// Helper function to calculate luminance and determine text color
+function getTextColorForBackground(hexColor) {
+    const rgb = parseInt(hexColor.slice(1), 16);   // convert rrggbb to decimal
+    const r = (rgb >> 16) & 0xff;  // extract red
+    const g = (rgb >>  8) & 0xff;  // extract green
+    const b = (rgb >>  0) & 0xff;  // extract blue
+
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b; // per ITU-R BT.709
+
+    return luma < 128 ? '#FFFFFF' : '#000000'; // White text for dark, Black for light
+}
+
 function setup() {
     const canvas = createCanvas(900, 600);
     canvas.parent('canvas-container');
@@ -44,32 +62,45 @@ function drawMarketBoard(currentPrices) {
         fill(150);
         textAlign(CENTER,CENTER);
         textSize(16);
-        text("Market data not available yet.", width/2, MARKET_Y_OFFSET + MAX_HEIGHT/2);
+        text("Market data not available yet.", width/2, MARKET_Y_OFFSET + (height - MARKET_Y_OFFSET - CARDS_Y - 20)/2);
         return;
     }
 
     textAlign(CENTER, CENTER);
     const barWidth = 120;
     const spacing = 15;
+    const chartAreaTopPadding = 20;
     const chartBottomY = height - CARD_HEIGHT - MARKET_Y_OFFSET + 50;
-    const chartHeight = 150;
-    const maxPriceEver = 200;
+    const chartAvailableHeight = 150;
+
+    let maxCurrentPrice = 0;
+    for (const company of COMPANIES_FOR_SKETCH) {
+        const price = currentPrices[company.id] || 0;
+        if (price > maxCurrentPrice) {
+            maxCurrentPrice = price;
+        }
+    }
+    if (maxCurrentPrice === 0) {
+        maxCurrentPrice = 50;
+    }
 
     const startX = (width - (COMPANIES_FOR_SKETCH.length * (barWidth + spacing) - spacing)) / 2;
 
     COMPANIES_FOR_SKETCH.forEach((company, index) => {
         const x = startX + index * (barWidth + spacing);
         const price = currentPrices[company.id] || 0;
-        const barHeight = price > 0 ? Math.max(1, map(price, 0, maxPriceEver, 0, chartHeight)) : 0;
+        
+        const barHeight = price > 0 ? Math.max(1, map(price, 0, maxCurrentPrice, 0, chartAvailableHeight)) : 0;
         
         fill(color(company.color || '#cccccc'));
 
-        rect(x, chartBottomY - barHeight, barWidth, barHeight, 5, 5, 0, 0);
+        const actualBarY = chartBottomY - barHeight;
+        rect(x, actualBarY, barWidth, barHeight, 5, 5, 0, 0);
 
         fill(0);
         textSize(12);
         textAlign(CENTER, BOTTOM);
-        text(`₹${price}`, x + barWidth / 2, chartBottomY - barHeight - 5);
+        text(`₹${price}`, x + barWidth / 2, Math.max(chartBottomY - chartAvailableHeight - chartAreaTopPadding + 15, actualBarY - 5));
 
         const textBoxY = chartBottomY + 5;
         fill(255, 255, 255, 200);
@@ -115,25 +146,60 @@ function drawCardVisual(x, y, card) {
     push();
     translate(x, y);
 
+    let cardBgColor = color(255); // Default white for windfall or unknown
+    let mainTextColor;
+
+    if (card.type === 'price') {
+        const companyColorHex = getCompanyColorForSketch(card.company);
+        cardBgColor = color(companyColorHex);
+        mainTextColor = color(getTextColorForBackground(companyColorHex));
+    } else { // Windfall or other types
+        cardBgColor = color(240, 240, 240); // Light grey for windfall
+        mainTextColor = color(0); // Black text for windfall
+    }
+
     if (card.played) {
-        fill(200, 200, 200, 200);
+        // Dim the original color slightly then overlay with semi-transparent grey
+        let playedBg = lerpColor(cardBgColor, color(120), 0.5); // Blend with grey
+        fill(red(playedBg), green(playedBg), blue(playedBg), 200); // Apply with alpha
         stroke(150);
+        mainTextColor = color(100); // Darker grey text for played cards
     } else {
-        fill(255);
+        fill(cardBgColor);
         stroke(100);
     }
     strokeWeight(1);
     rect(0, 0, CARD_WIDTH, CARD_HEIGHT, 8);
 
+    // Draw positive/negative band for price cards (if not played)
+    if (card.type === 'price' && !card.played) {
+        const bandWidth = 8;
+        const bandHeight = CARD_HEIGHT;
+        const bandX = 0; // Draw on the left edge
+        // const bandX = CARD_WIDTH - bandWidth; // Draw on the right edge
+        
+        if (card.change > 0) {
+            fill(34, 139, 34, 230); // Dark Green, slightly transparent
+        } else if (card.change < 0) {
+            fill(220, 20, 60, 230);  // Crimson Red, slightly transparent
+        } else {
+            noFill(); // Or a neutral color if change is 0
+        }
+        noStroke();
+        // rect(bandX, 0, bandWidth, bandHeight, 8,0,0,8); // Rounded on one side if bandX is 0
+        rect(bandX, 0, bandWidth, bandHeight, (bandX === 0 ? 8 : 0), (bandX > 0 ? 8 : 0), (bandX > 0 ? 8 : 0), (bandX === 0 ? 8 : 0));
+
+
+    }
+
+
     textAlign(CENTER, CENTER);
     textSize(11);
-    noStroke();
+    noStroke(); // Ensure text isn't stroked by default after band
     
-    if (card.played) {
-        fill(120);
-    } else {
-        fill(0);
-    }
+    // Set text color based on calculations above (or specific for played)
+    fill(mainTextColor);
+
 
     let line1 = '';
     let line2 = '';
@@ -152,10 +218,11 @@ function drawCardVisual(x, y, card) {
             line3 = `Price: ${changeText}`;
         }
         
-        push();
-        if (card.change > 0) fill(34, 139, 34);
-        else if (card.change < 0) fill(220, 20, 60);
-        else fill(card.played ? 120 : 0);
+        // Text color is already set by mainTextColor, price change color is handled by the band now
+        // push();
+        // if (card.change > 0) fill(34, 139, 34);
+        // else if (card.change < 0) fill(220, 20, 60);
+        // else fill(card.played ? 120 : 0);
 
         if (line3) {
             text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 18);
@@ -165,7 +232,7 @@ function drawCardVisual(x, y, card) {
             text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
             text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
         }
-        pop();
+        // pop();
 
     } else if (card.type === 'windfall') {
         line1 = 'Windfall';
