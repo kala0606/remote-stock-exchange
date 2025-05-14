@@ -263,9 +263,10 @@ function resolvePeriod(roomID) {
     game.state.prices[company] = Math.max(0, game.state.prices[company] + deltas[company]);
   });
 
-  // Clear played cards, suspensions, and transaction count for the next period
+  // Clear played cards, and transaction count for the next period
   game.state.played = [];
   game.state.trans = 0;
+  game.state.activeRightsOffers = {};
   game.period++;
 
   // Deal new cards EVERY period after the first one
@@ -379,7 +380,11 @@ io.on('connection', socket => {
       const sessionData = tokenStore[token];
 
       if (!sessionData) {
-          console.log(`[rejoinWithToken] Token not found: ${token}`);
+          console.log(`[rejoinWithToken] Token not found in tokenStore. Current tokenStore size: ${Object.keys(tokenStore).length}. Token: ${token}`);
+          // Log a few existing tokens if store is small, for debugging
+          if (Object.keys(tokenStore).length < 10) {
+            console.log('[rejoinWithToken] Existing tokens:', Object.keys(tokenStore));
+          }
           return callback({ error: 'Invalid or expired session token.' });
       }
 
