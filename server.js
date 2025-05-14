@@ -17,10 +17,11 @@ const COMPANIES = [
   { id:'INF', name: 'Infosys Ltd', initial:80, moves:[30,20,-10,-5] }
 ];
 const WINDFALLS = ['LOAN','DEBENTURE','RIGHTS'];
-const SUSPEND_CARD_COUNT = 4;
 
 const TRANSACTIONS_PER_PERIOD = 3;
 const MAX_ROUNDS_PER_PERIOD = 3; // Define max rounds
+const CHAIRMAN_SHARE_THRESHOLD = 100000; // Threshold for chairman
+const PRESIDENT_SHARE_THRESHOLD = 50000; // Threshold for president
 
 // Setup Express and Socket.IO
 const app = express();
@@ -52,11 +53,6 @@ function buildDeck() {
     deck.push({ type: 'windfall', sub: windfall });
   });
 
-  // Add suspend cards
-  for (let i = 0; i < SUSPEND_CARD_COUNT; i++) {
-      deck.push({ type: 'suspend', sub: 'suspend' });
-  }
-
   // Shuffle deck
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -80,7 +76,9 @@ function initGame(game, initialAdminPlayerId) {
     played: [],
     currentTurn: 0, 
     roundNumberInPeriod: 1, 
-    activeSuspensions: {}
+    activeRightsOffers: {},
+    chairmen: {}, // { companyId: [playerId1, playerId2, ...] }
+    presidents: {} // { companyId: [playerId1, playerId2, ...] }
   };
   game.period = 1;
   game.deck = buildDeck();
@@ -99,7 +97,13 @@ function initGame(game, initialAdminPlayerId) {
       game.admin = null;
       console.error(`[initGame] Error: No players found when initializing game.`);
   }
-  console.log(`[initGame] Initial currentTurn set to index: ${game.state.currentTurn}`);
+  // Set initial turn based on rotary rule (will be 0 for period 1)
+  if (game.players.length > 0) {
+    game.state.currentTurn = (game.period - 1) % game.players.length;
+  } else {
+    game.state.currentTurn = 0; // Should not happen with players
+  }
+  console.log(`[initGame] Initial currentTurn set to index: ${game.state.currentTurn} for Period ${game.period}`);
 
   // Deal 10 cards to each player
   game.players.forEach((player, index) => {
@@ -156,7 +160,9 @@ function emitGameState(game, context = 'normal') {
         period: game.period,
         currentTurn: game.state.currentTurn,
         roundNumberInPeriod: game.state.roundNumberInPeriod,
-        activeSuspensions: game.state.activeSuspensions || {}
+        activeRightsOffers: game.state.activeRightsOffers || {},
+        chairmen: game.state.chairmen || {},
+        presidents: game.state.presidents || {}
       },
       hand: player.hand, 
       isAdmin: isAdmin, 
@@ -173,35 +179,92 @@ function resolvePeriod(roomID) {
 
   console.log(`[resolvePeriod] Resolving Period ${game.period} for room ${roomID}`);
 
-  let deltas = {};
-  COMPANIES.forEach(company => {
-    deltas[company.id] = 0;
-  });
-
-  // Process price cards in hands, respecting suspensions
+  // Step 1: Gather all potential price changes
+  const allPriceCardEffects = [];
   game.players.forEach(player => {
     (player.hand || []).forEach(card => {
-      if (card.type === 'price') {
-        // Check if the company price change is suspended
-        // For now, let's assume ANY suspension blocks price change from cards
-        // TODO: Decide if suspension should be player-specific or global
-        if (!game.state.activeSuspensions[card.company]) {
-            deltas[card.company] += card.change;
-        } else {
-            console.log(`[resolvePeriod] Price change for ${card.company} (change: ${card.change}) skipped due to suspension.`);
-        }
+      if (card.type === 'price' && !card.played) { // Ensure card hasn't been played (e.g. by other means, though price cards usually aren't 'played')
+        allPriceCardEffects.push({
+          playerId: player.id,
+          playerName: player.name,
+          companyId: card.company,
+          change: card.change,
+          status: 'active', // 'active', 'negated_by_president', 'negated_by_chairman'
+          originalCardRef: card // Optional, for debugging or more complex logic later
+        });
       }
     });
   });
 
-  // Update prices (already respects suspensions via delta calculation)
+  // Step 2: Apply President Powers
+  if (game.state.presidents && Object.keys(game.state.presidents).length > 0) {
+    game.players.forEach(player => {
+      for (const companyId in game.state.presidents) {
+        if (game.state.presidents.hasOwnProperty(companyId) && game.state.presidents[companyId].includes(player.id)) {
+          // This player is President of this companyId
+          let mostNegativeEffectForPresident = null;
+          allPriceCardEffects.forEach(effect => {
+            if (effect.playerId === player.id && effect.companyId === companyId && effect.status === 'active' && effect.change < 0) {
+              if (!mostNegativeEffectForPresident || effect.change < mostNegativeEffectForPresident.change) {
+                mostNegativeEffectForPresident = effect;
+              }
+            }
+          });
+
+          if (mostNegativeEffectForPresident) {
+            mostNegativeEffectForPresident.status = 'negated_by_president';
+            logActivity(game, player.name, 'PRESIDENT_POWER', 
+              `President power for ${getCompanyName(companyId, game)} negated their own ${mostNegativeEffectForPresident.change} price card effect.`
+            );
+          }
+        }
+      }
+    });
+  }
+
+  // Step 3: Apply Chairman Powers
+  if (game.state.chairmen && Object.keys(game.state.chairmen).length > 0) {
+    for (const companyId in game.state.chairmen) {
+      if (game.state.chairmen.hasOwnProperty(companyId) && game.state.chairmen[companyId].length > 0) {
+        // Chairmen exist for this company
+        let mostNegativeEffectForCompany = null;
+        allPriceCardEffects.forEach(effect => {
+          if (effect.companyId === companyId && effect.status === 'active' && effect.change < 0) {
+            if (!mostNegativeEffectForCompany || effect.change < mostNegativeEffectForCompany.change) {
+              mostNegativeEffectForCompany = effect;
+            }
+          }
+        });
+
+        if (mostNegativeEffectForCompany) {
+          mostNegativeEffectForCompany.status = 'negated_by_chairman';
+          const chairmanNames = game.state.chairmen[companyId].map(pid => game.players.find(p=>p.id === pid)?.name || 'A chairman').join(', ');
+          logActivity(game, null, 'CHAIRMAN_POWER', 
+            `Chairman power for ${getCompanyName(companyId, game)} (by ${chairmanNames}) negated a ${mostNegativeEffectForCompany.change} price card effect (player: ${mostNegativeEffectForCompany.playerName}).`
+          );
+        }
+      }
+    }
+  }
+  
+  // Step 4: Calculate Final Deltas
+  let deltas = {};
+  COMPANIES.forEach(company => {
+    deltas[company.id] = 0;
+  });
+  allPriceCardEffects.forEach(effect => {
+    if (effect.status === 'active') {
+      deltas[effect.companyId] += effect.change;
+    }
+  });
+
+  // Step 5: Update Prices
   Object.keys(game.state.prices).forEach(company => {
     game.state.prices[company] = Math.max(0, game.state.prices[company] + deltas[company]);
   });
 
   // Clear played cards, suspensions, and transaction count for the next period
   game.state.played = [];
-  game.state.activeSuspensions = {}; // Clear suspensions after they are applied
   game.state.trans = 0;
   game.period++;
 
@@ -226,11 +289,16 @@ function resolvePeriod(roomID) {
   }
 
   // Reset turn-specific counters for the new period
-  game.state.currentTurn = 0; // Start period with first player
+  if (game.players.length > 0) {
+    game.state.currentTurn = (game.period - 1) % game.players.length; // NEW WAY: Rotary start player
+  } else {
+    game.state.currentTurn = 0; // Fallback if no players (should not happen in active game)
+  }
   game.state.turnTransactions = 0;
   game.state.roundNumberInPeriod = 1; // Reset to Round 1 for the new period
 
-  console.log(`[resolvePeriod] Period ${game.period} resolved. Starting Round ${game.state.roundNumberInPeriod}, Turn Index: ${game.state.currentTurn}`);
+  console.log(`[resolvePeriod] Period ${game.period -1} resolved. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}, Turn Index: ${game.state.currentTurn}`);
+  logActivity(game, null, 'PERIOD_RESOLVED', `Period ${game.period -1 } resolved. Prices updated. New cards dealt. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}. Player ${game.players[game.state.currentTurn]?.name} starts.`);
   emitGameState(game); // Emit updated state after resolving
 }
 
@@ -242,6 +310,64 @@ function getCompanyName(companyId, game) {
     // Fallback for older game states or if mapping isn't available yet
     const companyData = COMPANIES.find(c => c.id === companyId);
     return companyData ? companyData.name : companyId;
+}
+
+// *** NEW: Helper function for logging activity ***
+function logActivity(game, playerName, actionType, detailsOverride = null) {
+    if (!game || !game.state) {
+        // If game or game.state is not ready (e.g. player joining before game start), log without period/round
+        const simpleLogEntry = {
+            playerName: playerName, // Can be null
+            actionType: actionType,
+            details: detailsOverride || `${actionType} action by ${playerName}.`,
+            timestamp: Date.now()
+        };
+        // Attempt to find roomID even without full game state for early logs like 'JOIN'
+        let roomID = null;
+        for (const id in games) {
+            if (games[id] === game) {
+                roomID = id;
+                break;
+            }
+             // Special case for join, game might not have players yet, but game object exists
+            if (actionType === 'JOIN' && games[id] && games[id].players && games[id].players.some(p => p.name === playerName)) {
+                roomID = id;
+                break;
+            }
+        }
+        if (roomID) {
+            io.to(roomID).emit('activityLog', simpleLogEntry);
+            console.log(`[Activity Log - PreGame] ${playerName ? playerName + ': ' : ''}${simpleLogEntry.details}`);
+        } else {
+             console.warn(`[logActivity PreGame] Could not find roomID for player ${playerName}, action ${actionType}. Log not sent to client.`);
+        }
+        return;
+    }
+
+    // Default details based on actionType, can be overridden
+    let details = detailsOverride;
+    if (!details) {
+        // Basic default, specific actions should provide better detailsOverride
+        details = `${actionType} performed by ${playerName || 'system'}.`; 
+    }
+
+    const logEntry = {
+        period: game.period,
+        round: game.state.roundNumberInPeriod,
+        playerName: playerName, // Can be null for system messages like "Period Resolved"
+        actionType: actionType, // e.g., "BUY", "SELL", "PLAY_CARD"
+        details: details,       // e.g., "Bought 1000 HDF", "Played LOAN card"
+        timestamp: Date.now()
+    };
+
+    const roomID = Object.keys(games).find(key => games[key] === game);
+    if (roomID) {
+        io.to(roomID).emit('activityLog', logEntry);
+        // Also console log for server records
+        console.log(`[Activity Log - P${logEntry.period}R${logEntry.round}] ${playerName ? playerName + ': ' : ''}${logEntry.details}`);
+    } else {
+        console.warn('[logActivity] Could not find roomID to emit log entry (this should not happen if game object is valid).');
+    }
 }
 
 io.on('connection', socket => {
@@ -386,6 +512,7 @@ io.on('connection', socket => {
     
     // Send token back to client
     callback({ success: true, sessionToken: sessionToken }); 
+    logActivity(game, name, 'JOIN_ROOM', `${name} joined room ${roomID}.`);
   });
 
   // Add admin-only actions
@@ -436,6 +563,7 @@ io.on('connection', socket => {
     console.log(`[startGame] Admin ${socket.id} starting game in room ${roomID}. Calling initGame...`);
     // Pass the confirmed admin ID to initGame
     initGame(game, game.admin); 
+    logActivity(game, game.players.find(p => p.id === game.admin)?.name || 'Admin', 'START_GAME', `Game started.`);
   });
 
   socket.on('buy', ({ roomID, company, quantity }) => {
@@ -514,6 +642,28 @@ io.on('connection', socket => {
     if (!player.portfolio) player.portfolio = {};
     player.portfolio[company] = (player.portfolio[company] || 0) + quantity;
 
+    // Update chairman status if threshold crossed
+    if (player.portfolio[company] >= CHAIRMAN_SHARE_THRESHOLD) {
+        if (!game.state.chairmen[company]) {
+            game.state.chairmen[company] = [];
+        }
+        if (!game.state.chairmen[company].includes(player.id)) {
+            game.state.chairmen[company].push(player.id);
+            logActivity(game, player.name, 'BECOME_CHAIRMAN', `Became Chairman of ${getCompanyName(company, game)}.`);
+        }
+    } // No need to check for losing chairmanship on buy, only on sell
+
+    // Update president status if threshold crossed
+    if (player.portfolio[company] >= PRESIDENT_SHARE_THRESHOLD) {
+        if (!game.state.presidents[company]) {
+            game.state.presidents[company] = [];
+        }
+        if (!game.state.presidents[company].includes(player.id)) {
+            game.state.presidents[company].push(player.id);
+            logActivity(game, player.name, 'BECOME_PRESIDENT', `Became President of ${getCompanyName(company, game)}.`);
+        }
+    } // No need to check for losing president status on buy
+
     console.log('Player after buy:', {
         name: player.name,
         cash: player.cash,
@@ -524,6 +674,7 @@ io.on('connection', socket => {
     game.state.trans++;
 
     console.log('=== BUY TRANSACTION END ===\n');
+    logActivity(game, player.name, 'BUY', `Bought ${quantity.toLocaleString()} shares of ${getCompanyName(company, game)} for ₹${(price * quantity).toLocaleString()}.`);
     emitGameState(game);
   });
 
@@ -590,6 +741,28 @@ io.on('connection', socket => {
     player.cash += proceeds;
     player.portfolio[company] -= quantity;
 
+    // Update chairman status if threshold crossed (lost chairmanship)
+    if ((player.portfolio[company] || 0) < CHAIRMAN_SHARE_THRESHOLD) {
+        if (game.state.chairmen[company] && game.state.chairmen[company].includes(player.id)) {
+            game.state.chairmen[company] = game.state.chairmen[company].filter(id => id !== player.id);
+            if (game.state.chairmen[company].length === 0) {
+                delete game.state.chairmen[company]; // Clean up if no chairmen left for this company
+            }
+            logActivity(game, player.name, 'LOSE_CHAIRMAN', `Lost Chairmanship of ${getCompanyName(company, game)}.`);
+        }
+    } // No need to check for gaining chairmanship on sell
+
+    // Update president status if threshold crossed (lost president status)
+    if ((player.portfolio[company] || 0) < PRESIDENT_SHARE_THRESHOLD) {
+        if (game.state.presidents[company] && game.state.presidents[company].includes(player.id)) {
+            game.state.presidents[company] = game.state.presidents[company].filter(id => id !== player.id);
+            if (game.state.presidents[company].length === 0) {
+                delete game.state.presidents[company]; // Clean up if no presidents left
+            }
+            logActivity(game, player.name, 'LOSE_PRESIDENT', `Lost Presidency of ${getCompanyName(company, game)}.`);
+        }
+    }
+
     // Remove company from portfolio if no shares left
     if (player.portfolio[company] <= 0) {
         console.log('Removing company from portfolio (no shares left)');
@@ -606,95 +779,92 @@ io.on('connection', socket => {
     game.state.trans++;
 
     console.log('=== SELL TRANSACTION END ===\n');
+    logActivity(game, player.name, 'SELL', `Sold ${quantity.toLocaleString()} shares of ${getCompanyName(company, game)} for ₹${(price * quantity).toLocaleString()}.`);
     emitGameState(game);
   });
 
-  socket.on('windfall', ({ roomID, card, targetCompany }) => {
+  socket.on('windfall', ({ roomID, card, targetCompany, desiredRightsShares }) => {
     const game = games[roomID];
-    if (!game) return;
+    if (!game) return socket.emit('error', { message: 'Game not found.' });
     const player = game.players.find(p => p.id === socket.id);
-    if (!player) return;
+    if (!player) return socket.emit('error', { message: 'Player not found in game.' });
+    if (!card || !player.hand) return socket.emit('error', { message: 'Invalid card or hand data.' });
 
-    const cardIndex = player.hand.findIndex(c => 
-      c.type === 'windfall' && c.sub === card.sub);
-    if (cardIndex === -1) return;
-
-    // --- VALIDATE TURN ---
-    if (game.state.currentTurn !== game.players.findIndex(p => p.id === socket.id)) {
-        return socket.emit('error', { message: 'Not your turn.' });
+    let cardInHandIndex = -1;
+    if (typeof card.index === 'number' && card.index >=0 && card.index < player.hand.length) {
+        if (player.hand[card.index].type === card.type && player.hand[card.index].sub === card.sub) {
+            cardInHandIndex = card.index;
+        }
+    } else {
+        cardInHandIndex = player.hand.findIndex(c => c.type === card.type && c.sub === card.sub && !c.played);
     }
-    // --- END VALIDATE TURN ---
+    if (cardInHandIndex === -1) return socket.emit('error', { message: 'Card not found in your hand or already played (index match failed).' });
+    const actualCardInHand = player.hand[cardInHandIndex];
+    if (actualCardInHand.played) return socket.emit('error', { message: 'This card has already been played.' });
 
-    const windfallCard = player.hand.splice(cardIndex, 1)[0];
-    game.discard.push(windfallCard);
+    console.log(`[Windfall] Player ${player.name} attempting to play card:`, actualCardInHand, `Target: ${targetCompany}, DesiredRights: ${desiredRightsShares}`);
 
-    switch (windfallCard.sub) {
-      case 'LOAN':
-        player.cash += 100000;
-        break;
-      case 'DEBENTURE':
-        Object.entries(game.state.prices).forEach(([company, price]) => {
-          if (price <= 0 && player.portfolio[company]) {
-            player.cash += game.state.init[company] * player.portfolio[company];
-            delete player.portfolio[company];
-          }
-        });
-        break;
-      case 'RIGHTS':
-        // *** NEW RIGHTS LOGIC ***
-        if (!targetCompany) {
-            // Put card back in hand if no company was selected (shouldn't happen with modal)
-            player.hand.push(windfallCard);
-            game.discard.pop();
-            return socket.emit('error', { message: 'No company selected for Rights Issue.'});
+    if (card.sub === 'LOAN') {
+        player.cash += 200000;
+        actualCardInHand.played = true;
+        // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // LOAN usually doesn't count as transaction
+        logActivity(game, player.name, 'PLAY_CARD', `Played LOAN card, received ₹200,000.`);
+        emitGameState(game);
+    } else if (card.sub === 'DEBENTURE') {
+        let debentureValue = 0;
+        for (const companyId in player.portfolio) {
+            if (player.portfolio[companyId] > 0 && game.state.prices[companyId] === 0) {
+                debentureValue += player.portfolio[companyId] * (game.state.init[companyId] || 0);
+                player.portfolio[companyId] = 0;
+            }
         }
-        if (!game.state.init || !game.state.init[targetCompany]){
-             player.hand.push(windfallCard);
-             game.discard.pop();
-            return socket.emit('error', { message: 'Cannot find initial price for selected company.' });
-        }
-        if (!player.portfolio || !(player.portfolio[targetCompany] > 0)) {
-             player.hand.push(windfallCard);
-             game.discard.pop();
-             return socket.emit('error', { message: `You do not own shares in ${targetCompany}.` });
-        }
+        if (debentureValue > 0) player.cash += debentureValue;
+        actualCardInHand.played = true;
+        // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // DEBENTURE usually doesn't count
+        const message = debentureValue > 0 ? `Debenture card yielded ₹${debentureValue.toLocaleString()}` : 'Debenture card played, no eligible stocks.';
+        socket.emit('info', { message });
+        logActivity(game, player.name, 'PLAY_CARD', message);
+        emitGameState(game);
+    } else if (card.sub === 'RIGHTS') {
+        if (!targetCompany || !COMPANIES.find(c => c.id === targetCompany)) return socket.emit('error', { message: 'Invalid target company for Rights Issue.' });
+        if (typeof desiredRightsShares !== 'number' || desiredRightsShares <= 0) return socket.emit('error', { message: 'Invalid desired shares for Rights Issue.' });
 
         const initialPrice = game.state.init[targetCompany];
-        const ownedShares = player.portfolio[targetCompany];
-        const rightsShares = Math.floor(ownedShares / 2);
-        const rightsPricePerShare = Math.ceil(initialPrice / 2); // Round up cost? Or floor? Let's ceil.
-        const totalCost = rightsShares * rightsPricePerShare;
+        if (initialPrice === undefined) return socket.emit('error', { message: 'Initial price not found for target company.' });
+        
+        const ownedShares = player.portfolio[targetCompany] || 0;
+        const maxEligibleForRights = Math.floor(ownedShares / 2);
+        if (desiredRightsShares > maxEligibleForRights) return socket.emit('error', { message: `Requested ${desiredRightsShares.toLocaleString()} rights (own eligibility: ${maxEligibleForRights}) for ${getCompanyName(targetCompany, game)} - too many.` });
 
-        console.log(`[windfall RIGHTS] Player: ${player.name}, Company: ${targetCompany}, Owned: ${ownedShares}, InitialPrice: ${initialPrice}, RightsShares: ${rightsShares}, Price/Share: ${rightsPricePerShare}, TotalCost: ${totalCost}`);
+        const actualSharesToGrant = Math.floor(desiredRightsShares / 1000) * 1000;
+        if (actualSharesToGrant <= 0) return socket.emit('error', { message: `Request for ${desiredRightsShares.toLocaleString()} rights results in 0 shares after 1000s rule.` });
 
-        if (rightsShares <= 0) {
-            player.hand.push(windfallCard);
-            game.discard.pop();
-            return socket.emit('error', { message: `Not enough shares owned in ${targetCompany} to exercise rights.` });
-        }
-        if (player.cash < totalCost) {
-            player.hand.push(windfallCard);
-            game.discard.pop();
-            return socket.emit('error', { message: `Insufficient cash for rights issue. Need ₹${totalCost.toLocaleString()}, have ₹${player.cash.toLocaleString()}.` });
-        }
+        const rightsPricePerShare = Math.ceil(initialPrice / 2);
+        const totalCost = actualSharesToGrant * rightsPricePerShare;
+        if (player.cash < totalCost) return socket.emit('error', { message: `Insufficient cash for your Rights. Need ₹${totalCost.toLocaleString()}, have ₹${player.cash.toLocaleString()}.` });
 
-        // Execute Rights Issue
         player.cash -= totalCost;
-        player.portfolio[targetCompany] += rightsShares;
-        console.log(`[windfall RIGHTS] Success. Player cash: ${player.cash}, ${targetCompany} shares: ${player.portfolio[targetCompany]}`);
-        // *** END NEW RIGHTS LOGIC ***
-        break;
+        player.portfolio[targetCompany] = (player.portfolio[targetCompany] || 0) + actualSharesToGrant;
+        actualCardInHand.played = true;
+        // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // DECIDE IF PERSONAL RIGHTS ISSUE IS A TRANSACTION
+        const rightsMessage = `Your Rights Issue: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} for ₹${totalCost.toLocaleString()}.`;
+        console.log(`[Windfall RIGHTS Personal] Player ${player.name} got ${actualSharesToGrant} of ${targetCompany}. Cash: ${player.cash}`);
+        socket.emit('info', { message: rightsMessage });
+        logActivity(game, player.name, 'PLAY_CARD_RIGHTS', rightsMessage);
+
+        // Announce general rights offer if not already active for this company in this round
+        if (!game.state.activeRightsOffers[targetCompany] || game.state.activeRightsOffers[targetCompany].roundAnnounced !== game.state.roundNumberInPeriod) {
+            game.state.activeRightsOffers[targetCompany] = {
+                initialPrice: initialPrice,
+                rightsPricePerShare: rightsPricePerShare,
+                roundAnnounced: game.state.roundNumberInPeriod,
+                initiatedByPlayerName: player.name 
+            };
+            console.log(`[Windfall RIGHTS Global] Offer for ${targetCompany} (Round ${game.state.roundNumberInPeriod}) now active.`);
+            io.to(roomID).emit('info', { message: `${getCompanyName(targetCompany, game)} Rights Offer is active this round (@₹${rightsPricePerShare}/share, 1 per 2 owned, 1000s lots).` });
+        }
+        emitGameState(game);
     }
-
-    game.state.trans++;
-    emitGameState(game);
-  });
-
-  socket.on('suspend', ({ roomID, company }) => {
-    const game = games[roomID];
-    if (!game) return;
-    game.state.played.push({ type: 'freeze', company });
-    emitGameState(game);
   });
 
   socket.on('pass', ({ roomID }) => {
@@ -719,17 +889,18 @@ io.on('connection', socket => {
     let currentRound = game.state.roundNumberInPeriod || 1;
 
     if (roundCompleted) {
-        currentRound++; // Tentatively increment round number
-        console.log(`[pass] End of round detected. Tentative next round: ${currentRound}.`);
-        
-        // --- Check if max rounds reached --- 
+        currentRound++;
+        if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
+            console.log(`[pass] End of round. Clearing ${Object.keys(game.state.activeRightsOffers).length} active rights offer(s).`);
+            game.state.activeRightsOffers = {}; // Clear active rights offers at end of a full round
+        }
         if (currentRound > MAX_ROUNDS_PER_PERIOD) {
             console.log(`[pass] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached. Resolving Period ${game.period}.`);
-            resolvePeriod(roomID); // Resolve the period automatically
-            return; // Stop further processing for this event, resolvePeriod handles emit
+            resolvePeriod(roomID);
+            return;
+        } else {
+            game.state.roundNumberInPeriod = currentRound;
         }
-         // If max rounds not reached, update the round number in state
-        game.state.roundNumberInPeriod = currentRound;
     }
     
     // Advance turn (only if period wasn't resolved)
@@ -737,6 +908,7 @@ io.on('connection', socket => {
     game.state.turnTransactions = 0; // Reset transactions for the new player's turn
     
     console.log(`[pass] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
+    logActivity(game, game.players[playerIndex]?.name, 'PASS_TURN', `Passed turn.`);
     emitGameState(game);
   });
 
@@ -758,96 +930,103 @@ io.on('connection', socket => {
     
     // Calculate next turn index
     const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
-    let roundCompleted = (nextTurnIndex === 0);
+    let roundCompleted = (nextTurnIndex === 0); 
     let currentRound = game.state.roundNumberInPeriod || 1;
 
     if (roundCompleted) {
-        currentRound++; // Tentatively increment round number
-        console.log(`[endTurn] End of round detected. Tentative next round: ${currentRound}.`);
-        
-        // --- Check if max rounds reached --- 
+        currentRound++;
+        if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
+            console.log(`[endTurn] End of round. Clearing ${Object.keys(game.state.activeRightsOffers).length} active rights offer(s).`);
+            game.state.activeRightsOffers = {}; // Clear active rights offers at end of a full round
+        }
         if (currentRound > MAX_ROUNDS_PER_PERIOD) {
             console.log(`[endTurn] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached. Resolving Period ${game.period}.`);
-            resolvePeriod(roomID); // Resolve the period automatically
-            return; // Stop further processing for this event, resolvePeriod handles emit
+            resolvePeriod(roomID);
+            return; 
+        } else {
+            game.state.roundNumberInPeriod = currentRound;
         }
-         // If max rounds not reached, update the round number in state
-        game.state.roundNumberInPeriod = currentRound;
     }
     
     // Advance turn (only if period wasn't resolved)
     game.state.currentTurn = nextTurnIndex;
     game.state.turnTransactions = 0; // Reset transactions for the new player's turn
-
+    
     console.log(`[endTurn] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
+    logActivity(game, game.players[playerIndex]?.name, 'END_TURN', `Ended turn.`);
     emitGameState(game);
   });
 
-  socket.on('advancePeriod', ({ roomID }) => {
+  // --- NEW: Handler for players exercising a general rights offer ---
+  socket.on('exerciseGeneralRights', ({ roomID, targetCompany, desiredRightsShares }) => {
     const game = games[roomID];
-    if (!game) return;
+    if (!game) return socket.emit('error', { message: 'Game not found.' });
+
     const player = game.players.find(p => p.id === socket.id);
-    
-    // Only Admin can advance the period
-    if (!player || !player.isAdmin) {
-        console.log(`Non-admin player ${player?.name} (${socket.id}) tried to advance period in room ${roomID}.`);
-        // Optionally emit an error back to the player
-        // io.to(socket.id).emit('error', { message: 'Only the admin can advance the period.' });
-        return;
+    if (!player) return socket.emit('error', { message: 'Player not found in game.' });
+
+    // Validate if it's the player's turn
+    if (game.players[game.state.currentTurn]?.id !== socket.id) {
+        return socket.emit('error', { message: 'Not your turn to exercise rights.' });
     }
 
-    console.log(`Admin ${player.name} is advancing period for room ${roomID}.`);
-    resolvePeriod(roomID);
-  });
+    // Validate if player has transactions left for the turn
+    if ((game.state.turnTransactions || 0) >= TRANSACTIONS_PER_PERIOD) {
+        return socket.emit('error', { message: 'No transactions left for this turn.' });
+    }
 
-  // --- NEW SUSPEND CARD HANDLER ---
-  socket.on('playSuspendCard', ({ roomID, card, targetCompany }) => {
-      const game = games[roomID];
-      const player = game?.players.find(p => p.id === socket.id);
+    // Validate if the rights offer is active and for the current round
+    const offerDetails = game.state.activeRightsOffers ? game.state.activeRightsOffers[targetCompany] : null;
+    if (!offerDetails || offerDetails.roundAnnounced !== game.state.roundNumberInPeriod) {
+        return socket.emit('error', { message: `No active rights offer for ${getCompanyName(targetCompany, game)} in the current round, or offer details missing.` });
+    }
 
-      if (!game || !player) {
-          return socket.emit('error', { message: 'Game or player not found.' });
-      }
-      if (game.state.currentTurn !== game.players.findIndex(p => p.id === socket.id)) {
-          return socket.emit('error', { message: 'Not your turn.' });
-      }
-      if (!player.hand || !Array.isArray(player.hand)) {
-           console.error(`[playSuspendCard] Player ${player.name} has invalid hand:`, player.hand);
-           return socket.emit('error', { message: 'Invalid player hand data.' });
-       }
+    // Validate if player owns shares in the target company
+    const ownedShares = player.portfolio[targetCompany] || 0;
+    if (ownedShares <= 0) {
+        return socket.emit('error', { message: `You do not own any shares in ${getCompanyName(targetCompany, game)} to exercise rights.` });
+    }
 
-      // Find the specific suspend card instance in hand
-      const cardIndex = player.hand.findIndex(c => c.type === 'suspend'); 
-      if (cardIndex === -1) {
-          return socket.emit('error', { message: 'Suspend card not found in your hand.' });
-      }
-      
-      // Validate the target company exists and player owns shares
-      if (!COMPANIES.some(c => c.id === targetCompany)) {
-          return socket.emit('error', { message: 'Invalid company selected.'});
-      }
-      if (!player.portfolio || !(player.portfolio[targetCompany] > 0)) {
-           return socket.emit('error', { message: `You do not own shares in ${targetCompany} to suspend.` });
-      }
-      
-      // Check if already suspended
-      if (game.state.activeSuspensions[targetCompany]) {
-          return socket.emit('error', { message: `${targetCompany} price change is already suspended.`});
-      }
+    // Validate desiredShares input
+    if (typeof desiredRightsShares !== 'number' || desiredRightsShares <= 0) {
+        return socket.emit('error', { message: 'Invalid desired number of shares.' });
+    }
 
-      console.log(`[playSuspendCard] Player ${player.name} is suspending ${targetCompany}`);
+    // Calculate eligibility and shares to grant
+    const maxEligibleForRights = Math.floor(ownedShares / 2);
+    if (desiredRightsShares > maxEligibleForRights) {
+        return socket.emit('error', { message: `Requested ${desiredRightsShares.toLocaleString()} rights, but you are only eligible for ${maxEligibleForRights.toLocaleString()} for ${getCompanyName(targetCompany, game)}.` });
+    }
 
-      // Remove card from hand and add to discard (or just remove)
-      const playedCard = player.hand.splice(cardIndex, 1)[0];
-      game.discard = game.discard || [];
-      game.discard.push(playedCard);
+    const actualSharesToGrant = Math.floor(desiredRightsShares / 1000) * 1000;
+    if (actualSharesToGrant <= 0) {
+        return socket.emit('error', { message: `Your request for ${desiredRightsShares.toLocaleString()} rights shares would result in 0 actual shares due to the 1000 multiple rule.` });
+    }
 
-      // Apply suspension
-      game.state.activeSuspensions = game.state.activeSuspensions || {};
-      game.state.activeSuspensions[targetCompany] = player.id; // Store who suspended it
+    // Calculate cost (using rightsPricePerShare from the offer)
+    const rightsPricePerShare = offerDetails.rightsPricePerShare;
+    const totalCost = actualSharesToGrant * rightsPricePerShare;
 
-      // Emit updated game state to all players
-      emitGameState(game);
+    if (player.cash < totalCost) {
+        return socket.emit('error', { message: `Insufficient cash. Need ₹${totalCost.toLocaleString()}, have ₹${player.cash.toLocaleString()}.` });
+    }
+
+    // All checks passed, process the rights exercise
+    player.cash -= totalCost;
+    player.portfolio[targetCompany] = (player.portfolio[targetCompany] || 0) + actualSharesToGrant;
+    game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Increment transaction count
+
+    // *** NEW: Remove the offer for this company as it has been claimed ***
+    if (game.state.activeRightsOffers && game.state.activeRightsOffers[targetCompany]) {
+        console.log(`[exerciseGeneralRights] Rights offer for ${targetCompany} claimed by ${player.name}. Removing offer.`);
+        delete game.state.activeRightsOffers[targetCompany];
+    }
+
+    console.log(`[exerciseGeneralRights] Player ${player.name} exercised rights for ${actualSharesToGrant} of ${targetCompany} for ₹${totalCost}. New cash: ${player.cash}. Transactions this turn: ${game.state.turnTransactions}`);
+    const generalRightsMessage = `Successfully exercised general rights: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} at ₹${rightsPricePerShare.toLocaleString()} each.`;
+    socket.emit('info', { message: generalRightsMessage });
+    logActivity(game, player.name, 'EXERCISE_GENERAL_RIGHTS', generalRightsMessage);
+    emitGameState(game);
   });
 
   // --- Handle Disconnect --- 

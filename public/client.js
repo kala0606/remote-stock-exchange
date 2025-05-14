@@ -1,6 +1,5 @@
 // const SOCKET_SERVER = 'https://wiggly-alder-cornet.glitch.me'; // FOR GLITCH DEPLOYMENT
-// const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
-const SOCKET_SERVER = 'https://remote-stock-exchange.onrender.com'; // FOR LOCAL TESTING
+const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
 // const SOCKET_SERVER = 'ws://remote-stock-exchange-backend.glitch.me'; // Example if using glitch
 
 // Initialize socket connection
@@ -20,7 +19,6 @@ let isYourTurn = false;
 // Define playerHand on the window object so it's accessible from sketch.js
 window.playerHand = [];
 window.companyNames = {}; // *** STORE COMPANY NAMES ***
-window.activeSuspensions = {};
 let priceLog = []; // *** STORE PRICE LOG DATA ***
 
 // Track modal state
@@ -59,7 +57,7 @@ function clearSession() {
 }
 
 // Make active suspensions available globally for sketch.js
-window.activeSuspensions = {};
+// REMOVE window.activeSuspensions = {};
 
 // DOM Elements
 const lobbyScreen = document.getElementById('lobby');
@@ -87,22 +85,38 @@ const leaderboardContent = document.querySelector('.leaderboard-content');
 const advancePeriodBtn = document.getElementById('advancePeriod');
 const handSummaryDiv = document.getElementById('hand-summary');
 const handSummaryContentDiv = document.getElementById('hand-summary-content');
-const suspendModal = document.getElementById('suspend-modal');
-const suspendCompanySelect = document.getElementById('suspendCompanySelect');
-const confirmSuspendBtn = document.getElementById('confirmSuspend');
-const cancelSuspendBtn = document.getElementById('cancelSuspend');
+// REMOVE const suspendModal = document.getElementById('suspend-modal');
+// REMOVE const suspendCompanySelect = document.getElementById('suspendCompanySelect');
+// REMOVE const confirmSuspendBtn = document.getElementById('confirmSuspend');
+// REMOVE const cancelSuspendBtn = document.getElementById('cancelSuspend');
 const rightsIssueModal = document.getElementById('rights-issue-modal');
-const rightsCompanySelect = document.getElementById('rightsCompanySelect');
+let rightsCompanySelect = document.getElementById('rightsCompanySelect');
 const rightsCostInfoDiv = document.getElementById('rights-cost-info');
 const confirmRightsIssueBtn = document.getElementById('confirmRightsIssue');
 const cancelRightsIssueBtn = document.getElementById('cancelRightsIssue');
+let desiredRightsSharesInput = document.getElementById('desiredRightsSharesInput');
 const priceLogTable = document.getElementById('price-log-table');
 const priceLogTableHeader = priceLogTable?.querySelector('thead tr');
 const priceLogTableBody = priceLogTable?.querySelector('tbody');
 
+// *** NEW DOM Elements for General Rights Offers ***
+const generalRightsOffersPanel = document.getElementById('general-rights-offers-panel');
+const generalRightsListDiv = document.getElementById('general-rights-list');
+const generalRightsIssueModal = document.getElementById('general-rights-issue-modal');
+const generalRightsCompanyNameSpan = document.getElementById('generalRightsCompanyName');
+const generalRightsPricePerShareSpan = document.getElementById('generalRightsPricePerShare');
+const desiredGeneralRightsSharesInput = document.getElementById('desiredGeneralRightsSharesInput');
+const generalRightsCostInfoDiv = document.getElementById('general-rights-cost-info');
+const confirmGeneralRightsIssueBtn = document.getElementById('confirmGeneralRightsIssue');
+const cancelGeneralRightsIssueBtn = document.getElementById('cancelGeneralRightsIssue');
+
+// *** NEW DOM Elements for Activity Log ***
+const activityLogPanel = document.getElementById('activity-log-panel');
+const activityLogContent = document.getElementById('activity-log-content');
+
 // Hide modals by default
 transactionModal.style.display = 'none';
-suspendModal.style.display = 'none';
+// REMOVE suspendModal.style.display = 'none';
 rightsIssueModal.style.display = 'none';
 
 // Transaction state
@@ -538,8 +552,8 @@ socket.on('gameState', state => {
     console.log(`Is Admin: ${isAdmin}, Is Your Turn: ${isYourTurn}, Turn Index: ${state.state?.currentTurn}`);
     
     // Store active suspensions globally for sketch.js
-    window.activeSuspensions = state.state?.activeSuspensions || {};
-    console.log('[gameState] Updated window.activeSuspensions:', window.activeSuspensions);
+    // REMOVE window.activeSuspensions = state.state?.activeSuspensions || {};
+    // REMOVE console.log('[gameState] Updated window.activeSuspensions:', window.activeSuspensions);
 
     // *** LOG PRICE DATA AT START OF PERIOD ***
     const statePeriod = state.state?.period;
@@ -638,11 +652,83 @@ socket.on('gameState', state => {
     
     // Show/Hide Admin Buttons (including new Advance Period button)
     updateAdminControls();
+
+    // *** NEW: Update General Rights Offers Display ***
+    if (generalRightsOffersPanel && generalRightsListDiv) { // Ensure elements exist
+        generalRightsListDiv.innerHTML = ''; // Clear previous list
+        const activeOffers = gameState.state?.activeRightsOffers || {};
+        const currentPlayerPortfolio = currentPlayer?.portfolio || {};
+        let canShowPanel = false;
+
+        if (isYourTurn && currentPlayer && Object.keys(activeOffers).length > 0) { // Ensure currentPlayer exists
+            console.log('[gameState] Checking active rights offers for player:', currentPlayer.name, activeOffers);
+            for (const companyId in activeOffers) {
+                if (activeOffers.hasOwnProperty(companyId)) {
+                    const offerDetails = activeOffers[companyId];
+                    // Check if offer is for the current round, player owns shares, AND player did not initiate this offer
+                    if (offerDetails.roundAnnounced === gameState.state.roundNumberInPeriod &&
+                        (currentPlayerPortfolio[companyId] || 0) > 0 &&
+                        offerDetails.initiatedByPlayerName !== currentPlayer.name) { // *** ADDED CHECK ***
+                        
+                        const button = document.createElement('button');
+                        button.className = 'general-rights-btn button-small'; // Add a class for styling
+                        button.textContent = `${getCompanyName(companyId)} (Offer @ ₹${offerDetails.rightsPricePerShare}/share)`;
+                        button.dataset.companyId = companyId;
+                        
+                        button.addEventListener('click', () => {
+                            // Pass offerDetails directly
+                            showGeneralRightsIssueModal(companyId, offerDetails);
+                        });
+                        generalRightsListDiv.appendChild(button);
+                        canShowPanel = true;
+                    }
+                }
+            }
+        }
+
+        if (canShowPanel) {
+            generalRightsOffersPanel.style.display = 'block';
+        } else {
+            generalRightsOffersPanel.style.display = 'none';
+        }
+    } else {
+        console.warn('[gameState] General rights offer panel/list elements not found.');
+    }
+    // *** END NEW: Update General Rights Offers Display ***
 });
 
 socket.on('dealCards', cards => {
     window.playerHand = cards;
     renderHand();
+});
+
+// *** NEW: Socket listener for activity log messages ***
+socket.on('activityLog', (logEntry) => {
+    if (!activityLogContent) return; // Guard clause
+
+    const logElement = document.createElement('div');
+    logElement.classList.add('log-entry'); // For potential styling
+
+    // Construct readable log message
+    let message = ``;
+    if (logEntry.period && logEntry.round) {
+        message += `P${logEntry.period} R${logEntry.round} - `;
+    }
+    if (logEntry.playerName) {
+        message += `${logEntry.playerName}: `;
+    }
+    message += logEntry.details || 'An action occurred.';
+    
+    logElement.textContent = message;
+
+    // Add to the top of the log
+    activityLogContent.insertBefore(logElement, activityLogContent.firstChild);
+
+    // Optional: Limit the number of log entries
+    const MAX_LOG_ENTRIES = 100;
+    if (activityLogContent.children.length > MAX_LOG_ENTRIES) {
+        activityLogContent.removeChild(activityLogContent.lastChild);
+    }
 });
 
 // Helper Functions
@@ -681,41 +767,48 @@ function updateHandSummaryDisplay() {
         return;
     }
 
-    let summaryHtml = '';
-    // Sort companies alphabetically for consistent display
-    const sortedCompanies = Object.keys(handDeltas).sort();
+    // Create table structure
+    let summaryHtml = '<table class="hand-impact-table">';
+    summaryHtml += '<thead><tr><th>Company</th><th>Net Impact</th></tr></thead><tbody>';
 
+    // Sort companies alphabetically for consistent display
+    const sortedCompanies = Object.keys(handDeltas).sort((a, b) => {
+        return (getCompanyName(a) || '').localeCompare(getCompanyName(b) || '');
+    });
+
+    let hasVisibleEntries = false;
     sortedCompanies.forEach(companyId => {
         const delta = handDeltas[companyId];
-        if (delta === 0) return; // Optionally skip zero deltas
-
+        if (delta === 0 && Object.keys(handDeltas).length > 1) return; // Skip zero deltas if there are other non-zero entries
+        
+        hasVisibleEntries = true; // Mark that we have at least one entry to show
         const sign = delta > 0 ? '+' : '';
-        const direction = delta > 0 ? 'up' : 'down';
-        const triangle = delta > 0 ? '▲' : '▼';
+        const direction = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'no-change');
+        const triangle = delta > 0 ? '▲' : (delta < 0 ? '▼' : '-'); // Use '-' for no change
         
         summaryHtml += `
-            <div class="summary-entry summary-${direction}">
-                <span class="summary-company">${getCompanyName(companyId)}</span>
-                <span class="summary-delta">${sign}${delta}</span>
-                <span class="summary-triangle">${triangle}</span>
-            </div>
+            <tr>
+                <td>${getCompanyName(companyId)}</td>
+                <td class="summary-${direction}">${triangle} ${sign}${delta}</td>
+            </tr>
         `;
     });
 
-    if (summaryHtml) {
+    summaryHtml += '</tbody></table>';
+
+    if (hasVisibleEntries) {
         handSummaryContentDiv.innerHTML = summaryHtml;
         handSummaryDiv.style.display = 'block'; // Show the panel
     } else {
-        handSummaryDiv.style.display = 'none'; // Hide if only zero deltas
+        handSummaryDiv.style.display = 'none'; // Hide if only zero deltas or no deltas
     }
 }
 
 // --- Modify updatePlayerHand --- 
 function updatePlayerHand(hand) {
     console.log(`[updatePlayerHand] Called. Received hand:`, hand); 
-    // Ensure received hand doesn't have leftover 'played' flags from client
-    window.playerHand = hand ? hand.map(card => ({ ...card, played: false })) : []; 
-    console.log(`[updatePlayerHand] window.playerHand updated (and played flags reset):`, window.playerHand);
+    window.playerHand = hand || []; // CORRECTED: Directly use hand from server
+    console.log(`[updatePlayerHand] window.playerHand updated:`, window.playerHand);
 
     // Calculate and update deltas
     handDeltas = calculateHandDeltas(window.playerHand);
@@ -798,8 +891,9 @@ function handleCardClick(card, index) {
 
     // Prevent card actions if any modal is open
     if (transactionModal.style.display === 'flex' 
-        || suspendModal.style.display === 'flex'
-        || rightsIssueModal.style.display === 'flex' ) {
+        // REMOVE || suspendModal.style.display === 'flex'
+        || rightsIssueModal.style.display === 'flex'
+        || generalRightsIssueModal.style.display === 'flex' ) { // Also check general rights modal
         console.log('Card click ignored: a modal is open.');
         return;
     }
@@ -841,87 +935,10 @@ function handleCardClick(card, index) {
         console.log(`Price card (${card.company}) clicked. Opening transaction modal.`);
         cardBeingPlayed = card; // Store the card (might not be needed for price, but good practice)
         showTransactionModal('buy'); // Or maybe offer buy/sell choice?
-    } else if (card.type === 'suspend') {
-        console.log(`Suspend card clicked.`);
-        cardBeingPlayed = { ...card, index }; // Store the card and its original index
-        showSuspendModal();
     } else {
         console.log(`Unhandled card type (${card.type}) clicked.`);
     }
 }
-
-// Function to show the Suspend Modal
-function showSuspendModal() {
-    const player = gameState?.players.find(p => p.id === socket.id);
-    if (!player || !player.portfolio || Object.keys(player.portfolio).length === 0) {
-        alert('You don\'t own any shares to suspend.');
-        cardBeingPlayed = null; // Reset card being played
-        return;
-    }
-
-    // Populate the dropdown ONLY with owned companies
-    suspendCompanySelect.innerHTML = '<option value="" disabled selected>Select company to suspend</option>';
-    const ownedCompanies = Object.entries(player.portfolio)
-        .filter(([_, shares]) => shares > 0)
-        .sort(([compA], [compB]) => getCompanyName(compA).localeCompare(getCompanyName(compB)));
-
-    if (ownedCompanies.length === 0) { // Double check after filter
-        alert('You don\'t own any shares to suspend.');
-        cardBeingPlayed = null; // Reset card being played
-        return;
-    }
-
-    ownedCompanies.forEach(([companyId]) => {
-        const option = document.createElement('option');
-        option.value = companyId;
-        option.textContent = getCompanyName(companyId);
-        suspendCompanySelect.appendChild(option);
-    });
-
-    suspendModal.style.display = 'flex';
-}
-
-// Event Listeners for Suspend Modal
-confirmSuspendBtn.addEventListener('click', () => {
-    const selectedCompany = suspendCompanySelect.value;
-    if (!selectedCompany) {
-        alert('Please select a company to suspend.');
-        return;
-    }
-
-    if (!cardBeingPlayed || cardBeingPlayed.type !== 'suspend') {
-        console.error('Suspend confirm clicked, but no valid suspend card was stored.');
-        suspendModal.style.display = 'none';
-        cardBeingPlayed = null;
-        return;
-    }
-
-    console.log(`Confirming suspend for company: ${selectedCompany} using card:`, cardBeingPlayed);
-    socket.emit('playSuspendCard', {
-        roomID: currentRoom,
-        card: { type: cardBeingPlayed.type, sub: cardBeingPlayed.sub }, // Send clean card data
-        targetCompany: selectedCompany
-    });
-
-    // Mark card as played client-side for immediate visual feedback
-    if (window.playerHand[cardBeingPlayed.index]) {
-         window.playerHand[cardBeingPlayed.index].played = true;
-         // Trigger a redraw to show the disabled state
-        if (typeof redraw === 'function') {
-            redraw();
-        }
-    }
-
-    suspendModal.style.display = 'none';
-    suspendCompanySelect.value = '';
-    cardBeingPlayed = null; // Reset card being played
-});
-
-cancelSuspendBtn.addEventListener('click', () => {
-    suspendModal.style.display = 'none';
-    suspendCompanySelect.value = '';
-    cardBeingPlayed = null; // Reset card being played
-});
 
 // Function to manage admin controls visibility
 function updateAdminControls() {
@@ -946,31 +963,56 @@ advancePeriodBtn.addEventListener('click', () => {
     }
 });
 
-// Function to show the Rights Issue Modal
+// Define event handlers for Rights Issue modal inputs
+function handleRightsCompanyChange() {
+    desiredRightsSharesInput.value = ''; // Clear quantity when company changes
+    updateRightsIssueInfo();
+}
+
+function handleDesiredRightsInputChange() {
+    updateRightsIssueInfo(); // Update on quantity input
+}
+
 function showRightsIssueModal() {
-    console.log('[showRightsIssueModal] Function called.'); // Log function entry
+    console.log('[showRightsIssueModal] Function called.');
+    // cardBeingPlayed should be set by handleCardClick before this is called
+    // cardBeingPlayed = window.playerHand.find(c => c.type === 'windfall' && c.sub === 'RIGHTS' && !c.played);
+
+    if (!cardBeingPlayed || cardBeingPlayed.type !== 'windfall' || cardBeingPlayed.sub !== 'RIGHTS') {
+        console.error('[showRightsIssueModal] No valid RIGHTS card was stored or passed.');
+        // alert('No unplayed Rights Issue card available.');
+        return;
+    }
+    console.log('[showRightsIssueModal] Card being processed:', cardBeingPlayed);
+
     const player = gameState?.players.find(p => p.id === socket.id);
     if (!player || !player.portfolio || Object.keys(player.portfolio).length === 0) {
         alert('You don\'t own any shares to issue rights for.');
-        cardBeingPlayed = null;
+        cardBeingPlayed = null; // Clear if invalid state
         return;
     }
     if (Object.keys(initialPrices).length === 0) {
-         alert('Initial price data missing, cannot calculate rights cost.');
-         cardBeingPlayed = null;
-         return;
+        alert('Initial price data missing, cannot calculate rights cost.');
+        cardBeingPlayed = null; // Clear if invalid state
+        return;
     }
 
-    // Populate the dropdown ONLY with owned companies
+    // Ensure we have fresh references to DOM elements if they were somehow lost (though unlikely with const)
+    // This is more of a safeguard; direct const references should be fine.
+    rightsCompanySelect = document.getElementById('rightsCompanySelect'); 
+    desiredRightsSharesInput = document.getElementById('desiredRightsSharesInput');
+
     rightsCompanySelect.innerHTML = '<option value="" disabled selected>Select company</option>';
-    rightsCostInfoDiv.innerHTML = ''; // Clear cost info
+    desiredRightsSharesInput.value = '';
+    rightsCostInfoDiv.innerHTML = 'Please select a company and enter desired shares.';
+
     const ownedCompanies = Object.entries(player.portfolio)
         .filter(([_, shares]) => shares > 0)
         .sort(([compA], [compB]) => getCompanyName(compA).localeCompare(getCompanyName(compB)));
 
     if (ownedCompanies.length === 0) {
-        alert('You don\'t own any shares to issue rights for.');
-        cardBeingPlayed = null;
+        alert('You don\'t own any shares to issue rights for (after filter).');
+        cardBeingPlayed = null; // Clear if invalid state
         return;
     }
 
@@ -981,34 +1023,67 @@ function showRightsIssueModal() {
         rightsCompanySelect.appendChild(option);
     });
 
-    // Add listener to update cost info when company changes
-    rightsCompanySelect.onchange = () => {
-        const selectedCompany = rightsCompanySelect.value;
-        if (!selectedCompany) {
-            rightsCostInfoDiv.innerHTML = '';
-            return;
-        }
-        const ownedShares = player.portfolio[selectedCompany] || 0;
-        const initialPrice = initialPrices[selectedCompany];
-        const rightsShares = Math.floor(ownedShares / 2);
-        const rightsPricePerShare = Math.ceil(initialPrice / 2);
-        const totalCost = rightsShares * rightsPricePerShare;
+    // Remove existing listeners before adding new ones
+    rightsCompanySelect.removeEventListener('change', handleRightsCompanyChange);
+    desiredRightsSharesInput.removeEventListener('input', handleDesiredRightsInputChange);
 
-        if (rightsShares > 0) {
-             rightsCostInfoDiv.innerHTML = 
-                `Eligible: ${rightsShares.toLocaleString()} shares for ${getCompanyName(selectedCompany)}<br>
-                 Cost per share: ₹${rightsPricePerShare.toLocaleString()} (Half of initial ₹${initialPrice.toLocaleString()})<br>
-                 Total Cost: ₹${totalCost.toLocaleString()}`;
-        } else {
-            rightsCostInfoDiv.innerHTML = `Not enough ${getCompanyName(selectedCompany)} shares owned (${ownedShares}) to issue rights.`;
-        }
-    };
+    // Add new listeners
+    rightsCompanySelect.addEventListener('change', handleRightsCompanyChange);
+    desiredRightsSharesInput.addEventListener('input', handleDesiredRightsInputChange);
 
+    updateRightsIssueInfo(); // Initial call to populate info if needed
     rightsIssueModal.style.display = 'flex';
 }
 
+// *** NEW HELPER FUNCTION ***
+function updateRightsIssueInfo() {
+    const selectedCompany = rightsCompanySelect.value;
+    const player = gameState?.players.find(p => p.id === socket.id);
+
+    if (!selectedCompany || !player || Object.keys(initialPrices).length === 0) {
+        rightsCostInfoDiv.innerHTML = 'Please select a company.';
+        return;
+    }
+
+    const ownedShares = player.portfolio[selectedCompany] || 0;
+    const initialPrice = initialPrices[selectedCompany];
+    const rightsPricePerShare = Math.ceil(initialPrice / 2);
+
+    const maxEligibleRaw = Math.floor(ownedShares / 2);
+
+    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(selectedCompany)}, eligible for up to <strong>${maxEligibleRaw.toLocaleString()}</strong> raw rights shares.<br>`;
+
+    const desiredSharesStr = desiredRightsSharesInput.value;
+    const desiredSharesNum = parseInt(desiredSharesStr) || 0;
+
+    if (desiredSharesNum > 0) {
+        if (desiredSharesNum > maxEligibleRaw) {
+            infoHtml += `<span style="color:red;">Warning: You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for ${maxEligibleRaw.toLocaleString()}.</span><br>`;
+        }
+
+        const actualOfferedShares = Math.floor(desiredSharesNum / 1000) * 1000;
+
+        if (actualOfferedShares > 0) {
+            const totalCost = actualOfferedShares * rightsPricePerShare;
+            infoHtml += `Requesting ${desiredSharesNum.toLocaleString()} shares means you'll be offered <strong>${actualOfferedShares.toLocaleString()}</strong> shares (multiples of 1000).<br>`;
+            infoHtml += `Cost: ${actualOfferedShares.toLocaleString()} shares × ₹${rightsPricePerShare.toLocaleString()}/share = <strong>₹${totalCost.toLocaleString()}</strong>.<br>`;
+            if (player.cash < totalCost) {
+                infoHtml += `<span style="color:red;">You have insufficient cash (₹${player.cash.toLocaleString()}) for this amount.</span>`;
+            }
+        } else {
+            infoHtml += `<span style="color:orange;">Requesting ${desiredSharesNum.toLocaleString()} shares will result in <strong>0</strong> actual shares due to the 1000 multiple rule.</span>`;
+        }
+    } else {
+        infoHtml += 'Enter the number of shares (e.g., 1000, 2000) you wish to acquire via rights.';
+    }
+    rightsCostInfoDiv.innerHTML = infoHtml;
+}
+
+
 // Event Listeners for Rights Issue Modal
-confirmRightsIssueBtn.addEventListener('click', () => {
+confirmRightsIssueBtn.addEventListener('click', (event) => {
+    event.stopPropagation(); // Stop event propagation
+
     const selectedCompany = rightsCompanySelect.value;
     if (!selectedCompany) {
         alert('Please select a company.');
@@ -1022,38 +1097,85 @@ confirmRightsIssueBtn.addEventListener('click', () => {
         return;
     }
 
-    // Client-side validation (affordability, eligibility)
     const player = gameState?.players.find(p => p.id === socket.id);
-    const ownedShares = player?.portfolio[selectedCompany] || 0;
+    if (!player) {
+        alert('Player data not found.');
+        return;
+    }
+
+    const ownedShares = player.portfolio[selectedCompany] || 0;
     const initialPrice = initialPrices[selectedCompany];
-    const rightsShares = Math.floor(ownedShares / 2);
+    if (initialPrice === undefined) {
+        alert('Initial price for selected company not found.');
+        return;
+    }
     const rightsPricePerShare = Math.ceil(initialPrice / 2);
-    const totalCost = rightsShares * rightsPricePerShare;
+    const maxEligibleRaw = Math.floor(ownedShares / 2);
 
-    if (rightsShares <= 0) {
-        alert(`Not enough shares owned in ${selectedCompany} to exercise rights.`);
+    const desiredSharesStr = desiredRightsSharesInput.value;
+    const desiredSharesNum = parseInt(desiredSharesStr) || 0;
+
+    if (desiredSharesNum <= 0) {
+        alert('Please enter a positive number of shares to acquire.');
+        desiredRightsSharesInput.focus();
         return;
     }
-    if (!player || player.cash < totalCost) {
-        alert(`Insufficient cash. Need ₹${totalCost.toLocaleString()}, have ₹${player?.cash.toLocaleString()}.`);
+
+    if (desiredSharesNum > maxEligibleRaw) {
+        alert(`You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for a maximum of ${maxEligibleRaw.toLocaleString()} raw rights shares for ${getCompanyName(selectedCompany)}.`);
+        desiredRightsSharesInput.focus();
         return;
     }
 
-    console.log(`Confirming Rights Issue for ${selectedCompany} using card:`, cardBeingPlayed);
-    socket.emit('windfall', { // Emit the existing 'windfall' event
-        roomID: currentRoom,
-        card: { type: cardBeingPlayed.type, sub: cardBeingPlayed.sub }, // Send clean card data
-        targetCompany: selectedCompany // Include the chosen company
+    const clientCalculatedSharesToGrant = Math.floor(desiredSharesNum / 1000) * 1000;
+
+    if (clientCalculatedSharesToGrant <= 0) {
+        alert(`Your request of ${desiredSharesNum.toLocaleString()} shares would result in 0 actual shares due to the 1000 multiple rule. Please request at least 1000 eligible shares.`);
+        desiredRightsSharesInput.focus();
+        return;
+    }
+
+    const clientCalculatedTotalCost = clientCalculatedSharesToGrant * rightsPricePerShare;
+
+    // *** DETAILED LOGGING BEFORE CASH CHECK ***
+    console.log('[ConfirmRightsIssue] Validation Data:', {
+        selectedCompany,
+        initialPrice,
+        rightsPricePerShare,
+        ownedShares,
+        maxEligibleRaw,
+        desiredSharesStr,
+        desiredSharesNum,
+        clientCalculatedSharesToGrant,
+        clientCalculatedTotalCost,
+        playerCash: player.cash
     });
 
-    // Mark card as played client-side
-    if (window.playerHand[cardBeingPlayed.index]) {
+    if (player.cash < clientCalculatedTotalCost) {
+        alert(`Insufficient cash. To acquire ${clientCalculatedSharesToGrant.toLocaleString()} shares, you need ₹${clientCalculatedTotalCost.toLocaleString()}, but you only have ₹${player.cash.toLocaleString()}.`);
+        desiredRightsSharesInput.focus();
+        return;
+    }
+
+    console.log(`Confirming Rights Issue for ${selectedCompany}. Desired (raw): ${desiredSharesNum}, Card:`, cardBeingPlayed);
+    socket.emit('windfall', {
+        roomID: currentRoom,
+        card: { type: cardBeingPlayed.type, sub: cardBeingPlayed.sub, index: cardBeingPlayed.index }, // Send clean card data + index
+        targetCompany: selectedCompany,
+        desiredRightsShares: desiredSharesNum // *** SEND THE RAW DESIRED AMOUNT ***
+    });
+
+    // Mark card as played client-side - Ensure cardBeingPlayed.index is correct
+    if (typeof cardBeingPlayed.index === 'number' && window.playerHand[cardBeingPlayed.index]) {
          window.playerHand[cardBeingPlayed.index].played = true;
          if (typeof redraw === 'function') { redraw(); }
+    } else {
+        console.warn('[RightsIssueConfirm] cardBeingPlayed.index was not valid for marking card as played.');
     }
 
     rightsIssueModal.style.display = 'none';
     rightsCompanySelect.value = '';
+    desiredRightsSharesInput.value = '';
     rightsCostInfoDiv.innerHTML = '';
     cardBeingPlayed = null;
 });
@@ -1063,6 +1185,137 @@ cancelRightsIssueBtn.addEventListener('click', () => {
     rightsCompanySelect.value = '';
     rightsCostInfoDiv.innerHTML = '';
     cardBeingPlayed = null;
+});
+
+// *** NEW: Functions for General Rights Issue Modal ***
+let currentGeneralRightsTarget = null; // To store companyId and offerDetails
+
+function updateGeneralRightsCostInfo() {
+    if (!currentGeneralRightsTarget || !currentGeneralRightsTarget.companyId || !currentGeneralRightsTarget.offerDetails) {
+        generalRightsCostInfoDiv.innerHTML = 'Error: Company or offer details missing.';
+        return;
+    }
+
+    const { companyId, offerDetails } = currentGeneralRightsTarget;
+    const player = gameState?.players.find(p => p.id === socket.id);
+
+    if (!player || Object.keys(initialPrices).length === 0) { // initialPrices is a bit of a misnomer here, but it holds all initial prices.
+        generalRightsCostInfoDiv.innerHTML = 'Player data or initial prices missing.';
+        return;
+    }
+
+    const ownedShares = player.portfolio[companyId] || 0;
+    const rightsPricePerShare = offerDetails.rightsPricePerShare; // Use price from the offer
+    const maxEligibleRaw = Math.floor(ownedShares / 2);
+
+    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(companyId)}, eligible for up to <strong>${maxEligibleRaw.toLocaleString()}</strong> raw rights shares under this offer.<br>`;
+
+    const desiredSharesStr = desiredGeneralRightsSharesInput.value;
+    const desiredSharesNum = parseInt(desiredSharesStr) || 0;
+
+    if (desiredSharesNum > 0) {
+        if (desiredSharesNum > maxEligibleRaw) {
+            infoHtml += `<span style="color:red;">Warning: You are requesting ${desiredSharesNum.toLocaleString()} shares, but are only eligible for ${maxEligibleRaw.toLocaleString()}.</span><br>`;
+        }
+        const actualOfferedShares = Math.floor(desiredSharesNum / 1000) * 1000;
+        if (actualOfferedShares > 0) {
+            const totalCost = actualOfferedShares * rightsPricePerShare;
+            infoHtml += `Requesting ${desiredSharesNum.toLocaleString()} shares means you'll be offered <strong>${actualOfferedShares.toLocaleString()}</strong> shares (multiples of 1000).<br>`;
+            infoHtml += `Cost: ${actualOfferedShares.toLocaleString()} shares × ₹${rightsPricePerShare.toLocaleString()}/share = <strong>₹${totalCost.toLocaleString()}</strong>.<br>`;
+            if (player.cash < totalCost) {
+                infoHtml += `<span style="color:red;">You have insufficient cash (₹${player.cash.toLocaleString()}) for this amount.</span>`;
+            }
+        } else {
+            infoHtml += `<span style="color:orange;">Requesting ${desiredSharesNum.toLocaleString()} shares results in <strong>0</strong> actual shares due to the 1000s rule.</span>`;
+        }
+    } else {
+        infoHtml += 'Enter the number of shares (e.g., 1000, 2000) you wish to acquire.';
+    }
+    generalRightsCostInfoDiv.innerHTML = infoHtml;
+}
+
+function handleGeneralDesiredRightsInputChange() {
+    updateGeneralRightsCostInfo();
+}
+
+function showGeneralRightsIssueModal(companyId, offerDetails) {
+    console.log('[showGeneralRightsIssueModal] Called for:', companyId, offerDetails);
+    currentGeneralRightsTarget = { companyId, offerDetails };
+
+    generalRightsCompanyNameSpan.textContent = getCompanyName(companyId);
+    generalRightsPricePerShareSpan.textContent = `₹${offerDetails.rightsPricePerShare.toLocaleString()}`;
+    desiredGeneralRightsSharesInput.value = '';
+    generalRightsCostInfoDiv.innerHTML = 'Please enter desired shares.';
+
+    // Remove existing listener before adding new one to prevent duplicates
+    desiredGeneralRightsSharesInput.removeEventListener('input', handleGeneralDesiredRightsInputChange);
+    desiredGeneralRightsSharesInput.addEventListener('input', handleGeneralDesiredRightsInputChange);
+    
+    updateGeneralRightsCostInfo(); // Initial call to set up info based on 0 desired shares
+    generalRightsIssueModal.style.display = 'flex';
+}
+
+confirmGeneralRightsIssueBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!currentGeneralRightsTarget || !currentGeneralRightsTarget.companyId || !currentGeneralRightsTarget.offerDetails) {
+        alert('Error: No active general rights offer selected or details missing.');
+        return;
+    }
+
+    const { companyId, offerDetails } = currentGeneralRightsTarget;
+    const player = gameState?.players.find(p => p.id === socket.id);
+    if (!player) {
+        alert('Player data not found.');
+        return;
+    }
+
+    const ownedShares = player.portfolio[companyId] || 0;
+    const rightsPricePerShare = offerDetails.rightsPricePerShare;
+    const maxEligibleRaw = Math.floor(ownedShares / 2);
+    const desiredSharesStr = desiredGeneralRightsSharesInput.value;
+    const desiredSharesNum = parseInt(desiredSharesStr) || 0;
+
+    if (desiredSharesNum <= 0) {
+        alert('Please enter a positive number of shares.');
+        desiredGeneralRightsSharesInput.focus();
+        return;
+    }
+    if (desiredSharesNum > maxEligibleRaw) {
+        alert(`Requested ${desiredSharesNum.toLocaleString()}, but eligible for max ${maxEligibleRaw.toLocaleString()} for ${getCompanyName(companyId)}.`);
+        desiredGeneralRightsSharesInput.focus();
+        return;
+    }
+    const actualSharesToGrant = Math.floor(desiredSharesNum / 1000) * 1000;
+    if (actualSharesToGrant <= 0) {
+        alert(`Request for ${desiredSharesNum.toLocaleString()} results in 0 shares after 1000s rule.`);
+        desiredGeneralRightsSharesInput.focus();
+        return;
+    }
+    const totalCost = actualSharesToGrant * rightsPricePerShare;
+    if (player.cash < totalCost) {
+        alert(`Insufficient cash. Need ₹${totalCost.toLocaleString()}, have ₹${player.cash.toLocaleString()}.`);
+        desiredGeneralRightsSharesInput.focus();
+        return;
+    }
+
+    socket.emit('exerciseGeneralRights', {
+        roomID: currentRoom,
+        targetCompany: companyId,
+        desiredRightsShares: desiredSharesNum // Server will re-validate and re-calculate actualSharesToGrant
+    });
+
+    generalRightsIssueModal.style.display = 'none';
+    desiredGeneralRightsSharesInput.value = '';
+    generalRightsCostInfoDiv.innerHTML = '';
+    currentGeneralRightsTarget = null;
+});
+
+cancelGeneralRightsIssueBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    generalRightsIssueModal.style.display = 'none';
+    desiredGeneralRightsSharesInput.value = '';
+    generalRightsCostInfoDiv.innerHTML = '';
+    currentGeneralRightsTarget = null;
 });
 
 // *** FUNCTION TO UPDATE PRICE LOG TABLE ***

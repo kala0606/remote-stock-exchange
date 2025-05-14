@@ -634,3 +634,58 @@ select:focus {
 #hand-summary {
   /* display: none; */ /* Handled by JS */
 }
+
+/* Styling for the new Activity Log panel */
+#activity-log-panel {
+    /* Uses general .panel styling already */
+    margin-top: 20px;
+}
+
+#activity-log-content {
+    padding: 10px;
+    text-align: left;
+    font-size: 0.85em; /* Slightly smaller for more content */
+    max-height: 200px; /* Adjusted from inline style for consistency */
+    overflow-y: auto;
+}
+
+.log-entry {
+    padding: 4px 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Subtle separator */
+    margin-bottom: 4px;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+/* Styling for Hand Price Impact panel table */
+#hand-summary-content table.hand-impact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+#hand-summary-content th,
+#hand-summary-content td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#hand-summary-content th {
+    font-weight: bold;
+    background-color: rgba(255, 255, 255, 0.05); /* Slight distinction for header */
+}
+
+#hand-summary-content td.summary-up {
+    color: #28a745; /* Green for positive impact */
+}
+
+#hand-summary-content td.summary-down {
+    color: #dc3545; /* Red for negative impact */
+}
+
+#hand-summary-content td.summary-no-change {
+    color: #adb5bd; /* Grey for no change */
+}

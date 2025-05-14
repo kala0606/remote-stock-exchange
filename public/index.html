@@ -61,6 +61,23 @@
             </table>
         </div>
 
+        <!-- *** NEW: General Rights Offers Panel *** -->
+        <div id="general-rights-offers-panel" class="panel" style="display: none; margin-top: 15px; padding: 15px; background: rgba(220, 255, 220, 0.7); border: 1px solid #a3d9a5;">
+            <h4>Available Rights Offers</h4>
+            <p style="font-size: 0.9em; margin-bottom: 10px;">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). This uses 1 transaction.</p>
+            <div id="general-rights-list" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Buttons will be added here by client.js -->
+            </div>
+        </div>
+
+        <!-- Activity Log Panel -->
+        <div id="activity-log-panel" class="panel" style="margin-top: 15px;">
+            <h4>Activity Log</h4>
+            <div id="activity-log-content" style="max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
+                <!-- Log entries will be added here by client.js -->
+            </div>
+        </div>
+
       </div>
     </div>
     
@@ -83,27 +100,36 @@
         </div>
     </div>
 
-    <div id="suspend-modal" class="modal">
+    <div id="rights-issue-modal" class="modal">
         <div class="modal-content">
-            <h2>Suspend Price Change</h2>
-            <p>Select a company whose price change you want to suspend for this period's calculation.</p>
-            <select id="suspendCompanySelect"></select>
+            <h2>Rights Issue</h2>
+            <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price. Shares are issued in multiples of 1000.</p>
+            <select id="rightsCompanySelect"></select>
+            <div style="margin-top: 10px; margin-bottom: 10px;">
+                <label for="desiredRightsSharesInput">How many shares do you want to try to acquire via rights?</label>
+                <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1" style="width: 100%; margin-top: 5px;">
+            </div>
+            <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
             <div class="button-group">
-                <button id="confirmSuspend">Confirm Suspend</button>
-                <button id="cancelSuspend">Cancel</button>
+                <button id="confirmRightsIssue">Confirm Purchase</button>
+                <button id="cancelRightsIssue" class="button-cancel">Cancel</button>
             </div>
         </div>
     </div>
 
-    <div id="rights-issue-modal" class="modal">
+    <!-- *** NEW: General Rights Issue Modal *** -->
+    <div id="general-rights-issue-modal" class="modal">
         <div class="modal-content">
-            <h2>Rights Issue</h2>
-            <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price.</p>
-            <select id="rightsCompanySelect"></select>
-            <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
+            <h2>Exercise General Rights Issue</h2>
+            <p>For <strong id="generalRightsCompanyName">[Company]</strong>. Exercise rights (1 share per 2 owned) at <strong id="generalRightsPricePerShare">₹[Price]</strong> per share. Shares are issued in multiples of 1000.</p>
+            <div style="margin-top: 10px; margin-bottom: 10px;">
+                <label for="desiredGeneralRightsSharesInput">How many shares do you want to acquire via these rights?</label>
+                <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1" style="width: 100%; margin-top: 5px;">
+            </div>
+            <div id="general-rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
             <div class="button-group">
-                <button id="confirmRightsIssue">Confirm Purchase</button>
-                <button id="cancelRightsIssue">Cancel</button>
+                <button id="confirmGeneralRightsIssue">Confirm Purchase</button>
+                <button id="cancelGeneralRightsIssue">Cancel</button>
             </div>
         </div>
     </div>

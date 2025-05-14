@@ -3,7 +3,7 @@ const BAR_WIDTH = 60;
 const BAR_SPACING = 60;
 const MAX_HEIGHT = 300;
 const PRICE_SCALE = 2;
-const MARKET_Y_OFFSET = 130;
+const MARKET_Y_OFFSET = 230;
 const MARKET_TEXT_BOX_HEIGHT = 35;
 
 // Card constants
@@ -12,248 +12,203 @@ const CARD_HEIGHT = 120;
 const CARD_SPACING = 10;
 const CARDS_Y = 420;
 
+// Define company colors (can be expanded or customized)
+// Ensure this matches the order in server.js or use a mapping
+const COMPANIES_FOR_SKETCH = [
+    { id:'WCK', name: 'Wockhardt Pharma', color: '#FF6347' }, // Tomato
+    { id:'HDF', name: 'HDFC Bank', color: '#4682B4' },         // SteelBlue
+    { id:'TIS', name: 'Tata Steel', color: '#32CD32' },        // LimeGreen
+    { id:'ONG', name: 'ONGC Ltd', color: '#FFD700' },          // Gold
+    { id:'REL', name: 'Reliance Industries', color: '#6A5ACD' },// SlateBlue
+    { id:'INF', name: 'Infosys Ltd', color: '#40E0D0' }         // Turquoise
+];
+
+function getCompanyNameForSketch(id) {
+    const company = COMPANIES_FOR_SKETCH.find(c => c.id === id);
+    return company ? company.name : (window.companyNames ? window.companyNames[id] : id);
+}
+
 function setup() {
     const canvas = createCanvas(900, 600);
     canvas.parent('canvas-container');
-    textAlign(CENTER, CENTER);
-    textSize(14);
-    strokeWeight(1);
 }
 
 function draw() {
-    background(255);
-    drawMarketBoard();
+    background(255); // Light grey background, similar to Bootstrap's .bg-light
+    drawMarketBoard(prices);
     drawPlayerHand();
 }
 
-function drawMarketBoard() {
-    // Draw price bars
-    const companies = Object.entries(prices);
-    if (companies.length === 0) return;
-    const totalWidth = companies.length * (BAR_WIDTH + BAR_SPACING) - BAR_SPACING;
-    let x = (width - totalWidth) / 2;
+function drawMarketBoard(currentPrices) {
+    if (!currentPrices || Object.keys(currentPrices).length === 0) {
+        fill(150);
+        textAlign(CENTER,CENTER);
+        textSize(16);
+        text("Market data not available yet.", width/2, MARKET_Y_OFFSET + MAX_HEIGHT/2);
+        return;
+    }
 
-    // Get active suspensions (assuming client.js makes this available, e.g., window.activeSuspensions)
-    const activeSuspensions = window.activeSuspensions || {}; // { companyName: true }
-    const companyNames = window.companyNames || {}; // Get name mapping
+    textAlign(CENTER, CENTER);
+    const barWidth = 120;
+    const spacing = 15;
+    const chartBottomY = height - CARD_HEIGHT - MARKET_Y_OFFSET + 50;
+    const chartHeight = 150;
+    const maxPriceEver = 200;
 
-    companies.forEach(([companyId, price]) => {
-        const companyName = companyNames[companyId] || companyId; // Use full name
-        const isSuspended = activeSuspensions[companyId];
+    const startX = (width - (COMPANIES_FOR_SKETCH.length * (barWidth + spacing) - spacing)) / 2;
+
+    COMPANIES_FOR_SKETCH.forEach((company, index) => {
+        const x = startX + index * (barWidth + spacing);
+        const price = currentPrices[company.id] || 0;
+        const barHeight = price > 0 ? Math.max(1, map(price, 0, maxPriceEver, 0, chartHeight)) : 0;
         
-        // Bar position and height
-        const barHeight = max(1, price / PRICE_SCALE);
-        const barY = height - CARD_HEIGHT - MARKET_Y_OFFSET - barHeight;
-        const barX = x;
+        fill(color(company.color || '#cccccc'));
 
-        // Draw bar
-        if (isSuspended) {
-            fill(255, 100, 100); // Light red for suspended
-            stroke(200, 0, 0); // Darker red border
-        } else {
-            fill(200, 200, 200);
-            stroke(100);
-        }
-        strokeWeight(1);
-        rect(barX, barY, BAR_WIDTH, barHeight);
+        rect(x, chartBottomY - barHeight, barWidth, barHeight, 5, 5, 0, 0);
 
-        // Draw background box for company name
-        const textBoxY = height - CARD_HEIGHT - MARKET_Y_OFFSET + 5; // Position below bar baseline
-        fill(250, 250, 250, 200); // Semi-transparent light background
-        noStroke();
-        rect(barX, textBoxY, BAR_WIDTH, MARKET_TEXT_BOX_HEIGHT, 3); // Rounded corners
-
-        // Draw company name inside the box - attempt split into two lines
         fill(0);
-        textAlign(CENTER, CENTER);
-        textSize(10); // Smaller text for two lines
-
-        let line1 = companyName;
-        let line2 = null;
-        const maxCharsPerLine = 12; // Approx chars that fit well
-
-        if (companyName.length > maxCharsPerLine && companyName.includes(' ')) {
-            let splitIndex = -1;
-            // Try splitting at the last space before the middle
-            let middle = Math.floor(companyName.length / 2);
-            for (let i = middle; i > 0; i--) {
-                if (companyName[i] === ' ') {
-                    splitIndex = i;
-                    break;
-                }
-            }
-            // If no space before middle, try first space after middle
-            if (splitIndex === -1) {
-                 for (let i = middle + 1; i < companyName.length; i++) {
-                    if (companyName[i] === ' ') {
-                        splitIndex = i;
-                        break;
-                    }
-                }
-            }
-
-            if (splitIndex !== -1) {
-                line1 = companyName.substring(0, splitIndex).trim();
-                line2 = companyName.substring(splitIndex + 1).trim();
-            }
-        }
-        
-        if (line2) {
-             // Draw two lines
-            text(line1, barX + BAR_WIDTH/2, textBoxY + MARKET_TEXT_BOX_HEIGHT/2 - 6); // Line 1 slightly up
-            text(line2, barX + BAR_WIDTH/2, textBoxY + MARKET_TEXT_BOX_HEIGHT/2 + 6); // Line 2 slightly down
-        } else {
-            // Draw single line if short or no good split point
-            text(line1, barX + BAR_WIDTH/2, textBoxY + MARKET_TEXT_BOX_HEIGHT/2); 
-        }
-        
-        // Draw price above the bar
-        noStroke();
-        fill(isSuspended ? '#dc3545' : 0); // Red price if suspended
-        textAlign(CENTER, BOTTOM);
         textSize(12);
-        text(`₹${price}`, barX + BAR_WIDTH/2, barY - 5);
+        textAlign(CENTER, BOTTOM);
+        text(`₹${price}`, x + barWidth / 2, chartBottomY - barHeight - 5);
 
-        x += BAR_WIDTH + BAR_SPACING;
+        const textBoxY = chartBottomY + 5;
+        fill(255, 255, 255, 200);
+        stroke(200);
+        strokeWeight(0.5);
+        rect(x, textBoxY, barWidth, MARKET_TEXT_BOX_HEIGHT, 3);
+
+        fill(0);
+        noStroke();
+        textSize(10);
+        textAlign(CENTER, CENTER);
+        let companyDisplayName = getCompanyNameForSketch(company.id);
+        let nameParts = splitLongName(companyDisplayName, 10);
+        
+        if (nameParts.length > 1) {
+            text(nameParts[0], x + barWidth / 2, textBoxY + (MARKET_TEXT_BOX_HEIGHT / 2) - 6);
+            text(nameParts[1], x + barWidth / 2, textBoxY + (MARKET_TEXT_BOX_HEIGHT / 2) + 6);
+        } else {
+            text(nameParts[0], x + barWidth / 2, textBoxY + MARKET_TEXT_BOX_HEIGHT / 2);
+        }
     });
 }
 
 function drawPlayerHand() {
-    if (!window.playerHand || window.playerHand.length === 0) return;
+    const handToDraw = window.playerHand || [];
+    if (handToDraw.length === 0) return;
 
-    const totalWidth = window.playerHand.length * (CARD_WIDTH + CARD_SPACING) - CARD_SPACING;
+    const totalWidth = handToDraw.length * (CARD_WIDTH + CARD_SPACING) - CARD_SPACING;
     let x = (width - totalWidth) / 2;
 
-    window.playerHand.forEach(card => {
-        drawCard(x, CARDS_Y, card);
+    handToDraw.forEach(card => {
+        if (typeof card !== 'object' || card === null) {
+            console.warn('Skipping drawing of invalid card:', card);
+            x += CARD_WIDTH + CARD_SPACING;
+            return;
+        }
+        drawCardVisual(x, CARDS_Y, card);
         x += CARD_WIDTH + CARD_SPACING;
     });
 }
 
-function drawCard(x, y, card) {
+function drawCardVisual(x, y, card) {
     push();
     translate(x, y);
-    const companyNames = window.companyNames || {}; // Get name mapping
 
-    // Card background and border
-    stroke(150);
-    fill(245);
-    rect(0, 0, CARD_WIDTH, CARD_HEIGHT, 5);
+    if (card.played) {
+        fill(200, 200, 200, 200);
+        stroke(150);
+    } else {
+        fill(255);
+        stroke(100);
+    }
+    strokeWeight(1);
+    rect(0, 0, CARD_WIDTH, CARD_HEIGHT, 8);
 
-    // Card content
-    noStroke();
     textAlign(CENTER, CENTER);
-    fill(0);
+    textSize(11);
+    noStroke();
+    
+    if (card.played) {
+        fill(120);
+    } else {
+        fill(0);
+    }
+
+    let line1 = '';
+    let line2 = '';
+    let line3 = '';
 
     if (card.type === 'price') {
-        // Price change at top right
-        textSize(11);
-        textAlign(RIGHT, TOP);
-        const change = card.change;
-        const changeText = (change >= 0 ? '+' : '') + '₹' + change;
-        fill(change >= 0 ? '#28a745' : '#dc3545');
-        text(changeText, CARD_WIDTH - 6, 6);
-
-        // Company name in center, potentially split
-        textSize(10); // Use smaller text for potential two lines
-        textAlign(CENTER, CENTER);
-        fill(0);
-        const companyName = companyNames[card.company] || card.company;
+        let companyDisplayName = getCompanyNameForSketch(card.company);
+        let nameParts = splitLongName(companyDisplayName, 12);
+        line1 = nameParts[0] || '';
+        line2 = nameParts[1] || '';
         
-        let line1 = companyName;
-        let line2 = null;
-        const maxCharsPerLineCard = 10; // Max chars for cards (adjust as needed)
-
-        if (companyName.length > maxCharsPerLineCard && companyName.includes(' ')) {
-            let splitIndex = -1;
-            let middle = Math.floor(companyName.length / 2);
-            // Find last space before middle
-            for (let i = middle; i > 0; i--) {
-                if (companyName[i] === ' ') {
-                    splitIndex = i;
-                    break;
-                }
-            }
-            // Or first space after middle
-            if (splitIndex === -1) {
-                 for (let i = middle + 1; i < companyName.length; i++) {
-                    if (companyName[i] === ' ') {
-                        splitIndex = i;
-                        break;
-                    }
-                }
-            }
-
-            if (splitIndex !== -1) {
-                line1 = companyName.substring(0, splitIndex).trim();
-                line2 = companyName.substring(splitIndex + 1).trim();
-            }
-        }
-
-        if (line2) {
-            // Draw two lines
-            text(line1, CARD_WIDTH/2, CARD_HEIGHT/2); // Line 1 centered
-            text(line2, CARD_WIDTH/2, CARD_HEIGHT/2 + 12); // Line 2 below
+        let changeText = `${card.change > 0 ? '+' : ''}${card.change}`;
+        if (nameParts.length <= 1) {
+            line2 = `Price: ${changeText}`;
         } else {
-            // Draw single line
-            text(line1, CARD_WIDTH/2, CARD_HEIGHT/2 + 5); // Centered vertically
+            line3 = `Price: ${changeText}`;
         }
+        
+        push();
+        if (card.change > 0) fill(34, 139, 34);
+        else if (card.change < 0) fill(220, 20, 60);
+        else fill(card.played ? 120 : 0);
+
+        if (line3) {
+            text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 18);
+            text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2);
+            text(line3, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 18);
+        } else {
+            text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
+            text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
+        }
+        pop();
 
     } else if (card.type === 'windfall') {
-        if (card.played) {
-            fill(180, 180, 220); // Dimmed purple for played windfall
-        } else {
-            fill('#6f42c1'); // Original purple
-        }
-        // Windfall title
-        textSize(15);
-        textAlign(CENTER, CENTER);
-        text(card.sub, CARD_WIDTH/2, CARD_HEIGHT/2);
-        
-        textSize(10);
-        if (card.played) {
-            fill(150);
-        } else {
-            fill(100);
-        }
-        textAlign(CENTER, BOTTOM);
-        // text('Windfall', CARD_WIDTH/2, CARD_HEIGHT - 8);
-
-    } else if (card.type === 'suspend') {
-        if (card.played) {
-            fill(220, 220, 180, 200); // Dimmed yellow for played suspend, slight alpha
-            stroke(180, 180, 140);
-        } else {
-            fill(255, 215, 0); // Gold color for suspend card
-            stroke(180, 150, 0);
-        }
-        strokeWeight(1);
-        rect(0, 0, CARD_WIDTH, CARD_HEIGHT, 5); // Redraw rect for played state border
-
-        // Text color based on played state
-        fill(card.played ? 150 : 0); 
-        noStroke(); 
-
-        textSize(14);
-        textAlign(CENTER, CENTER);
-        text("SUSPEND", CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
-        textSize(10);
-        textAlign(CENTER, BOTTOM);
-        text("Price Freeze", CARD_WIDTH/2, CARD_HEIGHT - 8);
-
+        line1 = 'Windfall';
+        line2 = card.sub;
+        text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
+        text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
     } else {
-        // Fallback for unknown card type (now only price/windfall expected)
-        fill(255, 0, 0); // Red
-        text('???', CARD_WIDTH/2, CARD_HEIGHT/2);
-        console.error('Unknown or malformed card type in drawCard:', JSON.parse(JSON.stringify(card)));
+        line1 = 'Unknown';
+        line2 = 'Card';
+        text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
+        text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
     }
     pop();
+}
+
+function splitLongName(name, maxLengthPerLine) {
+    if (typeof name !== 'string') return [''];
+    let parts = [];
+    let currentLine = '';
+    let words = name.split(' ');
+
+    for (let word of words) {
+        if (currentLine.length + word.length + (currentLine.length > 0 ? 1 : 0) <= maxLengthPerLine) {
+            currentLine += (currentLine.length > 0 ? ' ' : '') + word;
+        } else {
+            if (currentLine.length > 0) parts.push(currentLine);
+            currentLine = word;
+            if (word.length > maxLengthPerLine && parts.length === 0) {
+                 parts.push(word.substring(0, maxLengthPerLine-1) + '-');
+                 currentLine = word.substring(maxLengthPerLine-1);
+            }
+        }
+    }
+    if (currentLine.length > 0) parts.push(currentLine);
+    return parts.slice(0, 2);
 }
 
 function updateMarketBoard(newPrices) {
     prices = newPrices;
 }
 
-function updatePlayerHand(newHand) {
-    window.playerHand = newHand;
-}
+// window.playerHand is updated directly by client.js
+// So, no specific updatePlayerHand function needed here unless for extra logic.
+
+// mousePressed is handled by client.js for card clicks
+// function mousePressed() { ... }
