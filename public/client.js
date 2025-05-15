@@ -157,7 +157,7 @@ socket.on('connect', () => {
     // --- NEW: Attempt Rejoin with Token from URL FIRST --- 
 const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('session');
-    currentSessionToken = tokenFromUrl || localStorage.getItem('zephyrSessionToken'); // Fallback to localStorage
+    currentSessionToken = tokenFromUrl || localStorage.getItem('satnaSessionToken'); // Fallback to localStorage
 
     if (currentSessionToken) {
         console.log('[connect] Found session token, attempting to rejoin:', currentSessionToken);
@@ -167,7 +167,7 @@ const urlParams = new URLSearchParams(window.location.search);
             if (response.error) {
                 alert('Failed to rejoin session: ' + response.error);
                 // Clear bad token from URL and localStorage
-                localStorage.removeItem('zephyrSessionToken');
+                localStorage.removeItem('satnaSessionToken');
                 history.replaceState(null, '', window.location.pathname); // Clear query params
                 currentSessionToken = null;
                 isRejoining = false;
@@ -178,7 +178,7 @@ const urlParams = new URLSearchParams(window.location.search);
             }
             currentRoom = response.roomID;
             currentPlayerName = response.playerName; // Server sends this back for confirmation
-            localStorage.setItem('zephyrSessionToken', currentSessionToken); // Re-affirm in localStorage
+            localStorage.setItem('satnaSessionToken', currentSessionToken); // Re-affirm in localStorage
             console.log('[rejoinWithToken callback] Rejoin successful. Room:', currentRoom, 'Player:', currentPlayerName);
             // isRejoining flag will be cleared by gameState handler
         });
@@ -230,7 +230,7 @@ createRoomBtn.onclick = () => {
                 }
                 if (response.sessionToken) {
                     currentSessionToken = response.sessionToken;
-                    localStorage.setItem('zephyrSessionToken', currentSessionToken);
+                    localStorage.setItem('satnaSessionToken', currentSessionToken);
                     // Update URL
                     const url = new URL(window.location.href);
                     url.searchParams.set('room', roomID);
@@ -273,7 +273,7 @@ joinRoomBtn.onclick = () => {
         }
         if (response.sessionToken) {
             currentSessionToken = response.sessionToken;
-            localStorage.setItem('zephyrSessionToken', currentSessionToken);
+            localStorage.setItem('satnaSessionToken', currentSessionToken);
             // Update URL
             const url = new URL(window.location.href);
             url.searchParams.set('room', roomID);
