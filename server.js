@@ -36,6 +36,46 @@ const games = {};
 // Store: token -> { roomID, playerName, socketId, isAdminInitial, lastActive }
 const tokenStore = {}; 
 
+// --- NEW: Helper function to calculate player's total worth ---
+function calculatePlayerTotalWorth(player, marketPrices) {
+    let portfolioValue = 0;
+    if (player.portfolio) {
+        for (const companyId in player.portfolio) {
+            const shares = player.portfolio[companyId];
+            if (shares > 0 && marketPrices[companyId] !== undefined) {
+                portfolioValue += shares * marketPrices[companyId];
+            }
+        }
+    }
+    // Also account for short positions - they don't directly contribute to "worth" in a positive way for this graph,
+    // but the cash held as collateral IS part of their assets.
+    // For simplicity in this graph, we'll consider current cash + current portfolio value.
+    // A more complex "net worth" might subtract potential cost to cover shorts, but that makes the historical graph tricky.
+    return player.cash + portfolioValue;
+}
+
+// --- NEW: Function to record historical worth data ---
+function recordHistoricalWorth(game, periodMarker) {
+    if (!game || !game.players || !game.state || !game.state.prices) {
+        console.error('[recordHistoricalWorth] Missing data to record worth.');
+        return;
+    }
+    if (!game.state.historicalWorthData) {
+        game.state.historicalWorthData = []; // Initialize if it somehow wasn't
+    }
+
+    game.players.forEach(player => {
+        const totalWorth = calculatePlayerTotalWorth(player, game.state.prices);
+        game.state.historicalWorthData.push({
+            period: periodMarker, // Use the passed marker (e.g., 0 for initial, game.period for resolved)
+            playerId: player.id,
+            playerName: player.name, // Store name for easier chart labeling later
+            totalWorth: totalWorth
+        });
+        console.log(`[recordHistoricalWorth] Period ${periodMarker}: Player ${player.name}, Worth: ${totalWorth}`);
+    });
+}
+
 function buildDeck() {
   let deck = [];
   
@@ -72,13 +112,16 @@ function initGame(game, initialAdminPlayerId) {
   game.state = {
     prices: {...initialPrices},
     init: {...initialPrices},
+    historicalWorthData: [], // NEW: Initialize historical worth data array
     trans: 0,
     played: [],
     currentTurn: 0, 
     roundNumberInPeriod: 1, 
     activeRightsOffers: {},
     chairmen: {}, // { companyId: [playerId1, playerId2, ...] }
-    presidents: {} // { companyId: [playerId1, playerId2, ...] }
+    presidents: {}, // { companyId: [playerId1, playerId2, ...] }
+    awaitingAdminDecision: false, // ADDED: Flag for admin choice
+    pricesResolvedThisCycle: false // ADDED: Flag to track if prices have been resolved in the current admin decision cycle
   };
   game.period = 1;
   game.deck = buildDeck();
@@ -111,7 +154,9 @@ function initGame(game, initialAdminPlayerId) {
     player.transactionsRemaining = TRANSACTIONS_PER_PERIOD; // Initialize transactions
   });
 
-  console.log(`[initGame] Emitting initial game state...`);
+  game.gameStarted = true;
+  console.log(`[initGame] Game started flag set to true. Emitting initial game state...`);
+  recordHistoricalWorth(game, 0); // NEW: Record initial worth for all players at period 0
   emitGameState(game);
 }
 
@@ -142,11 +187,13 @@ function emitGameState(game, context = 'normal') {
         portfolio: p.portfolio || {}, 
         cash: p.cash,
         shortPositions: p.shortPositions || {},
-        transactionsRemaining: p.transactionsRemaining // Include transactionsRemaining
+        transactionsRemaining: p.transactionsRemaining, // Include transactionsRemaining
+        isAdmin: p.id === game.admin 
       })),
       state: { 
         prices: game.state.prices,
         init: game.state.init || {},
+        historicalWorthData: game.state.historicalWorthData || [], // NEW: Send historical data
         companyNames: companyNameMapping,
         companyList: COMPANIES,
         period: game.period,
@@ -155,7 +202,10 @@ function emitGameState(game, context = 'normal') {
         roundNumberInPeriod: game.state.roundNumberInPeriod,
         activeRightsOffers: game.state.activeRightsOffers || {},
         chairmen: game.state.chairmen || {},
-        presidents: game.state.presidents || {}
+        presidents: game.state.presidents || {},
+        gameStarted: game.gameStarted,
+        awaitingAdminDecision: game.state.awaitingAdminDecision, // ADDED: Send this flag to client
+        pricesResolvedThisCycle: game.state.pricesResolvedThisCycle // ADDED: Send this flag to client
       },
       hand: player.hand, 
       isAdmin: isAdmin, 
@@ -166,35 +216,32 @@ function emitGameState(game, context = 'normal') {
   });
 }
 
-function resolvePeriod(roomID) {
-  const game = games[roomID];
-  if (!game) return;
+// --- REFACTORED PERIOD RESOLUTION LOGIC ---
 
-  console.log(`[resolvePeriod] Resolving Period ${game.period} for room ${roomID}`);
+function calculateAndApplyPriceChanges(game) {
+  if (!game || !game.state || !game.players) return;
+  console.log(`[calculateAndApplyPriceChanges] Calculating price changes for Period ${game.period}, Room ${Object.keys(games).find(key => games[key] === game)}`);
 
-  // Step 1: Gather all potential price changes
   const allPriceCardEffects = [];
   game.players.forEach(player => {
     (player.hand || []).forEach(card => {
-      if (card.type === 'price' && !card.played) { // Ensure card hasn't been played (e.g. by other means, though price cards usually aren't 'played')
+      if (card.type === 'price' && !card.played) {
         allPriceCardEffects.push({
           playerId: player.id,
           playerName: player.name,
           companyId: card.company,
           change: card.change,
-          status: 'active', // 'active', 'negated_by_president', 'negated_by_chairman'
-          originalCardRef: card // Optional, for debugging or more complex logic later
+          status: 'active',
+          originalCardRef: card
         });
       }
     });
   });
 
-  // Step 2: Apply President Powers
   if (game.state.presidents && Object.keys(game.state.presidents).length > 0) {
     game.players.forEach(player => {
       for (const companyId in game.state.presidents) {
         if (game.state.presidents.hasOwnProperty(companyId) && game.state.presidents[companyId].includes(player.id)) {
-          // This player is President of this companyId
           let mostNegativeEffectForPresident = null;
           allPriceCardEffects.forEach(effect => {
             if (effect.playerId === player.id && effect.companyId === companyId && effect.status === 'active' && effect.change < 0) {
@@ -203,7 +250,6 @@ function resolvePeriod(roomID) {
               }
             }
           });
-
           if (mostNegativeEffectForPresident) {
             mostNegativeEffectForPresident.status = 'negated_by_president';
             logActivity(game, player.name, 'PRESIDENT_POWER', 
@@ -215,11 +261,9 @@ function resolvePeriod(roomID) {
     });
   }
 
-  // Step 3: Apply Chairman Powers
   if (game.state.chairmen && Object.keys(game.state.chairmen).length > 0) {
     for (const companyId in game.state.chairmen) {
       if (game.state.chairmen.hasOwnProperty(companyId) && game.state.chairmen[companyId].length > 0) {
-        // Chairmen exist for this company
         let mostNegativeEffectForCompany = null;
         allPriceCardEffects.forEach(effect => {
           if (effect.companyId === companyId && effect.status === 'active' && effect.change < 0) {
@@ -228,7 +272,6 @@ function resolvePeriod(roomID) {
             }
           }
         });
-
         if (mostNegativeEffectForCompany) {
           mostNegativeEffectForCompany.status = 'negated_by_chairman';
           const chairmanNames = game.state.chairmen[companyId].map(pid => game.players.find(p=>p.id === pid)?.name || 'A chairman').join(', ');
@@ -240,65 +283,82 @@ function resolvePeriod(roomID) {
     }
   }
   
-  // Step 4: Calculate Final Deltas
   let deltas = {};
-  COMPANIES.forEach(company => {
-    deltas[company.id] = 0;
-  });
+  COMPANIES.forEach(company => { deltas[company.id] = 0; });
   allPriceCardEffects.forEach(effect => {
     if (effect.status === 'active') {
       deltas[effect.companyId] += effect.change;
     }
   });
 
-  // Step 5: Update Prices
   Object.keys(game.state.prices).forEach(company => {
     game.state.prices[company] = Math.max(0, game.state.prices[company] + deltas[company]);
   });
+  logActivity(game, null, 'PRICES_RESOLVED', `Market prices updated based on card effects for Period ${game.period}.`);
+  game.state.pricesResolvedThisCycle = true; // Mark that prices have been resolved for this decision cycle
+  recordHistoricalWorth(game, game.period); // NEW: Record worth after price changes
+  // Mark all 'price' cards in hands as played for this cycle if they were considered
+  // This assumes all price cards contribute and are then "spent" for the period's resolution.
+  // If only some cards are played, this logic would need to be tied to actual card play.
+  // For now, if they contribute to deltas, let's mark them.
+  game.players.forEach(player => {
+      if (player.hand) {
+          player.hand.forEach(card => {
+              if (card.type === 'price') {
+                  card.played = true; // Or some other flag to indicate it was used in resolution
+              }
+          });
+      }
+  });
+}
 
-  // Clear played cards, and transaction count for the next period
-  game.state.played = [];
-  game.state.trans = 0;
-  game.state.activeRightsOffers = {};
+function dealNewCardsAndStartNewPeriod(game) {
+  if (!game || !game.players) return;
+  const roomID = Object.keys(games).find(key => games[key] === game);
+  console.log(`[dealNewCardsAndStartNewPeriod] Advancing to new period for Room ${roomID}`);
+
   game.period++;
+  game.state.roundNumberInPeriod = 1;
 
-  // Deal new cards EVERY period after the first one
-  // game.period has already been incremented, so period 1 is initial deal (in initGame)
-  // This means we deal for period 2, 3, 4, etc.
-  if (game.period > 1) { 
-    console.log(`[resolvePeriod] Period ${game.period}: Dealing new cards.`);
-    // Collect and reshuffle cards
-    game.deck = buildDeck(); 
-    game.discard = [];
-    
-    // Deal new hands
-    game.players.forEach(player => {
-      player.hand = game.deck.splice(0, 10);
-    });
-  } else {
-    // This case (game.period <= 1 after increment) should ideally not happen if resolvePeriod is called correctly after period 1.
-    // But as a safeguard, or for period 1 if called (though initGame handles period 1 deal):
-    console.log(`[resolvePeriod] Period ${game.period}: Not dealing new cards via resolvePeriod (either period 1 or an issue).`);
-  }
+  console.log(`[dealNewCardsAndStartNewPeriod] Period ${game.period}: Building fresh deck and dealing new cards.`);
+  game.deck = buildDeck(); 
+  game.discard = [];
+  game.players.forEach(player => {
+    player.hand = game.deck.splice(0, 10);
+  });
 
-  // Reset turn-specific counters for the new period
   if (game.players.length > 0) {
-    game.state.currentTurn = (game.period - 1) % game.players.length; // NEW WAY: Rotary start player
+    game.state.currentTurn = (game.period - 1) % game.players.length;
   } else {
-    game.state.currentTurn = 0; // Fallback if no players (should not happen in active game)
+    game.state.currentTurn = 0;
   }
-  game.state.roundNumberInPeriod = 1; // Reset to Round 1 for the new period
-
-  // Reset transactions for the player whose turn it is in the new period
+  
   if (game.players.length > 0 && game.players[game.state.currentTurn]) {
     const firstPlayerOfNewPeriod = game.players[game.state.currentTurn];
     firstPlayerOfNewPeriod.transactionsRemaining = TRANSACTIONS_PER_PERIOD;
-    console.log(`[resolvePeriod] Reset transactions for ${firstPlayerOfNewPeriod.name} to ${TRANSACTIONS_PER_PERIOD} for start of Period ${game.period}`);
+    console.log(`[dealNewCardsAndStartNewPeriod] Reset transactions for ${firstPlayerOfNewPeriod.name} to ${TRANSACTIONS_PER_PERIOD} for start of Period ${game.period}`);
   }
 
-  console.log(`[resolvePeriod] Period ${game.period -1} resolved. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}, Turn Index: ${game.state.currentTurn}`);
-  logActivity(game, null, 'PERIOD_RESOLVED', `Period ${game.period -1 } resolved. Prices updated. New cards dealt. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}. Player ${game.players[game.state.currentTurn]?.name} starts.`);
-  emitGameState(game); // Emit updated state after resolving
+  // Reset admin decision flags for the new period cycle
+  game.state.awaitingAdminDecision = false;
+  game.state.pricesResolvedThisCycle = false;
+  
+  console.log(`[dealNewCardsAndStartNewPeriod] Advanced to Period ${game.period}, Round ${game.state.roundNumberInPeriod}, Turn Index: ${game.state.currentTurn}`);
+  logActivity(game, null, 'NEW_PERIOD_STARTED', `New cards dealt. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}. Player ${game.players[game.state.currentTurn]?.name} starts.`);
+}
+
+// Original resolvePeriod can be kept for now, or modified if needed for other flows, or deprecated.
+// For the new admin flow, we'll use the granular functions directly.
+function resolvePeriod(roomID) {
+  const game = games[roomID];
+  if (!game) return;
+  console.warn('[resolvePeriod] SERVER TRACER: The generic resolvePeriod() function was called. Ensure this is intended. Details: Period ${game.period}, Round ${game.state.roundNumberInPeriod}, AwaitingAdminDecision: ${game.state.awaitingAdminDecision}, PricesResolved: ${game.state.pricesResolvedThisCycle}');
+  
+  // For compatibility or if called directly, it performs both steps.
+  calculateAndApplyPriceChanges(game);
+  dealNewCardsAndStartNewPeriod(game);
+  // Emit game state after both actions
+  emitGameState(game);
 }
 
 // Helper function to get company name (already on client, adding to server for error messages)
@@ -576,6 +636,49 @@ io.on('connection', socket => {
     // Pass the confirmed admin ID to initGame
     initGame(game, game.admin); 
     logActivity(game, game.players.find(p => p.id === game.admin)?.name || 'Admin', 'START_GAME', `Game started.`);
+  });
+
+  // NEW: Admin End Game Request Handler
+  socket.on('adminEndGameRequest', ({ roomID }) => {
+    const game = games[roomID];
+    if (!game) {
+        console.error(`[adminEndGameRequest] Error: Game not found for room ${roomID}`);
+        return io.to(socket.id).emit('error', { message: 'Game not found.' });
+    }
+    if (game.admin !== socket.id) {
+        console.warn(`[adminEndGameRequest] Non-admin player ${socket.id} tried to end game in room ${roomID}.`);
+        return io.to(socket.id).emit('error', { message: 'Only the admin can end the game.' });
+    }
+    if (game.gameEnded) {
+        console.warn(`[adminEndGameRequest] Game in room ${roomID} has already ended.`);
+        // Optionally re-send summary if needed, or just inform admin
+        return io.to(socket.id).emit('error', { message: 'Game has already ended.' }); 
+    }
+
+    console.log(`[Admin Action] Admin ${socket.id} ending game in room ${roomID}.`);
+    game.gameEnded = true; // Mark game as ended
+
+    // Final recording of worth, if any transactions could have happened since last auto-record
+    // For simplicity, we assume the last record at price resolution is sufficient unless game ends abruptly.
+    // If game can end mid-period, consider a final recordHistoricalWorth(game, game.period + " (Final)") here.
+
+    const summaryData = {
+        players: game.players.map(p => ({ // Send a snapshot of player details for the summary
+            id: p.id,
+            name: p.name,
+            // No need to send full portfolio/cash again if chart only uses historical worth
+            // But can be useful for a final leaderboard display on the summary screen
+            finalCash: p.cash,
+            finalPortfolioValue: calculatePlayerTotalWorth(p, game.state.prices) - p.cash // Recalculate for safety
+        })),
+        historicalWorthData: game.state.historicalWorthData || []
+    };
+
+    io.to(roomID).emit('gameSummaryReceived', summaryData);
+    logActivity(game, game.players.find(p => p.id === game.admin)?.name || 'Admin', 'GAME_ENDED', `Game has been ended by the admin.`);
+    
+    // Optional: Clean up the game object from `games` after a delay, or implement a proper archive/delete.
+    // For now, game remains in memory but marked as ended.
   });
 
   socket.on('buy', ({ roomID, company, quantity }) => {
@@ -909,36 +1012,38 @@ io.on('connection', socket => {
     const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
     const periodStarterIndex = (game.period - 1) % game.players.length; // Determine who started the period/round
     let roundCompleted = (nextTurnIndex === periodStarterIndex); // Round completes if turn returns to starter
-    let currentRound = game.state.roundNumberInPeriod || 1;
+    let currentRoundForCheck = game.state.roundNumberInPeriod || 1; // Use for decision logic
 
     if (roundCompleted) {
-        currentRound++;
-        if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
-            console.log(`[pass] End of round. Clearing ${Object.keys(game.state.activeRightsOffers).length} active rights offer(s).`);
-            game.state.activeRightsOffers = {}; // Clear active rights offers at end of a full round
-        }
-        if (currentRound > MAX_ROUNDS_PER_PERIOD) {
-            console.log(`[pass] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached AFTER player ${game.players[playerIndex]?.name} passed. Resolving Period ${game.period}.`);
-            resolvePeriod(roomID); // resolvePeriod will emit game state
-            return; 
-        } else {
-            game.state.roundNumberInPeriod = currentRound;
+        // Check if it's time for an admin decision
+        // This happens if the current round about to be completed is a multiple of MAX_ROUNDS_PER_PERIOD
+        if (currentRoundForCheck % MAX_ROUNDS_PER_PERIOD === 0 && !game.state.awaitingAdminDecision) {
+            console.log(`[pass] SERVER TRACER: Checkpoint reached for admin decision. Round: ${currentRoundForCheck}, Period: ${game.period}. Setting awaitingAdminDecision = true.`);
+            game.state.awaitingAdminDecision = true;
+            // Do not advance roundNumberInPeriod or turn yet. Admin action will handle it.
+            emitGameState(game);
+            console.log(`[pass] SERVER TRACER: Emitted game state with awaitingAdminDecision = true. Now returning.`);
+            return;
+        } else if (!game.state.awaitingAdminDecision) {
+            // Normal round advancement if not an admin decision point
+            game.state.roundNumberInPeriod++;
+             if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
+                console.log(`[pass] End of round ${currentRoundForCheck}. Clearing active rights offers.`);
+                game.state.activeRightsOffers = {};
+            }
         }
     }
     
-    // Advance turn (only if period wasn't resolved)
-    game.state.currentTurn = nextTurnIndex;
-    game.state.turnTransactions = 0; // Reset transactions for the new player's turn (OLD SYSTEM - CAN BE REMOVED if fully on player.transactionsRemaining)
-    
-    // Reset transactions for the new current player
-    if (game.players[game.state.currentTurn]) {
-        game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
-        console.log(`[pass] Reset transactions for new turn player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD}`);
+    // Advance turn (only if not awaiting admin decision)
+    if (!game.state.awaitingAdminDecision) {
+        game.state.currentTurn = nextTurnIndex;
+        if (game.players[game.state.currentTurn]) {
+            game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+            console.log(`[pass] Reset transactions for player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD} for turn in Round ${game.state.roundNumberInPeriod}.`);
+        }
+        console.log(`[pass] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
+        emitGameState(game);
     }
-
-    console.log(`[pass] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
-    // logActivity is now done above, before period resolution check
-    emitGameState(game); // Emit state for normal turn advancement
   });
 
   socket.on('endTurn', ({ roomID }) => {
@@ -967,39 +1072,79 @@ io.on('connection', socket => {
     const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
     const periodStarterIndex = (game.period - 1) % game.players.length; // Determine who started the period/round
     let roundCompleted = (nextTurnIndex === periodStarterIndex); // Round completes if turn returns to starter
-    let currentRound = game.state.roundNumberInPeriod || 1;
+    let currentRoundForCheck = game.state.roundNumberInPeriod || 1; // Use for decision logic
 
     if (roundCompleted) {
-        currentRound++;
-        if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
-            console.log(`[endTurn] End of round. Clearing ${Object.keys(game.state.activeRightsOffers).length} active rights offer(s).`);
-            game.state.activeRightsOffers = {}; // Clear active rights offers at end of a full round
-        }
-        if (currentRound > MAX_ROUNDS_PER_PERIOD) {
-            console.log(`[endTurn] MAX ROUNDS (${MAX_ROUNDS_PER_PERIOD}) reached AFTER player ${game.players[playerIndex]?.name} ended turn. Resolving Period ${game.period}.`);
-            resolvePeriod(roomID); // resolvePeriod will emit game state
-            return; 
-        } else {
-            game.state.roundNumberInPeriod = currentRound;
+         // Check if it's time for an admin decision
+        if (currentRoundForCheck % MAX_ROUNDS_PER_PERIOD === 0 && !game.state.awaitingAdminDecision) {
+            console.log(`[endTurn] SERVER TRACER: Checkpoint reached for admin decision. Round: ${currentRoundForCheck}, Period: ${game.period}. Setting awaitingAdminDecision = true.`);
+            game.state.awaitingAdminDecision = true;
+            // Do not advance roundNumberInPeriod or turn yet. Admin action will handle it.
+            emitGameState(game);
+            console.log(`[endTurn] SERVER TRACER: Emitted game state with awaitingAdminDecision = true. Now returning.`);
+            return;
+        } else if (!game.state.awaitingAdminDecision) {
+            // Normal round advancement if not an admin decision point
+            game.state.roundNumberInPeriod++;
+            if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
+                console.log(`[endTurn] End of round ${currentRoundForCheck}. Clearing active rights offers.`);
+                game.state.activeRightsOffers = {};
+            }
         }
     }
     
-    // Advance turn (only if period wasn't resolved)
-    game.state.currentTurn = nextTurnIndex;
-    game.state.turnTransactions = 0; // Reset transactions for the new player's turn (OLD SYSTEM - CAN BE REMOVED if fully on player.transactionsRemaining)
-
-    // Reset transactions for the new current player
-    if (game.players[game.state.currentTurn]) {
-        game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
-        console.log(`[endTurn] Reset transactions for new turn player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD}`);
+    // Advance turn (only if not awaiting admin decision)
+    if (!game.state.awaitingAdminDecision) {
+        game.state.currentTurn = nextTurnIndex;
+        if (game.players[game.state.currentTurn]) {
+            game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+             console.log(`[endTurn] Reset transactions for player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD} for turn in Round ${game.state.roundNumberInPeriod}.`);
+        }
+        console.log(`[endTurn] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
+        emitGameState(game);
     }
-
-    console.log(`[endTurn] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
-    // logActivity is now done above, before period resolution check
-    emitGameState(game); // Emit state for normal turn advancement
   });
 
-  // --- NEW: Handler for players exercising a general rights offer ---
+  // --- NEW ADMIN DECISION HANDLERS (Revised Names) ---
+  socket.on('adminResolvePeriodAndDeal', ({ roomID }) => { // RENAMED and REPURPOSED for the new flow
+    const game = games[roomID];
+    if (!game || game.admin !== socket.id || !game.state.awaitingAdminDecision) {
+        // console.warn(`[adminResolvePeriodAndDeal -> now adminEndCurrentPeriod_ResolvePrices] Invalid attempt by ${socket.id} in room ${roomID}.`);
+        // Replaced console.warn with a more specific one that includes current state for debugging
+        console.warn(`[adminEndCurrentPeriod_ResolvePrices] Invalid attempt by ${socket.id} in room ${roomID}. Game Admin: ${game?.admin}, Socket ID: ${socket.id}, Awaiting: ${game?.state?.awaitingAdminDecision}`);
+        return io.to(socket.id).emit('error', { message: 'Not admin or not awaiting decision for period resolution.' });
+    }
+    if (game.state.pricesResolvedThisCycle) {
+        console.warn(`[adminEndCurrentPeriod_ResolvePrices] Prices already resolved this cycle for room ${roomID}.`);
+        return io.to(socket.id).emit('error', { message: 'Prices already resolved this cycle.' });
+    }
+
+    console.log(`[adminEndCurrentPeriod_ResolvePrices] Admin ${socket.id} chose to RESOLVE PRICES for current period in room ${roomID}.`);
+    calculateAndApplyPriceChanges(game); // Step 1: Calculate and apply price changes
+    // game.state.pricesResolvedThisCycle is set within calculateAndApplyPriceChanges
+    console.log(`[adminEndCurrentPeriod_ResolvePrices] SERVER TRACER: After calculateAndApplyPriceChanges, game.state.pricesResolvedThisCycle is: ${game.state.pricesResolvedThisCycle}`);
+    emitGameState(game); // Emit state to update UI (e.g., enable next admin button)
+  });
+
+  // New handler for the second step: Advancing to new period and dealing cards
+  socket.on('adminAdvanceToNewPeriod_DealCards', ({ roomID }) => {
+    const game = games[roomID];
+    if (!game || game.admin !== socket.id || !game.state.awaitingAdminDecision) {
+        // console.warn(`[adminAdvanceToNewPeriod_DealCards] Invalid attempt by ${socket.id} in room ${roomID}. Not admin or not in decision state.`);
+        console.warn(`[adminAdvanceToNewPeriod_DealCards] Invalid attempt by ${socket.id} in room ${roomID}. Game Admin: ${game?.admin}, Socket ID: ${socket.id}, Awaiting: ${game?.state?.awaitingAdminDecision}, PricesResolved: ${game?.state?.pricesResolvedThisCycle}`);
+        return io.to(socket.id).emit('error', { message: 'Not admin or game not in admin decision state.' });
+    }
+    if (!game.state.pricesResolvedThisCycle) {
+        console.warn(`[adminAdvanceToNewPeriod_DealCards] Prices not yet resolved this cycle for room ${roomID}. Admin must resolve prices first.`);
+        return io.to(socket.id).emit('error', { message: 'Prices must be resolved first before advancing the period.' });
+    }
+
+    console.log(`[adminAdvanceToNewPeriod_DealCards] Admin ${socket.id} chose to ADVANCE TO NEW PERIOD & DEAL CARDS for room ${roomID}.`);
+    dealNewCardsAndStartNewPeriod(game); // Step 2: Deal new cards and start new period
+    // game.state.awaitingAdminDecision and game.state.pricesResolvedThisCycle are reset within dealNewCardsAndStartNewPeriod
+    emitGameState(game);
+  });
+
   socket.on('exerciseGeneralRights', ({ roomID, targetCompany, desiredRightsShares }) => {
     const game = games[roomID];
     if (!game) return socket.emit('error', { message: 'Game not found.' });
@@ -1072,7 +1217,6 @@ io.on('connection', socket => {
     emitGameState(game);
   });
 
-  // --- NEW: Handler for initiating a short sell ---
   socket.on('initiateShortSell', ({ roomID, companyId, quantity }) => {
     console.log('\\n=== SHORT SELL INITIATE START ===');
     console.log('Received short sell request:', { roomID, companyId, quantity });
@@ -1146,7 +1290,6 @@ io.on('connection', socket => {
     console.log('=== SHORT SELL INITIATE END ===\\n');
   });
 
-  // --- NEW: Handler for covering a short position ---
   socket.on('coverShortPosition', ({ roomID, companyId }) => {
     console.log('\\n=== SHORT SELL COVER START ===');
     console.log('Received cover short request:', { roomID, companyId });

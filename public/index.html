@@ -2,190 +2,219 @@
 <html>
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Satna Stock Exchange</title>
   <!-- <base href="/remote-stock-exchange/"> -->
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-  <div id="lobby" class="screen">
-    <h1>Satna Stock Exchange</h1>
-    <div class="controls">
-      <div class="create-room-section">
-        <button id="createRoom">Create Room</button>
-      </div>
-      <div class="join-section">
-        <p>Or Join an Existing Room:</p>
-        <div class="join-controls">
-          <input type="text" id="roomCode" placeholder="Room Code">
-          <input type="text" id="playerName" placeholder="Your Name">
-          <button id="joinRoom">Join Room</button>
-        </div>
-      </div>
-    </div>
-    <div id="playerList"></div>
-    <button id="startGame" style="display: none;">Start Game</button>
+  <div id="title-bar">
+    <span id="game-title-text">SATNA STOCK EXCHANGE</span>
   </div>
 
-  <div id="game" class="screen" style="display: none;">
-    <div class="game-layout">
-      <div class="game-left">
-        <div id="info-bar">
-          <span id="period">Period 1</span>
-          <span id="cash">Cash: ₹600,000</span>
-        </div>
-        <div id="canvas-container"></div>
-        <div id="controls">
-          <div class="action-buttons">
-            <button id="buy">Buy</button>
-            <button id="sell">Sell</button>
-            <button id="shortSell">Short Sell</button>
-            <!-- <button id="windfall">Play Windfall</button> -->
-            <button id="pass">Pass</button>
-            <button id="endTurn">End Turn</button>
-          </div>
-          <div class="admin-action-buttons">
-            <button id="advancePeriod" style="display: none;">Advance Period</button>
-          </div>
-        </div>
-        <div id="hand-summary" class="panel" style="display: none;">
-            <h4>Hand Price Impact</h4>
-            <div id="hand-summary-content"></div>
-        </div>
-
-        <div id="price-log-panel" class="panel" style="display: block; max-height: 200px; overflow-y: auto; margin-top: 15px;">
-            <h4>Period Price Log</h4>
-            <table id="price-log-table">
-                <thead>
-                    <tr>
-                        <th>Period</th>
-                        <!-- Company headers will be added dynamically -->
-                    </tr>
-                </thead>
-                <tbody id="price-log-table-body">
-                    <!-- Log rows will be added dynamically -->
-                </tbody>
-            </table>
-        </div>
-
-        <!-- *** NEW: General Rights Offers Panel *** -->
-        <div id="general-rights-offers-panel" class="panel" style="display: none; margin-top: 15px; padding: 15px; background: rgba(220, 255, 220, 0.7); border: 1px solid #a3d9a5;">
-            <h4>Available Rights Offers</h4>
-            <p style="font-size: 0.9em; margin-bottom: 10px;">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). This uses 1 transaction.</p>
-            <div id="general-rights-list" style="display: flex; flex-direction: column; gap: 8px;">
-                <!-- Buttons will be added here by client.js -->
-            </div>
-        </div>
-
-        <!-- Activity Log Panel -->
-        <div id="activity-log-panel" class="panel" style="margin-top: 15px;">
-            <h4>Activity Log</h4>
-            <div id="activity-log-content" style="max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
-                <!-- Log entries will be added here by client.js -->
-            </div>
-        </div>
-
-        <!-- NEW: Open Short Positions Panel -->
-        <div id="open-shorts-panel" class="panel" style="display: none; margin-top: 15px;">
-            <h4>Open Short Positions</h4>
-            <div id="open-shorts-content" style="font-size: 0.9em; line-height: 1.5;">
-                <!-- Short positions will be listed here by client.js -->
-                <!-- Example:
-                <div class="short-position-item">
-                    <span>WIPRO: 1000 @ ₹150 (Current: ₹140) P&L: +₹10,000</span>
-                    <button class="cover-short-btn" data-symbol="WIPRO">Cover</button>
-                </div>
-                -->
-            </div>
-            <p id="no-open-shorts-msg" style="display: block;">You have no open short positions.</p>
-        </div>
-
+  <div id="main-content-wrapper">
+    <div id="lobby" class="screen">
+      <h1>Satna Stock Exchange</h1>
+      
+      <div class="lobby-input-group">
+        <label for="playerName">Your Name:</label>
+        <input type="text" id="playerName" placeholder="Enter your name">
       </div>
-    </div>
-    
-    <div class="game-right">
-      <div id="leaderboard" class="panel">
-        <h2>Leaderboard</h2>
-        <div class="leaderboard-content"></div>
+
+      <div class="controls">
+        <div class="create-room-section">
+          <button id="createRoom">Create Room</button>
+        </div>
+        <div class="join-section">
+          <p>Or Join an Existing Room:</p>
+          <div class="join-controls">
+            <input type="text" id="roomCode" placeholder="Room Code">
+            <button id="joinRoom">Join Room</button>
+          </div>
+        </div>
       </div>
+      <div id="playerList"></div>
+      <button id="startGame" style="display: none;">Start Game</button>
     </div>
 
-    <div id="transaction-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="transaction-type">Buy/Sell Shares</h2>
-            <select id="company">
-              <option value="" disabled selected>Select a company</option>
-            </select>
-            <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
-            <div id="costInfo" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select a company and enter quantity.</div>
-            <div class="button-group">
-                <button id="confirm">Confirm</button>
-                <button id="cancel">Cancel</button>
+    <div id="game" class="screen" style="display: none;">
+      <div class="game-layout">
+        <div class="game-left">
+          <div id="info-bar">
+            <span id="period">Period 1</span>
+            <span id="cash">Cash: ₹600,000</span>
+          </div>
+          <div id="market-board-container"></div>
+          <div id="controls">
+            <div class="action-buttons">
+              <button id="buy">Buy</button>
+              <button id="sell">Sell</button>
+              <button id="shortSell">Short Sell</button>
+              <!-- <button id="windfall">Play Windfall</button> -->
+              <button id="pass">Pass</button>
+              <button id="endTurn">End Turn</button>
             </div>
+            <div class="admin-action-buttons">
+              <button id="advancePeriod" style="display: none;">Advance Period</button>
+              <button id="adminEndGameBtn" style="display: none;">End Game</button>
+            </div>
+          </div>
+          <div id="player-hand-container" class="panel">
+              <h4>Your Hand</h4>
+              <!-- Player hand cards will be rendered here -->
+          </div>
+          <div id="hand-summary" class="panel" style="display: none;">
+              <h4>Hand Price Impact</h4>
+              <div id="hand-summary-content"></div>
+          </div>
+
+          <div id="price-log-panel" class="panel" style="display: block; max-height: 200px; overflow-y: auto; margin-top: 15px;">
+              <h4>Period Price Log</h4>
+              <table id="price-log-table">
+                  <thead>
+                      <tr>
+                          <th>Period</th>
+                          <!-- Company headers will be added dynamically -->
+                      </tr>
+                  </thead>
+                  <tbody id="price-log-table-body">
+                      <!-- Log rows will be added dynamically -->
+                  </tbody>
+              </table>
+          </div>
+
+          <!-- *** NEW: General Rights Offers Panel *** -->
+          <div id="general-rights-offers-panel" class="panel" style="display: none; margin-top: 15px; padding: 15px; background: rgba(220, 255, 220, 0.7); border: 1px solid #a3d9a5;">
+              <h4>Available Rights Offers</h4>
+              <p style="font-size: 0.9em; margin-bottom: 10px;">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). This uses 1 transaction.</p>
+              <div id="general-rights-list" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Buttons will be added here by client.js -->
+              </div>
+          </div>
+
+          <!-- Activity Log Panel -->
+          <div id="activity-log-panel" class="panel" style="margin-top: 15px;">
+              <h4>Activity Log</h4>
+              <div id="activity-log-content" style="max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
+                  <!-- Log entries will be added here by client.js -->
+              </div>
+          </div>
+
+          <!-- NEW: Open Short Positions Panel -->
+          <div id="open-shorts-panel" class="panel" style="display: none; margin-top: 15px;">
+              <h4>Open Short Positions</h4>
+              <div id="open-shorts-content" style="font-size: 0.9em; line-height: 1.5;">
+                  <!-- Short positions will be listed here by client.js -->
+                  <!-- Example:
+                  <div class="short-position-item">
+                      <span>WIPRO: 1000 @ ₹150 (Current: ₹140) P&L: +₹10,000</span>
+                      <button class="cover-short-btn" data-symbol="WIPRO">Cover</button>
+                  </div>
+                  -->
+              </div>
+              <p id="no-open-shorts-msg" style="display: block;">You have no open short positions.</p>
+          </div>
+
         </div>
-    </div>
-
-    <div id="rights-issue-modal" class="modal">
-        <div class="modal-content">
-            <h2>Rights Issue</h2>
-            <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price. Shares are issued in multiples of 1000.</p>
-            <select id="rightsCompanySelect"></select>
-            <div style="margin-top: 10px; margin-bottom: 10px;">
-                <label for="desiredRightsSharesInput">How many shares do you want to try to acquire via rights?</label>
-                <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1" style="width: 100%; margin-top: 5px;">
-            </div>
-            <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
-            <div class="button-group">
-                <button id="confirmRightsIssue">Confirm Purchase</button>
-                <button id="cancelRightsIssue" class="button-cancel">Cancel</button>
-            </div>
+      </div>
+      
+      <div class="game-right">
+        <div id="leaderboard" class="panel">
+          <h2>Leaderboard</h2>
+          <div class="leaderboard-content"></div>
         </div>
+      </div>
+
+      <div id="transaction-modal" class="modal">
+          <div class="modal-content">
+              <h2 id="transaction-type">Buy/Sell Shares</h2>
+              <select id="company">
+                <option value="" disabled selected>Select a company</option>
+              </select>
+              <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+              <div id="costInfo" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select a company and enter quantity.</div>
+              <div class="button-group">
+                  <button id="confirm">Confirm</button>
+                  <button id="cancel">Cancel</button>
+              </div>
+          </div>
+      </div>
+
+      <div id="rights-issue-modal" class="modal">
+          <div class="modal-content">
+              <h2>Rights Issue</h2>
+              <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price. Shares are issued in multiples of 1000.</p>
+              <select id="rightsCompanySelect"></select>
+              <div style="margin-top: 10px; margin-bottom: 10px;">
+                  <label for="desiredRightsSharesInput">How many shares do you want to try to acquire via rights?</label>
+                  <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1" style="width: 100%; margin-top: 5px;">
+              </div>
+              <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
+              <div class="button-group">
+                  <button id="confirmRightsIssue">Confirm Purchase</button>
+                  <button id="cancelRightsIssue" class="button-cancel">Cancel</button>
+              </div>
+          </div>
+      </div>
+
+      <!-- *** NEW: General Rights Issue Modal *** -->
+      <div id="general-rights-issue-modal" class="modal">
+          <div class="modal-content">
+              <h2>Exercise General Rights Issue</h2>
+              <p>For <strong id="generalRightsCompanyName">[Company]</strong>. Exercise rights (1 share per 2 owned) at <strong id="generalRightsPricePerShare">₹[Price]</strong> per share. Shares are issued in multiples of 1000.</p>
+              <div style="margin-top: 10px; margin-bottom: 10px;">
+                  <label for="desiredGeneralRightsSharesInput">How many shares do you want to acquire via these rights?</label>
+                  <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1" style="width: 100%; margin-top: 5px;">
+              </div>
+              <div id="general-rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
+              <div class="button-group">
+                  <button id="confirmGeneralRightsIssue">Confirm Purchase</button>
+                  <button id="cancelGeneralRightsIssue">Cancel</button>
+              </div>
+          </div>
+      </div>
+
+      <!-- NEW: Short Sell Modal -->
+      <div id="short-sell-modal" class="modal">
+          <div class="modal-content">
+              <h2 id="shortSellTitle">Initiate Short Sell</h2>
+              <div class="modal-details">
+                  <p style="font-size:0.9em; margin-bottom:10px;">Select a company to short. You will borrow its shares and sell them, hoping the price drops so you can buy them back cheaper to cover. This uses 1 transaction.</p>
+              </div>
+              <select id="shortCompanySelect">
+                <option value="" disabled selected>Select a company</option>
+                <!-- Options populated by JS -->
+              </select>
+              <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+              <div id="shortSellInfoDiv" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select company and quantity.</div>
+              <div class="modal-details">
+                  <p style="font-size: 0.9em;">Transactions remaining: <span id="shortSellTransactionsRemaining">N/A</span></p>
+              </div>
+              <div class="button-group">
+                  <button id="confirmShortSellBtn">Confirm Short</button>
+                  <button id="cancelShortSellBtn">Cancel</button>
+              </div>
+          </div>
+      </div>
+
     </div>
 
-    <!-- *** NEW: General Rights Issue Modal *** -->
-    <div id="general-rights-issue-modal" class="modal">
-        <div class="modal-content">
-            <h2>Exercise General Rights Issue</h2>
-            <p>For <strong id="generalRightsCompanyName">[Company]</strong>. Exercise rights (1 share per 2 owned) at <strong id="generalRightsPricePerShare">₹[Price]</strong> per share. Shares are issued in multiples of 1000.</p>
-            <div style="margin-top: 10px; margin-bottom: 10px;">
-                <label for="desiredGeneralRightsSharesInput">How many shares do you want to acquire via these rights?</label>
-                <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1" style="width: 100%; margin-top: 5px;">
-            </div>
-            <div id="general-rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
-            <div class="button-group">
-                <button id="confirmGeneralRightsIssue">Confirm Purchase</button>
-                <button id="cancelGeneralRightsIssue">Cancel</button>
-            </div>
-        </div>
+    <!-- NEW: Game Over Screen -->
+    <div id="game-over-screen" class="screen panel" style="display: none; text-align: center;">
+      <h2>Game Over!</h2>
+      <h4 id="winner-announcement" style="margin-bottom: 15px;">Calculating winner...</h4>
+      <h3>Player Worth Over Time</h3>
+      <div style="width: 80%; max-width: 800px; margin: 20px auto;">
+          <canvas id="playerWorthChart"></canvas>
+      </div>
+      <div id="wisdom-quote" style="margin-top: 25px; font-style: italic; color: #333333;"></div>
+      <!-- Further summary details can be added here -->
     </div>
-
-    <!-- NEW: Short Sell Modal -->
-    <div id="short-sell-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="shortSellTitle">Initiate Short Sell</h2>
-            <div class="modal-details">
-                <p style="font-size:0.9em; margin-bottom:10px;">Select a company to short. You will borrow its shares and sell them, hoping the price drops so you can buy them back cheaper to cover. This uses 1 transaction.</p>
-            </div>
-            <select id="shortCompanySelect">
-              <option value="" disabled selected>Select a company</option>
-              <!-- Options populated by JS -->
-            </select>
-            <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
-            <div id="shortSellInfoDiv" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select company and quantity.</div>
-            <div class="modal-details">
-                <p style="font-size: 0.9em;">Transactions remaining: <span id="shortSellTransactionsRemaining">N/A</span></p>
-            </div>
-            <div class="button-group">
-                <button id="confirmShortSellBtn">Confirm Short</button>
-                <button id="cancelShortSellBtn">Cancel</button>
-            </div>
-        </div>
-    </div>
-
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
-  <script src="sketch.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script> -->
   <script src="client.js"></script>
 </body>
 </html>

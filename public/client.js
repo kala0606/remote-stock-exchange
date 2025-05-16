@@ -16,9 +16,50 @@ let currentRoom = null;
 let initialPrices = {};
 let isAdmin = false;
 let isYourTurn = false;
-window.playerHand = [];
-window.companyNames = {};
+// window.playerHand = []; // No longer needed as global for p5.js, will be part of gameState
+// window.companyNames = {}; // Will be part of gameState or passed directly
 let priceLog = [];
+
+// NEW: Company Colors
+const COMPANY_COLOR_PALETTE = [
+    '#FF6347', // Tomato
+    '#4682B4', // SteelBlue
+    '#32CD32', // LimeGreen
+    '#FFD700', // Gold
+    '#6A5ACD', // SlateBlue
+    '#FF69B4', // HotPink
+    '#00CED1', // DarkTurquoise
+    '#FFA500', // Orange
+    '#8A2BE2', // BlueViolet
+    '#D2691E'  // Chocolate
+];
+let companyColors = {}; // To be populated with { companyId: color }
+
+// Helper function to lighten a hex color
+function lightenColor(hex, percent) {
+    try {
+        if (!hex || hex.length < 7 || hex[0] !== '#') return hex; // Basic validation
+        let r = parseInt(hex.slice(1, 3), 16);
+        let g = parseInt(hex.slice(3, 5), 16);
+        let b = parseInt(hex.slice(5, 7), 16);
+
+        // Ensure percent is between 0 and 1
+        const p = Math.max(0, Math.min(1, percent));
+
+        r = Math.round(r + (255 - r) * p);
+        g = Math.round(g + (255 - g) * p);
+        b = Math.round(b + (255 - b) * p);
+
+        const rHex = r.toString(16).padStart(2, '0');
+        const gHex = g.toString(16).padStart(2, '0');
+        const bHex = b.toString(16).padStart(2, '0');
+
+        return `#${rHex}${gHex}${bHex}`;
+    } catch (e) {
+        console.error('Error lightening color:', hex, e);
+        return hex; // Return original on error
+    }
+}
 
 // Track modal state - This seems unused, consider removing if not needed
 let modalState = {
@@ -69,7 +110,7 @@ const buyBtn = document.getElementById('buy');
 const sellBtn = document.getElementById('sell');
 const passBtn = document.getElementById('pass');
 const endTurnBtn = document.getElementById('endTurn');
-const handDiv = document.getElementById('hand'); // Used by p5.js sketch globally
+// const handDiv = document.getElementById('hand'); // No longer needed for p5.js
 const transactionModal = document.getElementById('transaction-modal');
 const companySelect = document.getElementById('company');
 const quantityInput = document.getElementById('quantityInput');
@@ -100,6 +141,33 @@ const confirmGeneralRightsIssueBtn = document.getElementById('confirmGeneralRigh
 const cancelGeneralRightsIssueBtn = document.getElementById('cancelGeneralRightsIssue');
 const activityLogPanel = document.getElementById('activity-log-panel');
 const activityLogContent = document.getElementById('activity-log-content');
+const adminEndGameBtn = document.getElementById('adminEndGameBtn'); // NEW: End Game Button
+const gameOverScreen = document.getElementById('game-over-screen'); // NEW: Game Over Screen
+const playerWorthChartCanvas = document.getElementById('playerWorthChart'); // NEW: Chart Canvas
+const winnerAnnouncementElement = document.getElementById('winner-announcement'); // NEW: Winner announcement
+const wisdomQuoteElement = document.getElementById('wisdom-quote'); // NEW: Wisdom quote
+
+// --- NEW: Wisdom Quotes ---
+const wisdomQuotes = [
+    "The stock market is filled with individuals who know the price of everything, but the value of nothing. - Philip Fisher",
+    "An investment in knowledge pays the best interest. - Benjamin Franklin",
+    "The four most dangerous words in investing are: 'This time it\'s different.' - Sir John Templeton",
+    "Know what you own, and know why you own it. - Peter Lynch",
+    "The best time to plant a tree was 20 years ago. The second best time is now. - Chinese Proverb",
+    "Risk comes from not knowing what you\'re doing. - Warren Buffett",
+    "It\'s not whether you\'re right or wrong that\'s important, but how much money you make when you\'re right and how much you lose when you\'re wrong. - George Soros",
+    "The stock market is a device for transferring money from the impatient to the patient. - Warren Buffett",
+    "In investing, what is comfortable is rarely profitable. - Robert Arnott",
+    "Don\'t look for the needle in the haystack. Just buy the haystack! - John C. Bogle"
+];
+// --- END NEW: Wisdom Quotes ---
+
+// --- NEW: Admin Decision Panel Elements (will be created if not in HTML) ---
+let adminDecisionPanel = document.getElementById('admin-decision-panel');
+let adminResolvePricesBtn = document.getElementById('adminResolvePricesBtn');
+let adminAdvanceNewPeriodBtn = document.getElementById('adminAdvanceNewPeriodBtn');
+let adminDecisionMessage = document.getElementById('adminDecisionMessage');
+// --- END NEW ---
 
 // Short Selling Elements (New)
 const shortSellBtn = document.getElementById('shortSell');
@@ -134,13 +202,27 @@ let isRejoining = false;
 let currentPlayerName = null;
 let currentSessionToken = null;
 let currentGameState = null; // Central game state holder
+let activityLogEntries = []; // MODIFIED: Added to store activity log entries
+let handDeltas = {}; // NEW: To store net impact of hand cards
 
 let lastLoggedPeriodForSeparator = null;
 let lastLoggedRoundForSeparator = null;
 let cardBeingPlayed = null;
 
-function getCompanyName(id) {
-    return window.companyNames[id] || id;
+function getCompanyName(companyId, companiesStaticData) {
+    // companiesStaticData is expected to be an array of company objects from state.state.companyList
+    if (Array.isArray(companiesStaticData)) {
+        const company = companiesStaticData.find(c => c.id === companyId);
+        if (company) {
+            return company.name || companyId;
+        }
+    }
+    // Fallback to global currentGameState if direct pass failed or wasn't an array
+    if (currentGameState && currentGameState.state && currentGameState.state.companyList) {
+        const companyFromGlobal = currentGameState.state.companyList.find(c => c.id === companyId);
+        if (companyFromGlobal) return companyFromGlobal.name;
+    }
+    return companyId; // Return ID if name not found
 }
 
 socket.on('connect', () => {
@@ -221,11 +303,19 @@ if (createRoomBtn) {
                         history.pushState({ roomID, playerName: currentPlayerName, token: currentSessionToken }, ``, url.toString());
                         console.log('[joinRoom] Updated URL with session token:', url.toString());
                     }
-                    if (startGameBtn) startGameBtn.style.display = 'block';
+                    // After successful auto-join post-creation, this player is admin.
+                    // The global isAdmin flag will be set by the subsequent gameState event.
+                    // We can preemptively show the start button here for the creator.
+                    if (startGameBtn) startGameBtn.style.display = 'block'; 
+                    isAdmin = true; // Tentatively set for immediate UI, will be confirmed by gameState
                 });
             } else {
                 alert('Failed to create room. Please try again.');
             }
+            currentRoom = roomID;
+            // Do NOT show startGameBtn here for a regular joiner.
+            // Visibility will be handled by updateUI based on gameState from server.
+            // if (startGameBtn) startGameBtn.style.display = 'block'; 
         });
     };
 }
@@ -421,8 +511,11 @@ socket.on('error', ({ message }) => {
 
 function updatePlayerList(players, currentTurnPlayerId) {
     if (!playerListDiv || !players) return;
-    const currentPlayer = players.find(p => p.id === socket.id);
-    isAdmin = currentPlayer?.isAdmin || false;
+    // const currentPlayer = players.find(p => p.id === socket.id);
+    // isAdmin = currentPlayer?.isAdmin || false; // Previous global isAdmin update
+
+    const currentPlayerForControls = players.find(p => p.id === socket.id); // Find the current viewing player
+    const localIsAdminForControls = currentPlayerForControls ? currentPlayerForControls.isAdmin : false; // Determine if they are admin for showing controls
     
     playerListDiv.innerHTML = '<h2>Players</h2>' + 
         players.map(p => `
@@ -432,18 +525,19 @@ function updatePlayerList(players, currentTurnPlayerId) {
                     <span>${p.name}</span>
                     ${p.isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
                 </div>
-                ${isAdmin && p.id !== socket.id ? `
+                ${localIsAdminForControls && p.id !== socket.id ? ` 
                     <div class="admin-controls">
-                        <button class="kick-btn" onclick="kickPlayer('${p.name}')">Kick</button>
-                        <button class="admin-btn" onclick="transferAdmin('${p.name}')">Make Admin</button>
+                        <button class="kick-btn game-button game-button-small" onclick="kickPlayer('${p.name}')">Kick</button>
+                        <button class="admin-btn game-button game-button-small" onclick="transferAdmin('${p.name}')">Make Admin</button>
                     </div>
                 ` : ''}
             </div>
         `).join('');
     
-    if (startGameBtn && gameScreen) {
-        startGameBtn.style.display = (gameScreen.style.display === 'none' && isAdmin) ? 'block' : 'none';
-    }
+    // The following lines that manipulated startGameBtn.style.display were removed:
+    // if (startGameBtn && gameScreen) {
+    //     startGameBtn.style.display = (gameScreen.style.display === 'none' && isAdmin) ? 'block' : 'none';
+    // }
 }
 
 function kickPlayer(playerName) {
@@ -475,39 +569,63 @@ socket.on('gameState', state => {
         isRejoining = false;
     }
     
-    console.log('Game state updated:', state);
+    console.log('Game state updated:', JSON.parse(JSON.stringify(state)));
     currentGameState = state; // Central update
-    console.log('[gameState] state.hand BEFORE UI update:', JSON.parse(JSON.stringify(state.hand)));
-    const currentPlayer = state.players.find(p => p.id === socket.id);
     
     initialPrices = state.state?.init || {};
-    window.companyNames = state.state?.companyNames || {};
-    // Store the full company list if available
     if (state.state?.companyList) {
-        currentGameState.state.companyList = state.state.companyList; 
+        currentGameState.state.companyList = state.state.companyList;
+        window.companyNames = state.state.companyList.reduce((acc, company) => {
+            acc[company.id] = company.name;
+            return acc;
+        }, {});
+
+        // Populate companyColors if not already done or if companyList changed significantly (simple check here)
+        if (Object.keys(companyColors).length === 0 || Object.keys(companyColors).length !== state.state.companyList.length) {
+            companyColors = {}; // Reset if needed
+            state.state.companyList.forEach((company, index) => {
+                companyColors[company.id] = COMPANY_COLOR_PALETTE[index % COMPANY_COLOR_PALETTE.length];
+            });
+            console.log('Company colors assigned:', companyColors);
+        }
     }
     
-    // Use the direct boolean flags from the server
     isAdmin = state.isAdmin; 
     isYourTurn = state.isYourTurn;
     
-    console.log(`Is Admin: ${isAdmin}, Is Your Turn: ${isYourTurn}, Turn Player ID from state.state: ${state.state?.currentTurnPlayerId}`);
-
     const statePeriod = state.state?.period;
     const stateRound = state.state?.roundNumberInPeriod;
-    const lastLogEntry = priceLog.length > 0 ? priceLog[priceLog.length - 1] : null;
-    const shouldLog = !lastLogEntry || 
-                      statePeriod > lastLogEntry.period || 
-                      (statePeriod === lastLogEntry.period && stateRound === 1 && lastLogEntry.round !== 1);
+    const pricesJustUpdatedByServer = state.state?.prices;
+    const pricesWereJustResolvedByAdminAction = state.state?.pricesResolvedThisCycle;
 
-    if (shouldLog && state.state?.prices && statePeriod !== undefined && stateRound !== undefined) {
-        console.log(`[gameState] Logging prices for Period ${statePeriod}, Round ${stateRound}`);
+    const lastLogEntry = priceLog.length > 0 ? priceLog[priceLog.length - 1] : null;
+    let logThisState = false;
+
+    if (pricesWereJustResolvedByAdminAction && pricesJustUpdatedByServer && statePeriod !== undefined) {
+        if (!(lastLogEntry &&
+              lastLogEntry.period === statePeriod &&
+              lastLogEntry.round === stateRound && 
+              lastLogEntry.wasResolved === true)) { 
+            logThisState = true;
+        }
+    } else if (!lastLogEntry && pricesJustUpdatedByServer && statePeriod === 1 && stateRound === 0 && state.state.gameStarted === false) {
+        // Special case: Log initial prices if game hasn't officially started but we have them (e.g. Period 1, Round 0 for display before start)
+        // This might be too specific or could be handled by ensuring first log is after first resolution.
+        // For now, focusing on user's request to reduce logs. If initial state is needed, it can be a separate consideration.
+        // REINSTATE INITIAL LOGGING:
+        console.log(`[gameState] Logging initial prices. Period ${statePeriod}, Round ${stateRound}.`);
+        logThisState = true; 
+    }
+
+
+    if (logThisState) {
+        console.log(`[gameState] Logging prices (RESOLVED). Period ${statePeriod}, Round ${stateRound}.`);
         priceLog.push({
             period: statePeriod,
-            round: stateRound,
-            prices: { ...state.state.prices }
+            round: stateRound, 
+            prices: { ...pricesJustUpdatedByServer },
+            wasResolved: true // All entries in priceLog will now be from resolved states
         });
-        updatePriceLogTable();
     }
 
     if (lobbyScreen && gameScreen && lobbyScreen.style.display !== 'none') {
@@ -515,288 +633,269 @@ socket.on('gameState', state => {
         gameScreen.style.display = 'block';
     }
     
-    updateUI(state); // Call the main UI update function
+    updateUI(state);
 });
 
 function updateUI(state) { // Renamed from gameState to state for consistency with call
-    if (!state || !state.players || !state.state || !state.state.prices || !window.companyNames) {
-      console.error("GameState for UI update is incomplete:", state);
-      return;
-    }
-    const currentPlayer = state.players.find(p => p.id === socket.id);
-    if (!currentPlayer) {
-        console.warn("Current player not in game state. Forcing lobby.");
+    console.log("[updateUI] Received game state:", state);
+    currentGameState = state; // Store the latest state globally
+
+    if (!state || !state.players || !state.state) { // Added check for state.state
+        console.error("[updateUI] Invalid or incomplete game state received (missing players or state.state).");
         if (lobbyScreen) lobbyScreen.style.display = 'flex';
         if (gameScreen) gameScreen.style.display = 'none';
         return;
     }
 
-    isYourTurn = state.state.currentTurnPlayerId === socket.id; // Re-affirm here
+    const companiesStaticData = state.state.companyList || []; 
+    const currentMarketPrices = state.state.prices || {};      
+    const currentInitialPrices = state.state.init || {};       
 
-    // Update period and turn info
-    const currentPeriod = state.state?.period || 1;
-    const roundNumber = state.state?.roundNumberInPeriod || 1;
-    const turnPlayer = state.players.find(p => p.id === state.state.currentTurnPlayerId);
-    const turnPlayerName = turnPlayer ? turnPlayer.name : 'Waiting...';
+    const me = state.players.find(p => p.id === socket.id || p.name === currentPlayerName);
+    const playerHandToRender = state.hand || []; 
 
-    if (periodSpan) {
-        let turnText = `${turnPlayerName}: Turn ${roundNumber} of 3`;
-        if (turnPlayerName === 'Waiting...') {
-            turnText = `Round ${roundNumber} | Waiting for player...`;
-        }
-
-        if (isYourTurn && turnPlayerName !== 'Waiting...') {
-            // Highlight if it's your turn
-            periodSpan.innerHTML = `Period ${currentPeriod} | <span class="your-turn-indicator-text">${turnPlayerName} (Your Turn)</span>: Turn ${roundNumber} of 3`;
-        } else {
-            periodSpan.textContent = `Period ${currentPeriod} | ${turnText}`;
-        }
+    if (me) {
+        if (cashSpan) cashSpan.textContent = `Cash: ₹${me.cash.toLocaleString()}`;
+        updateGeneralRightsOffers(me); 
+        updateOpenShortsPanel(me, currentMarketPrices, companiesStaticData); 
+    } else {
+        if (cashSpan) cashSpan.textContent = "Cash: N/A";
+        updateGeneralRightsOffers(null);
+        updateOpenShortsPanel(null, currentMarketPrices, companiesStaticData);
     }
-     if (cashSpan) cashSpan.textContent = `Cash: ₹${currentPlayer.cash.toLocaleString()}`;
 
-    // --- Debug Log for Button State ---
-    console.log(`[updateUI - Button State Check] Player: ${currentPlayer.name}, isYourTurn: ${isYourTurn}, transactionsRemaining: ${currentPlayer.transactionsRemaining}`);
-    // --- End Debug Log ---
+    const currentPlayerNameForBar = state.players.find(p => p.id === state.state.currentTurnPlayerId)?.name || 'N/A';
+    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-text">Your Turn</span>' : ''; // Removed parentheses
+    const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
 
-    // Update action buttons
-    if (buyBtn) buyBtn.disabled = !isYourTurn || currentPlayer.transactionsRemaining <= 0;
-    if (sellBtn) sellBtn.disabled = !isYourTurn || currentPlayer.transactionsRemaining <= 0;
-    if (shortSellBtn) shortSellBtn.disabled = !isYourTurn || currentPlayer.transactionsRemaining <= 0;
-    if (passBtn) passBtn.disabled = !isYourTurn;
-    if (endTurnBtn) endTurnBtn.disabled = !isYourTurn;
+    if (periodSpan) periodSpan.innerHTML = `Period ${state.state.period} | Round ${state.state.roundNumberInPeriod} | Player: ${highlightedPlayerName}${yourTurnText}`;
     
-    updatePlayerHand(state.hand || []); // Use state.hand directly
-    updatePlayerList(state.players, state.state.currentTurnPlayerId);
-    updateLeaderboard(state.players, state.state.prices);
-    // updateMarketBoard(state.state.prices); // This should be called by p5 sketch via window data
-    updateAdminControls();
-    updateHandSummaryDisplay(); // Update based on handDeltas
-    updatePriceLogTable();
-    updateGeneralRightsOffers(currentPlayer);
-    updateOpenShortsPanel(currentPlayer, state.state.prices, currentGameState.state.companyList || []); // Pass companyList
+    renderMarketBoard(currentMarketPrices, companiesStaticData, currentInitialPrices); 
+    renderPlayerHand(playerHandToRender, companiesStaticData); 
 
-    // Make data available for p5.js sketch
-    if (typeof window.updateP5Data === 'function') {
-        window.updateP5Data({
-            marketPrices: state.state.prices,
-            companyData: currentGameState.state.companyList || [], // Pass companyList to p5
-            playerHand: state.hand || [], // Use state.hand directly
-            playerPortfolio: currentPlayer.portfolio || {},
-            activeSuspensions: state.state.activeSuspensions || {}
-        });
-    }
-}
+    updatePlayerList(state.players, state.state.currentTurnPlayerId); 
+    updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
+    updatePriceLogTable(); 
 
+    // NEW: Calculate hand deltas and update the summary display
+    calculateHandDeltas(playerHandToRender, companiesStaticData); // Pass companiesStaticData for getCompanyName
+    updateHandSummaryDisplay(); // Call the function to update the display
 
-socket.on('dealCards', cards => { // This might be redundant if hand is in gameState
-    window.playerHand = cards;
-    // renderHand(); // renderHand is now empty
-    updateHandSummaryDisplay(); // Recalculate deltas if hand changes standalone
-    if (typeof redraw === 'function') redraw(); // Tell p5 to redraw
-});
-
-socket.on('activityLog', (logEntry) => {
-    console.log('[client.js] Received activityLog event:', logEntry);
-    if (!activityLogContent) return;
-
-    if (logEntry.period !== undefined && logEntry.round !== undefined) {
-        if (lastLoggedPeriodForSeparator !== null && logEntry.period !== lastLoggedPeriodForSeparator) {
-            const periodSeparator = document.createElement('div');
-            periodSeparator.className = 'log-separator period-separator';
-            periodSeparator.textContent = `--- New Period ${logEntry.period} ---`;
-            activityLogContent.insertBefore(periodSeparator, activityLogContent.firstChild);
-            lastLoggedRoundForSeparator = null;
-        } else if (lastLoggedRoundForSeparator !== null && logEntry.round !== lastLoggedRoundForSeparator && logEntry.period === lastLoggedPeriodForSeparator) {
-            const roundSeparator = document.createElement('div');
-            roundSeparator.className = 'log-separator round-separator';
-            roundSeparator.textContent = `--- Round ${logEntry.round} ---`;
-            activityLogContent.insertBefore(roundSeparator, activityLogContent.firstChild);
-        }
-        lastLoggedPeriodForSeparator = logEntry.period;
-        lastLoggedRoundForSeparator = logEntry.round;
-    } else if (logEntry.actionType === 'PERIOD_RESOLVED' || logEntry.actionType === 'START_GAME') {
-        if (activityLogContent.firstChild) {
-             const hr = document.createElement('hr');
-             hr.className = 'log-separator-system';
-             activityLogContent.insertBefore(hr, activityLogContent.firstChild);
-        }
-        lastLoggedPeriodForSeparator = null;
-        lastLoggedRoundForSeparator = null;
-    }
-
-    const logElement = document.createElement('div');
-    logElement.classList.add('log-entry');
-    let message = ``;
-    if (logEntry.period !== undefined && logEntry.round !== undefined && logEntry.actionType !== 'PERIOD_RESOLVED' && logEntry.actionType !== 'START_GAME') { // Don't prefix system messages
-        message += `P${logEntry.period} R${logEntry.round} - `;
-    }
-    if (logEntry.playerName) {
-        message += `${logEntry.playerName}: `;
-    }
-    message += logEntry.details || 'An action occurred.';
-    logElement.textContent = message;
-    activityLogContent.insertBefore(logElement, activityLogContent.firstChild);
-    if (activityLogContent.children.length > 100) {
-        activityLogContent.removeChild(activityLogContent.lastChild);
-    }
-});
-
-function playWindfall(sub) { // This seems to be for an older modal structure. Review if still needed.
-    const card = window.playerHand.find(c => c.type === 'windfall' && c.sub === sub);
-    if (card && currentRoom) {
-        socket.emit('windfall', { roomID: currentRoom, card });
-    }
-    // modal.style.display = 'none'; // 'modal' is not defined here. This needs to point to the specific windfall modal if any.
-}
-
-let handDeltas = {};
-function calculateHandDeltas(hand) {
-    const deltas = {};
-    if (!hand || hand.length === 0) return deltas;
-    hand.forEach(card => {
-        if (card && card.type === 'price' && card.company && typeof card.change === 'number') {
-            deltas[card.company] = (deltas[card.company] || 0) + card.change;
-        }
-    });
-    return deltas;
-}
-
-function updateHandSummaryDisplay() {
-    if (!currentGameState || !currentGameState.state || !currentGameState.state.prices) {
-        if(handSummaryDiv) handSummaryDiv.style.display = 'none';
-        return;
-    }
-    if (Object.keys(handDeltas).length === 0) {
-        if(handSummaryDiv) handSummaryDiv.style.display = 'none';
-        return;
-    }
-    let summaryHtml = '<table class="hand-impact-table"><thead><tr><th>Company</th><th>Net Impact</th></tr></thead><tbody>';
-    const sortedCompanies = Object.keys(handDeltas).sort((a, b) => getCompanyName(a).localeCompare(getCompanyName(b)));
-    let hasVisibleEntries = false;
-    sortedCompanies.forEach(companyId => {
-        const delta = handDeltas[companyId];
-        if (delta === 0 && Object.keys(handDeltas).length > 1) return;
-        hasVisibleEntries = true;
-        const sign = delta > 0 ? '+' : '';
-        const direction = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'no-change');
-        const triangle = delta > 0 ? '▲' : (delta < 0 ? '▼' : '-');
-        let percentageImpactText = '';
-        const currentPrice = currentGameState.state.prices[companyId];
-        if (currentPrice !== undefined && currentPrice > 0) {
-            percentageImpactText = ` (${((delta / currentPrice) * 100).toFixed(1)}%)`;
-        } else if (delta !== 0) {
-            percentageImpactText = ' (N/A%)';
-        }
-        summaryHtml += `<tr><td>${getCompanyName(companyId)}</td><td class="summary-${direction}">${triangle} ${sign}${delta}${percentageImpactText}</td></tr>`;
-    });
-    summaryHtml += '</tbody></table>';
-
-    if (hasVisibleEntries && handSummaryContentDiv && handSummaryDiv) {
-        handSummaryContentDiv.innerHTML = summaryHtml;
-        handSummaryDiv.style.display = 'block';
-    } else if (handSummaryDiv) {
-        handSummaryDiv.style.display = 'none';
-    }
-}
-
-function updatePlayerHand(hand) {
-    console.log('[updatePlayerHand] Received hand:', JSON.parse(JSON.stringify(hand)));
-    window.playerHand = hand || [];
-    handDeltas = calculateHandDeltas(window.playerHand);
-    updateHandSummaryDisplay();
-    if (typeof redraw === 'function') redraw(); // Tell p5 to redraw if hand changes
-}
-
-// function renderHand() { /* Intentionally empty, p5 handles rendering */ }
-
-function updateLeaderboard(players, prices) {
-    if (!leaderboardContent || !players || !prices) return;
-    const playerStats = players.map(player => {
-        const portfolioValue = Object.entries(player.portfolio || {}).reduce((total, [companyId, shares]) => {
-            return total + (shares * (prices[companyId] || 0));
-        }, 0);
-        const totalValue = portfolioValue + player.cash;
-        return { name: player.name, cash: player.cash, portfolio: player.portfolio || {}, totalValue, portfolioValue, id: player.id };
-    }).sort((a, b) => b.totalValue - a.totalValue);
-
-    leaderboardContent.innerHTML = playerStats.map(player => {
-        const portfolioEntries = Object.entries(player.portfolio)
-            .sort(([compA], [compB]) => getCompanyName(compA).localeCompare(getCompanyName(compB)))
-            .map(([companyId, shares]) => {
-                if (shares <= 0) return '';
-                const shareValue = shares * (prices[companyId] || 0);
-                return `<div class="portfolio-entry"><span class="company-name">${getCompanyName(companyId)}</span><span class="share-count">${shares.toLocaleString()} shares</span><span class="share-value">₹${shareValue.toLocaleString()}</span></div>`;
-            }).join('');
-        return `<div class="player-stats"><div class="player-name">${player.name}</div><div class="player-cash">Cash: ₹${player.cash.toLocaleString()}</div><div class="player-portfolio">${portfolioEntries || '<div class="no-shares">No shares owned</div>'}</div><div class="portfolio-summary"><div>Portfolio Value: ₹${player.portfolioValue.toLocaleString()}</div><div class="player-total">Total Value: ₹${player.totalValue.toLocaleString()}</div></div></div>`;
-    }).join('');
-}
-
-// mousePressed is defined in sketch.js where p5 context exists
-
-function handleCardClick(card, index) {
-    if (!card || index === undefined) {
-        console.error("handleCardClick: Invalid card or index.", card, index);
-        return;
-    }
-    console.log(`[handleCardClick] Called for card type: ${card.type}, sub: ${card.sub}, index: ${index}, played: ${card.played}`);
-
-    if ((transactionModal && transactionModal.style.display === 'flex') ||
-        (rightsIssueModal && rightsIssueModal.style.display === 'flex') ||
-        (generalRightsIssueModal && generalRightsIssueModal.style.display === 'flex') ||
-        (shortSellModal && shortSellModal.style.display === 'block') // Check new modal too
-    ) {
-        console.log('Card click ignored: a modal is open.');
-        return;
-    }
-    if (!isYourTurn) {
-        console.log('Card click ignored: not your turn.');
-        return;
-    }
-    if (card.played) {
-        console.log('Card click ignored: card already played this turn.');
-        return;
-    }
-
-    cardBeingPlayed = { ...card, indexInHand: index }; // Store index in hand
-    if (card.type === 'windfall') {
-        if (card.sub === 'RIGHTS') {
-            showRightsIssueModal();
+    if (lobbyScreen && gameScreen) {
+        if (state.state && state.state.gameStarted) {
+            lobbyScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
         } else {
-            socket.emit('windfall', { roomID: currentRoom, card: cardBeingPlayed }); // Send card with its original index if server needs it
-            // Optimistically mark played
-            if (window.playerHand[index]) window.playerHand[index].played = true;
-            if (typeof redraw === 'function') redraw();
+            lobbyScreen.style.display = 'flex';
+            gameScreen.style.display = 'none';
         }
-    } else if (card.type === 'price') {
-        // For price cards, usually they are played automatically or trigger a choice.
-        // For now, let's assume playing a price card means you intend to use its effect.
-        // Server should handle the price change. Client just informs server.
-        // If price card itself should trigger a buy/sell choice for THAT company, that's more complex.
-        // Let's assume playing a price card directly applies its effect.
-        console.log(`Price card (${card.company}) played. Emitting 'playPriceCard'.`);
-        socket.emit('playPriceCard', { roomID: currentRoom, card: cardBeingPlayed });
-        if (window.playerHand[index]) window.playerHand[index].played = true;
-        if (typeof redraw === 'function') redraw();
+    }
+
+    // --- NEW: Admin Decision Panel Logic ---
+    if (!adminDecisionPanel) { 
+        const gameControlsDiv = document.querySelector('.game-controls') || document.getElementById('game-screen') || document.body; 
+        adminDecisionPanel = document.createElement('div');
+        adminDecisionPanel.id = 'admin-decision-panel';
+        adminDecisionPanel.className = 'panel admin-decision-panel';
+        adminDecisionPanel.style.textAlign = 'center';
+
+        const title = document.createElement('h4');
+        title.textContent = 'Admin Action Required';
+        adminDecisionPanel.appendChild(title);
+
+        adminDecisionMessage = document.createElement('p');
+        adminDecisionMessage.id = 'adminDecisionMessage';
+        adminDecisionPanel.appendChild(adminDecisionMessage);
+
+        adminResolvePricesBtn = document.createElement('button');
+        adminResolvePricesBtn.id = 'adminResolvePricesBtn';
+        adminResolvePricesBtn.textContent = 'End Period & Resolve Prices';
+        adminResolvePricesBtn.className = 'game-button';
+        adminDecisionPanel.appendChild(adminResolvePricesBtn);
+
+        adminAdvanceNewPeriodBtn = document.createElement('button');
+        adminAdvanceNewPeriodBtn.id = 'adminAdvanceNewPeriodBtn';
+        adminAdvanceNewPeriodBtn.textContent = 'Advance to New Period & Deal Cards';
+        adminAdvanceNewPeriodBtn.className = 'game-button';
+        adminAdvanceNewPeriodBtn.style.marginLeft = '10px';
+        adminDecisionPanel.appendChild(adminAdvanceNewPeriodBtn);
+        
+        const actionButtonsDiv = document.querySelector('.action-buttons');
+        if (actionButtonsDiv) {
+            actionButtonsDiv.parentNode.insertBefore(adminDecisionPanel, actionButtonsDiv);
+        } else {
+            gameControlsDiv.appendChild(adminDecisionPanel);
+        }
+    }
+
+    const normalActionButtons = [buyBtn, sellBtn, shortSellBtn, passBtn, endTurnBtn];
+    const canPerformTransaction = isYourTurn && me && me.transactionsRemaining > 0 && !state.state.awaitingAdminDecision;
+    const canPassOrEnd = isYourTurn && !state.state.awaitingAdminDecision;
+
+    if (state.state.awaitingAdminDecision) {
+        adminDecisionPanel.style.display = 'block';
+        normalActionButtons.forEach(btn => { if (btn) btn.disabled = true; });
+        // ADD CONSOLE LOG HERE
+        console.log(`[updateUI] Admin Decision Logic: awaitingAdminDecision=${state.state.awaitingAdminDecision}, pricesResolvedThisCycle=${state.state.pricesResolvedThisCycle}, isAdmin=${isAdmin}`);
+
+        if (isAdmin) {
+            adminDecisionMessage.textContent = 'The 3-round mark has been reached. Please choose an action.';
+            adminResolvePricesBtn.style.display = 'inline-block';
+            adminAdvanceNewPeriodBtn.style.display = 'inline-block';
+
+            if (state.state.pricesResolvedThisCycle === false) {
+                adminResolvePricesBtn.disabled = false;
+                adminAdvanceNewPeriodBtn.disabled = true;
+                adminResolvePricesBtn.onclick = () => {
+                    // ADD CONSOLE LOG HERE
+                    console.log(`[Admin Action] Emitting 'adminResolvePeriodAndDeal' for room ${currentRoom}. Client's current pricesResolvedThisCycle: ${currentGameState?.state?.pricesResolvedThisCycle}`);
+                    socket.emit('adminResolvePeriodAndDeal', { roomID: currentRoom }); 
+                };
+            } else {
+                adminResolvePricesBtn.disabled = true;
+                adminAdvanceNewPeriodBtn.disabled = false;
+                adminAdvanceNewPeriodBtn.onclick = () => socket.emit('adminAdvanceToNewPeriod_DealCards', { roomID: currentRoom });
+            }
+        } else {
+            adminDecisionMessage.textContent = 'Waiting for the admin to decide on period progression...';
+            adminResolvePricesBtn.style.display = 'none';
+            adminAdvanceNewPeriodBtn.style.display = 'none';
+        }
+        // if(advancePeriodBtn) advancePeriodBtn.style.display = 'none'; // Already handled by general hide below
 
     } else {
-        console.log(`Unhandled card type (${card.type}) clicked.`);
+        adminDecisionPanel.style.display = 'none';
+        if (buyBtn) buyBtn.disabled = !canPerformTransaction;
+        if (sellBtn) sellBtn.disabled = !canPerformTransaction;
+        if (shortSellBtn) shortSellBtn.disabled = !canPerformTransaction;
+        if (passBtn) passBtn.disabled = !canPassOrEnd;
+        if (endTurnBtn) endTurnBtn.disabled = !canPassOrEnd;
+        // if(advancePeriodBtn && isAdmin) advancePeriodBtn.style.display = 'inline-block'; // Removed
     }
+    
+    if(advancePeriodBtn) advancePeriodBtn.style.display = 'none'; // Always hide the old button
+    if(startGameBtn) startGameBtn.style.display = isAdmin && state.state && !state.state.gameStarted ? 'block' : 'none';
+    if(adminEndGameBtn) adminEndGameBtn.style.display = isAdmin && state.state && state.state.gameStarted ? 'inline-block' : 'none'; // NEW: Show/hide End Game button
 }
 
-function updateAdminControls() {
-    if (advancePeriodBtn) {
-        advancePeriodBtn.style.display = isAdmin ? 'block' : 'none';
-    }
-}
+// NEWLY ADDED: updateLeaderboard function
+function updateLeaderboard(players, marketPrices, companiesStaticData) {
+    if (!leaderboardContent) return;
 
-if (advancePeriodBtn) {
-    advancePeriodBtn.addEventListener('click', () => {
-        if (!isAdmin || !currentRoom) return;
-        if (confirm('Are you sure you want to advance to the next period?')) {
-            socket.emit('advancePeriod', { roomID: currentRoom });
+    if (!players || players.length === 0 || !marketPrices || !companiesStaticData || companiesStaticData.length === 0) {
+        leaderboardContent.innerHTML = '<p>Leaderboard data not available yet.</p>';
+        return;
+    }
+
+    const rankedPlayers = players.map(player => {
+        let portfolioValue = 0;
+        const portfolioDetails = [];
+
+        if (player.portfolio) {
+            for (const companyId in player.portfolio) {
+                const shares = player.portfolio[companyId];
+                if (shares > 0) {
+                    const currentPrice = marketPrices[companyId] !== undefined ? marketPrices[companyId] : 0;
+                    const value = shares * currentPrice;
+                    portfolioValue += value;
+                    const companyName = getCompanyName(companyId, companiesStaticData);
+                    const color = companyColors[companyId] || '#000000';
+                    portfolioDetails.push({
+                        name: companyName,
+                        shares: shares.toLocaleString(),
+                        value: value.toLocaleString(),
+                        color: color
+                    });
+                }
+            }
         }
+        const overallWorth = player.cash + portfolioValue;
+        return { ...player, portfolioValue, overallWorth, portfolioDetails };
+    }).sort((a, b) => b.overallWorth - a.overallWorth);
+
+    let leaderboardHTML = '<ol class="leaderboard-list">';
+    rankedPlayers.forEach(player => {
+        leaderboardHTML += `<li class="leaderboard-item">
+            <div class="leaderboard-player-column">
+                <div class="leaderboard-player-name">${player.name} ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</div>
+                <div class="leaderboard-main-financials">
+                    <span class="leaderboard-overall-worth">Overall Worth: ₹${player.overallWorth.toLocaleString()}</span>
+                    <span>Cash: ₹${player.cash.toLocaleString()}</span>
+                </div>
+            </div>
+            <div class="leaderboard-shares-column">
+                <div class="leaderboard-portfolio-header">Portfolio Value: ₹${player.portfolioValue.toLocaleString()}</div>`;
+        
+        if (player.portfolioDetails.length > 0) {
+            leaderboardHTML += '<ul class="leaderboard-portfolio-details">';
+            player.portfolioDetails.forEach(item => {
+                leaderboardHTML += `<li><span style="color:${item.color}; font-weight:bold;">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
+            });
+            leaderboardHTML += '</ul>';
+        }
+        leaderboardHTML += '</div></li>'; // Close shares-column and item
     });
+    leaderboardHTML += '</ol>';
+    leaderboardContent.innerHTML = leaderboardHTML;
 }
+
+function playWindfall(sub) {
+    // This function is likely obsolete or needs review
+    console.log("playWindfall function called with", sub, "- this is likely obsolete.");
+}
+
+function handleCardClick(card, index) {
+    if (!currentRoom || !isYourTurn) {
+        alert('Not your turn or not in a room.');
+        return;
+    }
+
+    if (!card) {
+        console.error('handleCardClick: Card data is undefined for index', index);
+        return;
+    }
+
+    console.log('Attempting to play card:', card, 'at index:', index);
+    // Store a copy of the card being processed, including its original index in the hand.
+    // This is useful for modals that need to know which card initiated them.
+    cardBeingPlayed = { ...card, originalIndexInHand: index }; 
+
+    if (card.type === 'windfall') {
+        if (card.sub === 'RIGHTS') {
+            showRightsIssueModal(); // This modal will use cardBeingPlayed
+            return; // Stop further processing for RIGHTS, modal handles emission
+        } else if (card.sub === 'LOAN' || card.sub === 'DEBENTURE') {
+            // For LOAN or DEBENTURE, emit directly. Server doesn't need targetCompany or desiredShares for these.
+            socket.emit('windfall', { 
+                roomID: currentRoom, 
+                card: cardBeingPlayed // Send the card object with its originalIndexInHand
+            });
+            cardBeingPlayed = null; // Reset after emitting
+            return;
+        }
+    }
+
+    // Handle other card types if necessary (e.g., 'price' cards if they were clickable)
+    // Currently, only windfall cards have direct click actions defined here.
+    // Price cards are resolved at period end on the server.
+    console.warn(`Card clicked: ${card.type} - ${card.sub || card.company}. This card type may not have a direct click action implemented or is handled differently.`);
+    // cardBeingPlayed = null; // Reset if no further action from this click.
+}
+
+// function updateAdminControls() { // Removed
+//     if (advancePeriodBtn) {
+//         advancePeriodBtn.style.display = isAdmin ? 'block' : 'none';
+//     }
+// }
+
+// if (advancePeriodBtn) { // Event listener removed
+//     advancePeriodBtn.addEventListener('click', () => {
+//         if (!isAdmin || !currentRoom) return;
+//         if (confirm('Are you sure you want to advance to the next period?')) {
+//             socket.emit('advancePeriod', { roomID: currentRoom });
+//         }
+//     });
+// }
 
 function handleRightsCompanyChange() {
     if (desiredRightsSharesInput) desiredRightsSharesInput.value = '';
@@ -937,16 +1036,28 @@ if (confirmRightsIssueBtn) {
             if (desiredRightsSharesInput) desiredRightsSharesInput.focus();
             return;
         }
+
+        // Ensure all necessary data for the 'windfall' event is present
+        if (!cardBeingPlayed || typeof cardBeingPlayed.originalIndexInHand !== 'number') {
+            alert('Error: Card information for Rights Issue is missing. Please try playing the card again.');
+            if (rightsIssueModal) rightsIssueModal.style.display = 'none';
+            cardBeingPlayed = null;
+            return;
+        }
+
         socket.emit('windfall', {
             roomID: currentRoom,
-            card: { type: cardBeingPlayed.type, sub: cardBeingPlayed.sub, indexInHand: cardBeingPlayed.indexInHand },
+            card: cardBeingPlayed, // Send the whole card object, which includes its originalIndexInHand
             targetCompany: selectedCompany,
-            desiredRightsShares: desiredSharesNum
+            desiredRightsShares: desiredSharesNum // Server expects this for RIGHTS
         });
-        if (typeof cardBeingPlayed.indexInHand === 'number' && window.playerHand[cardBeingPlayed.indexInHand]) {
-             window.playerHand[cardBeingPlayed.indexInHand].played = true;
-             if (typeof redraw === 'function') redraw();
-        }
+
+        // Server will update hand and send new game state. Client-side manipulation removed.
+        // if (typeof cardBeingPlayed.originalIndexInHand === 'number' && window.playerHand[cardBeingPlayed.originalIndexInHand]) {
+        //      window.playerHand[cardBeingPlayed.originalIndexInHand].played = true;
+        //      if (typeof redraw === 'function') redraw();
+        // }
+
         if (rightsIssueModal) rightsIssueModal.style.display = 'none';
         if (rightsCompanySelect) rightsCompanySelect.value = '';
         if (desiredRightsSharesInput) desiredRightsSharesInput.value = '';
@@ -1074,39 +1185,64 @@ if (cancelGeneralRightsIssueBtn) {
 }
 
 function updatePriceLogTable() {
-    if (!priceLogTableHeader || !priceLogTableBody || Object.keys(window.companyNames).length === 0) return;
+    if (!priceLogTableHeader || !priceLogTableBody || 
+        !currentGameState || !currentGameState.state || !currentGameState.state.companyList || currentGameState.state.companyList.length === 0) {
+        if(priceLogTableHeader) while (priceLogTableHeader.children.length > 1) priceLogTableHeader.removeChild(priceLogTableHeader.lastChild);
+        if(priceLogTableBody) priceLogTableBody.innerHTML = '<tr><td colspan="1">Company data not ready for price log.</td></tr>';
+        return;
+    }
+
+    const companiesToDisplay = currentGameState.state.companyList;
+
     while (priceLogTableHeader.children.length > 1) {
         priceLogTableHeader.removeChild(priceLogTableHeader.lastChild);
     }
-    const companyIds = Object.keys(window.companyNames).sort((a,b) => getCompanyName(a).localeCompare(getCompanyName(b)));
-    companyIds.forEach(id => {
+
+    companiesToDisplay.forEach(company => {
         const th = document.createElement('th');
-        th.textContent = getCompanyName(id);
+        const companyColor = companyColors[company.id] || '#000000'; // Default to black
+        th.textContent = company.name;
+        th.style.color = companyColor;
+        th.style.fontWeight = 'bold';
         priceLogTableHeader.appendChild(th);
     });
+
     priceLogTableBody.innerHTML = '';
+
     priceLog.forEach((logEntry, index) => {
-        const currentPrices = logEntry.prices;
+        const currentPricesInLog = logEntry.prices;
         const tr = document.createElement('tr');
         const tdPeriod = document.createElement('td');
         tdPeriod.textContent = `${logEntry.period}`;
         tr.appendChild(tdPeriod);
-        companyIds.forEach(id => {
+
+        companiesToDisplay.forEach(company => {
+            const companyId = company.id;
             const tdPrice = document.createElement('td');
-            const currentPrice = currentPrices[id] !== undefined ? currentPrices[id] : '--';
-            let changeText = '';
+            const currentPrice = currentPricesInLog[companyId] !== undefined ? currentPricesInLog[companyId] : '--';
+            let changeText = '(0.0%)'; 
             let changeClass = 'price-no-change';
+            
             const comparePrices = index === 0 ? initialPrices : priceLog[index - 1].prices;
-            const previousPrice = comparePrices[id];
+            const previousPrice = comparePrices[companyId];
+
             if (previousPrice !== undefined && currentPrice !== '--') {
                 const change = currentPrice - previousPrice;
-                if (Math.abs(change) > 0.01) {
-                    const percentChange = previousPrice > 0 ? (change / previousPrice) * 100 : 0;
-                    changeText = `(${(change > 0 ? '+' : '')}${percentChange.toFixed(1)}%)`;
+                const percentChange = (previousPrice !== 0) ? (change / previousPrice) * 100 : (change !== 0 ? Infinity : 0);
+                changeText = `(${(change > 0 ? '+' : '')}${percentChange === Infinity ? 'New' : percentChange.toFixed(1)}%)`;
+                if (Math.abs(change) > 0.01) { 
                     changeClass = change > 0 ? 'price-up' : 'price-down';
+                } else {
+                    changeClass = 'price-no-change'; 
                 }
+            } else if (currentPrice !== '--' && previousPrice === undefined) {
+                changeText = '(New)';
+                changeClass = 'price-no-change'; 
             }
-            tdPrice.innerHTML = `₹${currentPrice} <span class="price-change ${changeClass}">${changeText}</span>`;
+            // Optionally, color the price text itself in the log according to company color
+            // const priceColorStyle = companyColors[companyId] ? `color: ${companyColors[companyId]};` : '';
+            // tdPrice.innerHTML = `<span style="${priceColorStyle}">₹${currentPrice === '--' ? '--' : parseFloat(currentPrice).toFixed(2)}</span> <span class="price-change ${changeClass}">${changeText}</span>`;
+            tdPrice.innerHTML = `${currentPrice === '--' ? '--' : '₹' + parseFloat(currentPrice).toFixed(2)} <span class="price-change ${changeClass}">${changeText}</span>`;
             tr.appendChild(tdPrice);
         });
         priceLogTableBody.appendChild(tr);
@@ -1195,9 +1331,11 @@ function updateGeneralRightsOffers(currentPlayer) {
         for (const companyId in activeOffers) {
             if (activeOffers.hasOwnProperty(companyId)) {
                 const offerDetails = activeOffers[companyId];
+                // Check if the offer is for the current round, player owns shares, 
+                // and the current player is NOT the one who initiated this specific offer.
                 if (offerDetails.roundAnnounced === currentGameState.state.roundNumberInPeriod &&
                     (currentPlayerPortfolio[companyId] || 0) > 0 &&
-                    offerDetails.initiatedByPlayerId !== currentPlayer.id) { // Check initiatedByPlayerId
+                    offerDetails.initiatedByPlayerName !== currentPlayer.name) { // MODIFIED: Compare by name
                     const button = document.createElement('button');
                     button.className = 'general-rights-btn button-small';
                     button.textContent = `${getCompanyName(companyId)} (Offer @ ₹${offerDetails.rightsPricePerShare}/share)`;
@@ -1449,3 +1587,379 @@ window.onclick = function(event) {
         if (cancelShortSellBtn) cancelShortSellBtn.click();
     }
 }; 
+
+// --- NEW HTML RENDERING FUNCTIONS --- 
+
+// Function to render the market board (price table)
+function renderMarketBoard(marketPrices, companiesStaticData, currentInitialPrices) {
+    const marketBoardContainer = document.getElementById('market-board-container');
+    if (!marketBoardContainer) return;
+
+    let maxPriceForScaling = 1000; 
+    if (currentInitialPrices && Object.keys(currentInitialPrices).length > 0) {
+        const allInitialValues = Object.values(currentInitialPrices).map(p => parseFloat(p));
+        if (allInitialValues.length > 0) {
+            const maxInitial = Math.max(...allInitialValues.filter(p => !isNaN(p) && p > 0));
+            if (maxInitial > 0) {
+                maxPriceForScaling = maxInitial * 2.5; 
+            }
+        }
+    }
+    maxPriceForScaling = Math.max(maxPriceForScaling, 100); 
+
+    let tableHTML = '<table class="market-table"><thead><tr><th>Company</th><th>Current</th><th>Price Level</th></tr></thead><tbody>';
+
+    if (companiesStaticData && companiesStaticData.length > 0 && marketPrices && currentInitialPrices) {
+        companiesStaticData.forEach(company => {
+            const initialPrice = currentInitialPrices[company.id] !== undefined ? parseFloat(currentInitialPrices[company.id]) : 0;
+            const currentPrice = marketPrices[company.id] !== undefined ? parseFloat(marketPrices[company.id]) : initialPrice;
+            
+            let priceMovementClass = 'no-change';
+            if (initialPrice > 0) { 
+                if (currentPrice > initialPrice) priceMovementClass = 'price-up';
+                if (currentPrice < initialPrice) priceMovementClass = 'price-down';
+            }
+
+            const barWidth = Math.min((currentPrice / maxPriceForScaling) * 100, 105); 
+            const companyColor = companyColors[company.id] || '#777777'; // Default to grey if color not found
+            
+            let barGraphHTML = `<div class="price-level-bar-container">`;
+            barGraphHTML += `<div class="price-level-bar" style="width: ${barWidth}%; background-color: ${companyColor};"></div>`;
+            barGraphHTML += `</div>`;
+
+            // Optionally, color the company name text too
+            // const companyNameStyle = `color: ${companyColor}; font-weight: bold;`;
+            // tableHTML += `<tr>
+            //     <td style="${companyNameStyle}">${company.name}</td> ...
+
+            tableHTML += `<tr>
+                <td>${company.name}</td>
+                <td class="${priceMovementClass}">₹${currentPrice.toFixed(2)}</td>
+                <td>${barGraphHTML}</td> 
+            </tr>`;
+        });
+    } else {
+        tableHTML += '<tr><td colspan="3">Market data not available yet.</td></tr>';
+    }
+
+    tableHTML += '</tbody></table>';
+    marketBoardContainer.innerHTML = tableHTML;
+}
+
+// Function to render the player's hand (HTML cards)
+function renderPlayerHand(playerHandArray, companiesStaticData) {
+    const playerHandContainer = document.getElementById('player-hand-container');
+    if (!playerHandContainer) {
+        console.error("Player hand container not found!");
+        return;
+    }
+
+    let cardsContentDiv = playerHandContainer.querySelector('#player-hand-cards-content');
+    if (!cardsContentDiv) {
+        const titleElement = playerHandContainer.querySelector('h4');
+        playerHandContainer.innerHTML = ''; 
+        if (titleElement) playerHandContainer.appendChild(titleElement); 
+        cardsContentDiv = document.createElement('div');
+        cardsContentDiv.id = 'player-hand-cards-content';
+        cardsContentDiv.className = 'player-hand-cards-flex-container';
+        playerHandContainer.appendChild(cardsContentDiv);
+    } else {
+        cardsContentDiv.innerHTML = ''; 
+    }
+
+    let handHTML = '';
+    if (playerHandArray && playerHandArray.length > 0) {
+        playerHandArray.forEach((card, index) => {
+            let cardStyle = '';
+            let cardClasses = 'card-html';
+
+            if (card.type === 'price') { 
+                cardClasses += ' price-card-html'; // Keep specific class if any specific styling relies on it
+                const companyColor = companyColors[card.company];
+                if (companyColor) {
+                    const lightBackgroundColor = lightenColor(companyColor, 0.85); // 85% towards white for a very light tint
+                    cardStyle = `style="background-color: ${lightBackgroundColor};"`;
+                }
+                const companyName = getCompanyName(card.company, companiesStaticData);
+                handHTML += `<div class="${cardClasses}" data-card-index="${index}" ${cardStyle}>
+                           <div class="card-title">${companyName}</div>
+                           <div class="card-value ${card.change > 0 ? 'positive' : 'negative'}"> 
+                             ${card.change > 0 ? '+' : ''}${card.change} 
+                           </div>
+                           <div class="card-subtitle">Price Change</div>`;
+            } else if (card.type === 'windfall') { 
+                cardClasses += ' windfall-card-html'; // This class defines black background
+                handHTML += `<div class="${cardClasses}" data-card-index="${index}" ${cardStyle}>
+                           <div class="card-title">Windfall</div>
+                           <div class="card-value windfall-subtype">${card.sub}</div>`;
+                if (card.sub === 'LOAN') { 
+                    handHTML += '<div class="card-icon">⚪</div>'; 
+                } else if (card.sub === 'DEBENTURE') { 
+                    handHTML += '<div class="card-icon">▭▭</div>'; 
+                } else if (card.sub === 'RIGHTS') { 
+                    handHTML += '<div class="card-icon">△</div>'; 
+                }             
+            } else if (card.type === 'CURRENCY_MOVEMENT') { // This type is not in buildDeck on server
+                 handHTML += `<div class="card-title">Currency</div>
+                           <div class="card-value ${card.change > 0 ? 'positive' : 'negative'}">
+                             ${card.change > 0 ? '+' : ''}${card.change}%
+                           </div>
+                           <div class="card-subtitle">Movement</div>`;
+            }
+            handHTML += '</div>';
+        });
+    } else {
+        handHTML = '<p>Your hand is empty.</p>';
+    }
+    cardsContentDiv.innerHTML = handHTML;
+
+    // Add event listeners to new HTML cards
+    document.querySelectorAll('.card-html').forEach(cardElement => {
+        cardElement.addEventListener('click', (event) => {
+            const cardIndex = parseInt(event.currentTarget.dataset.cardIndex);
+            // MODIFIED: Check for awaitingAdminDecision before handling click
+            if (currentGameState && currentGameState.state && currentGameState.state.awaitingAdminDecision) {
+                alert('Admin decision pending. Card actions are temporarily disabled.');
+                return;
+            }
+            if (playerHandArray && playerHandArray[cardIndex]) {
+                 handleCardClick(playerHandArray[cardIndex], cardIndex);
+            } else {
+                console.error("Could not find card data for click event"); 
+            }
+        });
+    });
+}
+
+// --- END NEW HTML RENDERING FUNCTIONS --- 
+
+function updateHandSummaryDisplay() {
+    if (!currentGameState || !currentGameState.state || !currentGameState.state.prices || !currentGameState.state.companyList) { // Added companyList check
+        if(handSummaryDiv) handSummaryDiv.style.display = 'none';
+        return;
+    }
+    if (Object.keys(handDeltas).length === 0) {
+        if(handSummaryDiv) handSummaryDiv.style.display = 'none';
+        return;
+    }
+    let summaryHtml = '<table class="hand-impact-table"><thead><tr><th>Company</th><th>Net Impact</th></tr></thead><tbody>';
+    const sortedCompanies = Object.keys(handDeltas).sort((a, b) => getCompanyName(a, currentGameState.state.companyList).localeCompare(getCompanyName(b, currentGameState.state.companyList))); // Pass companyList for sorting
+    let hasVisibleEntries = false;
+    sortedCompanies.forEach(companyId => {
+        const delta = handDeltas[companyId];
+        // if (delta === 0 && Object.keys(handDeltas).length > 1) return; // Show 0 impact if it's the only one or for consistency
+        hasVisibleEntries = true;
+        const sign = delta > 0 ? '+' : (delta < 0 ? '' : ''); // No sign for 0
+        const direction = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'no-change');
+        const triangle = delta > 0 ? '▲' : (delta < 0 ? '▼' : '-');
+        let percentageImpactText = '';
+        const currentPrice = currentGameState.state.prices[companyId];
+        // Use currentGameState.state.companyList which is passed as companiesStaticData to getCompanyName
+        const companyName = getCompanyName(companyId, currentGameState.state.companyList); 
+
+        if (currentPrice !== undefined && currentPrice > 0 && delta !== 0) { // only show percentage if there's a non-zero delta
+            percentageImpactText = ` (${((delta / currentPrice) * 100).toFixed(1)}%)`;
+        } else if (delta !== 0 && (currentPrice === undefined || currentPrice === 0)) { // If price is 0 or undefined but delta exists
+            percentageImpactText = ' (N/A%)';
+        }
+        summaryHtml += `<tr><td>${companyName}</td><td class="summary-${direction}">${triangle} ${sign}${delta}${percentageImpactText}</td></tr>`;
+    });
+    summaryHtml += '</tbody></table>';
+
+    if (hasVisibleEntries && handSummaryContentDiv && handSummaryDiv) {
+        handSummaryContentDiv.innerHTML = summaryHtml;
+        handSummaryDiv.style.display = 'block';
+    } else if (handSummaryDiv) {
+        handSummaryDiv.style.display = 'none';
+    }
+} 
+
+// MODIFIED: Added listener for activity logs
+socket.on('activityLog', logEntry => {
+    console.log('[activityLog] Received log:', logEntry);
+    activityLogEntries.push(logEntry);
+    // Keep the log to a reasonable size, e.g., last 50 entries
+    if (activityLogEntries.length > 50) {
+        activityLogEntries.shift(); 
+    }
+    renderActivityLog();
+});
+
+function renderActivityLog() {
+    if (!activityLogContent) return;
+
+    if (activityLogEntries.length === 0) {
+        activityLogContent.innerHTML = '<p class="no-activity-msg">No activity yet.</p>';
+        return;
+    }
+
+    let logHTML = '';
+    // Iterate in reverse to show newest logs at the top, or normal and scroll down.
+    // For now, normal order and scroll down.
+    activityLogEntries.forEach(entry => {
+        const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        let prefix = `[${time}] `;
+        if (entry.period !== undefined && entry.round !== undefined) {
+            prefix += `P${entry.period}R${entry.round} - `;
+        }
+        const playerNameStr = entry.playerName ? `<strong>${entry.playerName}</strong>: ` : '';
+        logHTML += `<div class="log-entry">${prefix}${playerNameStr}${entry.details}</div>`;
+    });
+
+    activityLogContent.innerHTML = logHTML;
+    activityLogContent.scrollTop = activityLogContent.scrollHeight; // Scroll to the bottom
+}
+
+if (activityLogPanel) activityLogPanel.style.display = 'block'; // Make sure it's visible by default if it exists 
+
+// NEW: Function to calculate the net impact of price cards in hand
+function calculateHandDeltas(playerHandArray, companiesStaticData) {
+    handDeltas = {}; // Reset before recalculating
+    if (playerHandArray && playerHandArray.length > 0) {
+        playerHandArray.forEach(card => {
+            if (card.type === 'price' && card.company && card.change !== undefined) {
+                if (!handDeltas[card.company]) {
+                    handDeltas[card.company] = 0;
+                }
+                handDeltas[card.company] += card.change;
+            }
+        });
+    }
+    // console.log("Calculated handDeltas:", handDeltas); // For debugging
+}
+
+// NEW: Event listener for Admin End Game button
+if (adminEndGameBtn) {
+    adminEndGameBtn.addEventListener('click', () => {
+        if (isAdmin && currentRoom) {
+            if (confirm('Are you sure you want to end the game for all players? This action cannot be undone.')) {
+                console.log(`[Admin Action] Emitting 'adminEndGameRequest' for room ${currentRoom}`);
+                socket.emit('adminEndGameRequest', { roomID: currentRoom });
+            }
+        }
+    });
+}
+
+// NEW: Listener for game summary and to render chart
+socket.on('gameSummaryReceived', (summaryData) => {
+    console.log('[gameSummaryReceived]', summaryData);
+    if (gameScreen) gameScreen.style.display = 'none';
+    if (lobbyScreen) lobbyScreen.style.display = 'none'; // Ensure lobby is hidden too
+    if (gameOverScreen) gameOverScreen.style.display = 'block';
+
+    if (summaryData && summaryData.historicalWorthData && summaryData.players) {
+        renderPlayerWorthChart(summaryData.historicalWorthData, summaryData.players);
+
+        // --- NEW: Determine Winner and Display Quote ---
+        const { historicalWorthData, players: playersInfo } = summaryData;
+
+        // Determine Winner
+        if (winnerAnnouncementElement) { // Check if element exists
+            if (historicalWorthData.length > 0) {
+                const maxPeriod = Math.max(...historicalWorthData.map(d => d.period));
+                const finalPeriodData = historicalWorthData.filter(d => d.period === maxPeriod);
+                
+                if (finalPeriodData.length > 0) {
+                    const maxWorth = Math.max(...finalPeriodData.map(d => d.totalWorth));
+                    const winners = finalPeriodData.filter(d => d.totalWorth === maxWorth);
+                    
+                    let winnerText = "";
+                    if (winners.length === 1) {
+                        const winnerInfo = playersInfo.find(p => p.id === winners[0].playerId);
+                        winnerText = `🎉 Winner: ${winnerInfo ? winnerInfo.name : 'Unknown Player'}! 🎉`;
+                    } else if (winners.length > 1) {
+                        const winnerNames = winners.map(w => {
+                            const playerInfo = playersInfo.find(p => p.id === w.playerId);
+                            return playerInfo ? playerInfo.name : 'Unknown Player';
+                        }).join(' and ');
+                        winnerText = `🎉 It's a tie between ${winnerNames}! 🎉`;
+                    } else {
+                        winnerText = "Game ended, but winner could not be determined from final scores.";
+                    }
+                    winnerAnnouncementElement.textContent = winnerText;
+                } else {
+                    winnerAnnouncementElement.textContent = "Could not determine final scores.";
+                }
+            } else {
+                winnerAnnouncementElement.textContent = "No historical data to determine winner.";
+            }
+        }
+
+        // Display Random Wisdom Quote
+        if (wisdomQuoteElement && wisdomQuotes.length > 0) { // Check if element and quotes exist
+            const randomIndex = Math.floor(Math.random() * wisdomQuotes.length);
+            wisdomQuoteElement.textContent = wisdomQuotes[randomIndex];
+        }
+        // --- END NEW ---
+    }
+});
+
+// NEW: Function to render the player worth chart
+let playerWorthChartInstance = null; // To keep track of an existing chart instance
+
+function renderPlayerWorthChart(historicalData, playersInfo) {
+    if (!playerWorthChartCanvas) {
+        console.error('Player worth chart canvas not found.');
+        return;
+    }
+
+    if (playerWorthChartInstance) {
+        playerWorthChartInstance.destroy(); // Destroy previous chart instance if exists
+    }
+
+    // Determine all unique periods for the x-axis labels
+    const periods = [...new Set(historicalData.map(d => d.period))].sort((a, b) => a - b);
+
+    const datasets = playersInfo.map(player => {
+        const playerData = periods.map(p => {
+            const record = historicalData.find(d => d.period === p && d.playerId === player.id);
+            return record ? record.totalWorth : null; // Use null for missing data points in Chart.js
+        });
+        const playerColor = companyColors[player.id] || COMPANY_COLOR_PALETTE[playersInfo.findIndex(p => p.id === player.id) % COMPANY_COLOR_PALETTE.length];
+
+        return {
+            label: player.name,
+            data: playerData,
+            borderColor: playerColor,
+            backgroundColor: lightenColor(playerColor, 0.8), // Lighter fill for area chart, or use for line point background
+            fill: false,
+            tension: 0.1 // Slight curve to lines
+        };
+    });
+
+    playerWorthChartInstance = new Chart(playerWorthChartCanvas, {
+        type: 'line',
+        data: {
+            labels: periods.map(p => `P${p}`), // e.g., P0, P1, P2
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true, // Maintain aspect ratio based on canvas size
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Player Net Worth Over Game Periods'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false, // Start y-axis near the lowest value for better differentiation
+                    title: {
+                        display: true,
+                        text: 'Total Worth (₹)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Game Period'
+                    }
+                }
+            }
+        }
+    });
+}

@@ -2,13 +2,44 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 30px;
-  background: linear-gradient(135deg, #e0f7fa 0%, #fce4ec 100%);
+  padding: 0;
+  padding-top: 30px; /* Space for the fixed title bar */
+  background: #ececec; /* White background */
   box-sizing: border-box;
-  color: #495057;
+  color: #000000; /* Black text */
+}
+
+#main-content-wrapper { /* NEW STYLES */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* Align content to the top after title bar */
+  width: 100%;
+  padding: 20px; /* Add back some padding for content area */
+  box-sizing: border-box;
+  min-height: calc(100vh - 30px); /* Ensure wrapper takes full height minus title bar */
+}
+
+#title-bar {
+  background-color: #000000; /* Black background */
+  color: #ffffff; /* White text */
+  text-align: center;
+  padding: 5px 0; /* Small vertical padding */
+  width: 100%;
+  position: fixed; /* Fixed at the top */
+  top: 0;
+  left: 0;
+  z-index: 2000; /* Ensure it's above other content */
+  height: 20px; /* Thin rectangle - adjust as needed including padding */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-title-text {
+  font-size: 0.9em; /* Small font size */
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 .screen {
@@ -18,7 +49,7 @@ body {
 }
 
 h1, h2, h3, h4 {
-  color: #343a40;
+  color: #000000; /* Black headings */
 }
 
 h1 {
@@ -44,9 +75,11 @@ h1 {
 .join-controls input[type="text"] {
   flex-grow: 1;
   padding: 15px;
-  border-radius: 15px;
-  border: 1px solid #ced4da;
+  border-radius: 0; /* No border-radius */
+  border: 1px solid #000000; /* Black border */
   font-size: 16px;
+  background-color: #ffffff; /* White background */
+  color: #000000; /* Black text */
 }
 
 .join-controls button {
@@ -54,114 +87,136 @@ h1 {
 }
 
 button {
-  padding: 15px 30px;
-  border-radius: 15px;
-  background-color: #343a40;
-  color: #ffffff;
+  padding: 12px 22px;
+  border-radius: 0; /* No border-radius */
+  background-color: #ffffff; /* White background */
+  color: #000000; /* Black text */
   cursor: pointer;
   font-size: 16px;
   font-weight: 500;
-  border: none;
-  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.2);
-  transition: all 0.15s ease-in-out;
+  border: 1px solid #000000; /* Black border */
+  box-shadow: none; /* No shadow */
+  transition: none; /* No transition */
 }
 
 button:hover {
-  background-color: #495057;
-  box-shadow: 3px 6px 12px rgba(0, 0, 0, 0.3);
-  transform: translateY(-1px);
+  background-color: #f0f0f0; /* Light grey on hover for white buttons */
+  box-shadow: none;
+  transform: none;
 }
 
 button:active,
 button:focus {
-  background-color: #23272b;
-  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
-  transform: translateY(1px);
-  outline: none;
-}
-
-button:disabled,
-button:disabled:hover,
-button:disabled:active {
-  background-color: #6c757d;
-  cursor: not-allowed;
-  color: #adb5bd;
-  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  background-color: #e0e0e0; /* Darker grey on active/focus */
+  box-shadow: none;
   transform: none;
+  outline: 1px solid #000000; /* Black outline on focus */
 }
 
+button:disabled {
+  background-color: #cccccc; /* Grey background for disabled */
+  color: #666666; /* Dark grey text for disabled */
+  border-color: #999999; /* Grey border for disabled */
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Specific buttons can be black with white text for emphasis */
 #startGame,
-#confirm {
-  background-color: #2a3035;
+#confirm,
+#confirmShortSellBtn,
+#confirmRightsIssue,
+#confirmGeneralRightsIssue {
+  background-color: #000000; /* Black background */
+  color: #ffffff; /* White text */
+  border: 1px solid #000000;
 }
 
 #startGame:hover,
-#confirm:hover {
-  background-color: #3c4248;
+#confirm:hover,
+#confirmShortSellBtn:hover,
+#confirmRightsIssue:hover,
+#confirmGeneralRightsIssue:hover {
+  background-color: #222222; /* Slightly lighter black on hover */
 }
 
-#cancel {
-  background-color: #2a3035;
+#cancel,
+#cancelShortSellBtn,
+#cancelRightsIssue,
+#cancelGeneralRightsIssue {
+  background-color: #dddddd; /* Light grey for cancel */
+  color: #000000; /* Black text */
+  border: 1px solid #000000;
 }
 
-#cancel:hover {
-  background-color: #3c4248;
+#cancel:hover,
+#cancelShortSellBtn:hover,
+#cancelRightsIssue:hover,
+#cancelGeneralRightsIssue:hover {
+  background-color: #cccccc;
 }
 
 #advancePeriod {
-  background-color: #2a3035;
+  background-color: #000000; /* Black background */
+  color: #ffffff; /* White text */
+  border: 1px solid #000000;
 }
 
 #advancePeriod:hover {
-  background-color: #3c4248;
+  background-color: #222222;
 }
 
 .admin-controls button {
-  background-color: #495057;
-  color: #ffffff;
+  background-color: #ffffff;
+  color: #000000;
   padding: 8px 15px;
   font-size: 12px;
-  border-radius: 10px;
-  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid #000000;
 }
 
 .admin-controls button:hover {
-  color: #e68a00;
-  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.15);
-  background: linear-gradient(145deg, #ffffff, #f5f5f5);
+  color: #000000;
+  background-color: #f0f0f0;
+  box-shadow: none;
 }
 
 .admin-controls button:active,
 .admin-controls button:focus {
-  color: #ffc107;
-  background: linear-gradient(145deg, #f0f0f0, #ffffff);
-  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  color: #000000;
+  background-color: #e0e0e0;
+  box-shadow: none;
+  outline: 1px solid #000000;
 }
 
 .player-row button.kick {
-  color: #f44336;
+  color: #D32F2F; /* Keep red for kick, or change to black? For now, keep red */
+  background-color: transparent;
+  border: none;
 }
 
 .player-row button.kick:hover {
-  color: #d32f2f;
+  color: #B71C1C;
+  background-color: #f0f0f0;
 }
 
 input, select {
-  background: #ffffff;
-  border: 1px solid #ced4da;
-  border-radius: 8px;
+  background: #ffffff; /* White background */
+  border: 1px solid #000000; /* Black border */
+  border-radius: 0; /* No border-radius */
   padding: 15px 20px;
-  color: #495057;
-  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.05);
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  color: #000000; /* Black text */
+  box-shadow: none; /* No shadow */
+  transition: none;
   font-size: 16px;
 }
 
 input:focus,
 select:focus {
   outline: none;
-  border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: #000000; /* Black border on focus */
+  box-shadow: none; /* No shadow on focus */
 }
 
 .modal-content select {
@@ -187,13 +242,15 @@ select:focus {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 15px;
+  background: #ffffff; /* White background */
+  backdrop-filter: none; /* No blur */
+  -webkit-backdrop-filter: none; /* No blur */
+  border-radius: 0; /* No border-radius */
+  border: 1px solid #000000; /* Black border */
+  box-shadow: none; /* No shadow */
   margin-bottom: 25px;
   font-size: 0.95em;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  color: #000000; /* Black text */
 }
 
 #info-bar > span {
@@ -201,10 +258,12 @@ select:focus {
 }
 
 #canvas-container {
-  background: white;
-  border-radius: 4px;
+  background: #ffffff; /* White background */
+  border-radius: 0; /* No border-radius */
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 15px;
+  box-shadow: none; /* No shadow */
+  border: 1px solid #000000; /* Black border */
 }
 
 .action-buttons {
@@ -220,11 +279,12 @@ select:focus {
 }
 
 #hand-section {
-  background: white;
+  background: #ffffff; /* White background */
   padding: 20px;
-  border-radius: 4px;
+  border-radius: 0; /* No border-radius */
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: none; /* No shadow */
+  border: 1px solid #000000; /* Black border */
 }
 
 #hand {
@@ -234,13 +294,14 @@ select:focus {
   padding: 10px;
 }
 
+/* p5.js will handle card visuals, these are fallbacks or if HTML cards are re-introduced */
 .card {
   padding: 15px;
-  background: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: #ffffff; /* White background */
+  border-radius: 0; /* No border-radius */
+  box-shadow: none; /* No shadow */
   cursor: pointer;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #000000; /* Black border */
   min-width: 120px;
   min-height: 160px;
   text-align: center;
@@ -249,6 +310,7 @@ select:focus {
   justify-content: space-between;
   font-size: 14px;
   position: relative;
+  color: #000000; /* Black text */
 }
 
 .card .price-change {
@@ -259,43 +321,45 @@ select:focus {
 }
 
 .card .price-change.positive {
-  color: #4CAF50;
+  color: #4CAF50; /* Keep green for positive, or make black? */
 }
 
 .card .price-change.negative {
-  color: #f44336;
+  color: #f44336; /* Keep red for negative, or make black? */
 }
 
 .card .company-name {
   font-size: 18px;
   font-weight: bold;
   margin: auto;
+  color: #000000;
 }
 
 .card .card-subtitle {
   font-size: 12px;
-  color: #666;
+  color: #333333; /* Dark grey for subtitle */
   margin-top: 5px;
 }
 
 .card.windfall-card {
-  background: #fff;
-  border: 1px solid #9C27B0;
+  background: #ffffff;
+  border: 1px solid #000000; /* Black border for windfall */
 }
 
 .card.price-card {
-  background: #fff;
-  border: 1px solid #2196F3;
+  background: #ffffff;
+  border: 1px solid #000000; /* Black border for price */
 }
 
 .card.currency-card {
-  background: #fff;
-  border: 1px solid #4CAF50;
+  background: #ffffff;
+  border: 1px solid #000000; /* Black border for currency */
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: none; /* No transform on hover */
+  box-shadow: none; /* No shadow on hover */
+  background-color: #f0f0f0; /* Light grey background on hover */
 }
 
 .modal {
@@ -307,28 +371,28 @@ select:focus {
   width: 100%;
   height: 100%;
   overflow: auto;
-  background-color: rgba(0,0,0,0.6);
+  background-color: rgba(0,0,0,0.7); /* Darker overlay, but not blurred */
   align-items: center;
   justify-content: center;
 }
 
 .modal-content {
-  background-color: #fefefe;
+  background-color: #ffffff; /* White background */
   margin: auto;
-  padding: 25px;
-  border: 1px solid #888;
-  border-radius: 10px;
+  padding: 30px;
+  border-radius: 0; /* No border-radius */
   width: 90%;
-  max-width: 500px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  max-width: 500px; /* Keep max-width for readability */
+  box-shadow: none; /* No shadow */
   text-align: left;
-  max-width: 550px;
+  border: 1px solid #000000; /* Black border */
+  color: #000000; /* Black text */
 }
 
 .modal-content h2 {
   margin-top: 0;
-  color: #333;
-  border-bottom: 1px solid #eee;
+  color: #000000; /* Black heading */
+  border-bottom: 1px solid #000000; /* Black border */
   padding-bottom: 15px;
   margin-bottom: 20px;
 }
@@ -336,12 +400,16 @@ select:focus {
 .modal-content select,
 .modal-content input[type="number"],
 .modal-content input[type="text"] {
+  background-color: #ffffff; /* White background */
+  border: 1px solid #000000; /* Black border */
+  border-radius: 0;
+  padding: 12px 15px;
+  color: #000000; /* Black text */
+  font-size: 16px;
+  box-shadow: none; /* No inset shadow */
   width: 100%;
-  padding: 10px;
-  margin-bottom: 15px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
   box-sizing: border-box;
+  margin-bottom: 15px;
 }
 
 .modal-content .button-group {
@@ -352,49 +420,65 @@ select:focus {
 .modal-content .button-group button {
   padding: 10px 20px;
   margin-left: 10px;
-  border-radius: 5px;
+  border-radius: 0;
   cursor: pointer;
+  /* Specific confirm/cancel handled above */
 }
 
 .modal-content .button-group button#confirm,
 .modal-content .button-group button#confirmShortSellBtn,
 .modal-content .button-group button#confirmRightsIssue,
-.modal-content .button-group button#confirmGeneralRightsIssue {
-  background-color: #4CAF50;
-  color: white;
-  border: none;
+.modal-content .button-group button#confirmGeneralRightsIssue,
+button#startGame { /* This rule is repeated, ensure #startGame is covered by the main black button style */
+  background-color: #000000; /* Black background */
+  color: #ffffff; /* White text */
+  border: 1px solid #000000;
+}
+
+.modal-content .button-group button#confirm:hover, button#startGame:hover {
+    background-color: #222222;
 }
 
 .modal-content .button-group button#cancel,
 .modal-content .button-group button#cancelShortSellBtn,
 .modal-content .button-group button#cancelRightsIssue,
 .modal-content .button-group button#cancelGeneralRightsIssue {
-  background-color: #f44336;
-  color: white;
-  border: none;
+  background-color: #dddddd; /* Light grey */
+  color: #000000; /* Black text */
+  border: 1px solid #000000;
+}
+
+.modal-content .button-group button#cancel:hover {
+    background-color: #cccccc;
 }
 
 #playerList {
   margin-top: 20px;
-  padding: 10px;
-  background-color: #f9f9f9;
-  border-radius: 5px;
+  padding: 15px;
+  background-color: #ffffff; /* White background */
+  backdrop-filter: none; /* No blur */
+  -webkit-backdrop-filter: none; /* No blur */
+  border-radius: 0; /* No border-radius */
+  box-shadow: none; /* No shadow */
+  border: 1px solid #000000; /* Black border */
+  color: #000000; /* Black text */
 }
 
 #playerList h2 {
   margin-top: 0;
   font-size: 1.2em;
-  color: #333;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 5px;
+  color: #000000; /* Black heading */
+  border-bottom: 1px solid #000000; /* Black border */
+  padding-bottom: 10px;
+  margin-bottom: 10px;
 }
 
 .player-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 5px;
-  border-bottom: 1px solid #eee;
+  padding: 10px 5px;
+  border-bottom: 1px solid #cccccc; /* Lighter grey border for rows */
 }
 
 .player-row:last-child {
@@ -410,37 +494,42 @@ select:focus {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background-color: #ccc;
+  background-color: #cccccc; /* Default light grey */
   margin-right: 10px;
   transition: background-color 0.3s ease;
   display: inline-block;
+  border: 1px solid #000000; /* Black border for indicator */
 }
 
 .turn-indicator.active {
-  background-color: #4CAF50 !important;
-}
-
-.player-row.current-turn .player-info > span:first-of-type {
-  font-weight: bold !important;
-  color: #1b5e20 !important;
+  background-color: #4CAF50 !important; /* Keep green for active turn, or make black? */
+  box-shadow: none; /* Remove shadow */
+  border: 1px solid #000000;
 }
 
 .player-row.current-turn {
-  background-color: #e8f5e9 !important;
+  background-color: #e8f5e9 !important; /* Light green highlight, or just bold? */
+  /* For pure B&W, might remove background color and use font-weight or border */
 }
 
 .admin-badge {
-  background-color: #007bff;
+  background-color: #4CAF50; /* Green background */
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  margin-left: 8px;
+  font-weight: bold;
 }
 
 .panel {
-  background: rgba(255, 255, 255, 0.70);
-  backdrop-filter: blur(5px);
+  background: #ffffff; /* White background */
   padding: 25px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border-radius: 0; /* No border-radius */
+  box-shadow: none; /* No shadow */
   margin-bottom: 25px;
+  border: 1px solid #000000; /* Black border */
+  color: #000000; /* Black text */
 }
 
 .leaderboard-content {
@@ -451,23 +540,23 @@ select:focus {
 
 .player-stats {
   padding: 20px;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 0;
+  background: #ffffff; /* White background */
+  border: 1px solid #000000; /* Black border */
+  box-shadow: none;
 }
 
 .player-name {
   font-weight: bold;
   font-size: 1.15em;
-  color: #343a40;
+  color: #000000; /* Black text */
   margin-bottom: 15px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #000000; /* Black border */
 }
 
 .player-cash {
-  color: #28a745;
+  color: #4CAF50; /* Green for cash, or black? */
   font-weight: 500;
   margin-bottom: 15px;
 }
@@ -481,7 +570,7 @@ select:focus {
     margin-top: 0;
     margin-bottom: 8px;
     font-size: 1em;
-    color: #495057;
+    color: #000000; /* Black text */
 }
 
 .portfolio-entry {
@@ -490,7 +579,7 @@ select:focus {
   gap: 15px;
   padding: 8px 0;
   align-items: center;
-  border-bottom: 1px dotted #dee2e6;
+  border-bottom: 1px dotted #666666; /* Dotted grey border */
 }
 
 .portfolio-entry:last-child {
@@ -499,24 +588,24 @@ select:focus {
 
 .portfolio-entry .company-name {
   font-weight: 500;
-  color: #007bff;
+  color: #000000; /* Black text */
   font-size: 0.95em;
 }
 
 .portfolio-entry .share-count {
-  color: #495057;
+  color: #000000; /* Black text */
   text-align: right;
   padding-right: 10px;
 }
 
 .portfolio-entry .share-value {
-  color: #6c757d;
+  color: #333333; /* Dark grey for share value */
   text-align: right;
   font-size: 0.9em;
 }
 
 .no-shares {
-  color: #6c757d;
+  color: #333333; /* Dark grey */
   font-style: italic;
   padding: 10px 0;
 }
@@ -524,7 +613,7 @@ select:focus {
 .portfolio-summary {
   margin-top: 15px;
   padding-top: 10px;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid #000000; /* Black border */
   font-weight: 500;
   font-size: 1.05em;
 }
@@ -536,7 +625,7 @@ select:focus {
 }
 
 .player-total {
-  color: #17a2b8;
+  color: #000000; /* Black text for total */
   font-size: 1.15em;
   font-weight: bold;
 }
@@ -546,7 +635,7 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   padding: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #cccccc; /* Lighter grey border for rows */
 }
 
 .player-row:last-child {
@@ -558,25 +647,17 @@ select:focus {
   gap: 10px;
 }
 
-.admin-badge {
-  background: #2196F3;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  margin-left: 10px;
-}
-
 .session-restore {
   position: fixed;
   top: 20px;
   right: 20px;
-  background: #4CAF50;
-  color: white;
+  background: #000000; /* Black background */
+  color: #ffffff; /* White text */
   padding: 15px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  animation: fadeIn 0.3s ease-in-out;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none; /* Remove animation */
+  border: 1px solid #000000;
 }
 
 @keyframes fadeIn {
@@ -586,14 +667,16 @@ select:focus {
 
 .turn-status {
     padding: 5px 10px;
-    border-radius: 4px;
+    border-radius: 0;
     font-weight: 500;
+    border: 1px solid #000000;
 }
 
 .turn-status.your-turn {
-    background: #4CAF50;
+    background: #4CAF50; /* Keep green for 'your turn' badge or make black/white? */
     color: white;
-    animation: highlight 2s infinite;
+    animation: none; /* Remove highlight animation */
+    border: 1px solid #000000;
 }
 
 @keyframes highlight {
@@ -603,7 +686,8 @@ select:focus {
 }
 
 .current-turn {
-    background: rgba(76, 175, 80, 0.1);
+    background: #e8f5e9; /* Light green for current turn row, or remove? */
+    /* border-left: 3px solid #000000; /* Example: black border for current turn */
 }
 
 /* Lobby Specific Styles */
@@ -612,26 +696,27 @@ select:focus {
   flex-direction: column;
   align-items: center;
   gap: 25px;
-  background: #ffffff;
+  background: #ffffff; /* White background */
   padding: 40px;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  border-radius: 0; /* No border-radius */
+  box-shadow: none; /* No shadow */
   max-width: 500px;
+  border: 1px solid #000000; /* Black border */
 }
 
-#startGame {
-  background-color: #4CAF50;
+#startGame { /* Already styled as a primary black button */
+  /* background-color: #4CAF50; */
   margin-top: 10px;
 }
 
 #startGame:hover {
-  background-color: #45a049;
+  /* background-color: #45a049; */
 }
 
 /* --- Price Log Panel --- */
 #price-log-panel {
-    /* Inherits .panel neumorphic style */
-    /* max-height: 200px; overflow-y: auto; margin-top: 15px; */ /* These are from inline styles, keep if needed */
+    /* Inherits .panel B&W style */
+    /* Comments removed to ensure syntactical correctness if block is empty */
 }
 
 /* --- Price Log Table --- */
@@ -639,7 +724,7 @@ select:focus {
     margin-top: 0;
     margin-bottom: 10px;
     font-size: 1.1em;
-    color: #333;
+    color: #000000; /* Black text */
 }
 
 #price-log-table {
@@ -650,21 +735,21 @@ select:focus {
 
 #price-log-table th,
 #price-log-table td {
-    border: 1px solid #dee2e6;
+    border: 1px solid #000000; /* Black border */
     padding: 6px 8px;
     text-align: right;
+    color: #000000; /* Black text */
 }
 
 #price-log-table th {
-    background-color: transparent;
-    background-color: #e9ecef;
+    background-color: #f0f0f0; /* Light grey background for table headers */
     font-weight: bold;
-    position: sticky; /* Keep header visible when scrolling */
+    position: sticky;
     top: 0;
 }
 
 #price-log-table tbody tr:nth-child(even) {
-    background-color: #f9f9f9;
+    background-color: #f9f9f9; /* Very light grey for even rows, or remove for pure B&W */
 }
 
 #price-log-table .price-change {
@@ -674,44 +759,47 @@ select:focus {
 }
 
 #price-log-table .price-up {
-    color: #28a745; /* Green */
+    color: #28a745; /* Keep green for price up, or make black? */
 }
 
 #price-log-table .price-down {
-    color: #dc3545; /* Red */
+    color: #dc3545; /* Keep red for price down, or make black? */
 }
 
 #price-log-table .price-no-change {
-    color: #6c757d; /* Grey */
+    color: #333333; /* Dark grey for no change */
 }
 
 /* Update specific panel styles if needed */
 #hand-summary {
   /* display: none; */ /* Handled by JS */
+  /* Ensure this comment is valid or content is fixed */
 }
 
 /* Styling for the new Activity Log panel */
 #activity-log-panel {
-    /* Uses general .panel styling already */
+    /* Uses general .panel B&W styling */
     margin-top: 20px;
 }
 
 #activity-log-content {
     padding: 10px;
     text-align: left;
-    font-size: 0.85em; /* Slightly smaller for more content */
-    max-height: 200px; /* Adjusted from inline style for consistency */
+    font-size: 0.85em;
+    max-height: 200px;
     overflow-y: auto;
+    color: #000000; /* Black text */
 }
 
 .log-entry {
     padding: 4px 2px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Subtle separator */
+    border-bottom: 1px solid #cccccc; /* Lighter grey separator */
     margin-bottom: 4px;
 }
 
 .log-entry:last-child {
     border-bottom: none;
+    /* Ensure this comment is valid or content is fixed, or remove if empty */
 }
 
 /* Styling for Hand Price Impact panel table */
@@ -725,12 +813,13 @@ select:focus {
 #hand-summary-content td {
     padding: 6px 8px;
     text-align: left;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid #000000; /* Black border */
+    color: #000000; /* Black text */
 }
 
 #hand-summary-content th {
     font-weight: bold;
-    background-color: rgba(255, 255, 255, 0.05); /* Slight distinction for header */
+    background-color: #f0f0f0; /* Light grey for table header */
 }
 
 #hand-summary-content td.summary-up {
@@ -742,23 +831,51 @@ select:focus {
 }
 
 #hand-summary-content td.summary-no-change {
-    color: #adb5bd; /* Grey for no change */
+    color: #333333; /* Dark grey for no change */
 }
 
 /* New styles for lobby layout */
 #lobby .controls {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 30px;
-  margin-bottom: 30px;
+  align-items: center; /* Center the control sections */
+  gap: 20px; /* Reduced gap for a tighter look */
+  margin-bottom: 20px; /* Reduced margin */
+  width: 100%; /* Ensure controls take full width for centering */
+  max-width: 450px; /* Limit max width of the controls area */
+}
+
+.lobby-input-group { /* NEW: Styles for the name input group */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center items within this group */
+  gap: 8px;
+  margin-bottom: 25px; /* Space before Create/Join options */
+  width: 100%;
+  max-width: 400px; /* Max width for the name input */
+}
+
+.lobby-input-group label {
+  font-size: 1.05em;
+  color: #000000;
+}
+
+.lobby-input-group input#playerName {
+  width: 100%;
+  text-align: center;
 }
 
 .create-room-section button#createRoom {
-  width: 100%;
-  max-width: 300px;
-  padding: 18px 30px;
+  width: 100%; /* Make button take full width of its container */
+  max-width: none; /* Override previous max-width if any */
+  padding: 15px 25px; /* Adjusted padding */
   font-size: 18px;
+  background-color: #000000; /* Black button */
+  color: #ffffff; /* White text */
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px; /* Max width for join controls area */
 }
 
 .join-section {
@@ -773,26 +890,519 @@ select:focus {
 .join-section p {
   margin-bottom: 5px;
   font-size: 1.1em;
-  color: #495057;
+  color: #000000; /* Black text */
 }
 
 #lobby #playerList {
   margin-top: 20px;
+  /* Inherits B&W style */
 }
 
 #lobby #startGame {
   margin-top: 20px;
   width: 100%;
   max-width: 300px;
+   /* Already styled as a primary black button */
 }
 
 /* Styling for the 'Your Turn' text in the info bar */
 .your-turn-indicator-text {
-  color: #28a745; /* Green color */
+  background-color: #4CAF50; /* Green background */
+  color: white !important; /* White text for contrast */
   font-weight: bold;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background-color: rgba(76, 175, 80, 0.1); /* Light green background, subtle */
+  padding: 3px 8px; /* Adjusted padding slightly */
+  border-radius: 4px; /* Slightly rounded corners */
+  border: none; /* Remove border if background provides enough emphasis */
+  /* Or, if keeping border: border: 1px solid #388E3C; /* Darker green border */
 }
 
 /* --- End of Appended Styles --- */
+
+/* --- Responsive Styles --- */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+    font-size: 15px; /* Slightly adjust base font size */
+  }
+
+  .screen {
+    padding: 10px;
+  }
+
+  h1 {
+    font-size: 1.8em;
+  }
+
+  h2 {
+    font-size: 1.5em;
+  }
+
+  /* Lobby responsiveness */
+  #lobby .controls {
+    flex-direction: column;
+    gap: 20px;
+  }
+  #lobby .join-section {
+    max-width: 100%;
+  }
+  #lobby .join-controls {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+  #lobby .join-controls input[type="text"],
+  #lobby .join-controls button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #lobby .create-room-section button#createRoom,
+  #lobby #startGame {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1em;
+  }
+
+  /* Game Layout */
+  .game-layout {
+    flex-direction: column;
+  }
+  .game-left,
+  .game-right {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .game-right {
+    order: -1; /* Optionally move leaderboard to top on mobile */
+  }
+
+  #info-bar {
+    padding: 10px;
+    font-size: 0.9em;
+  }
+  #info-bar > span {
+    margin: 3px 5px;
+  }
+
+  .action-buttons {
+    flex-wrap: wrap; /* Allow buttons to wrap */
+    gap: 8px;
+  }
+  .action-buttons button {
+    flex-grow: 1; /* Allow buttons to grow and fill space */
+    min-width: 120px; /* Minimum width for tappability */
+    font-size: 0.95em;
+    padding: 10px 15px;
+  }
+
+  .admin-action-buttons button {
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  /* Panels */
+  .panel {
+    padding: 15px;
+  }
+
+  /* Tables */
+  #price-log-panel {
+    overflow-x: auto; /* Allow horizontal scrolling for the panel containing the table */
+  }
+  #price-log-table {
+    font-size: 0.8em; /* Smaller font for table content */
+    min-width: 600px; /* Ensure table has a min-width to trigger scroll if needed */
+  }
+  #price-log-table th,
+  #price-log-table td {
+    padding: 4px 6px;
+  }
+
+  /* Modals */
+  .modal-content {
+    width: 90%;
+    padding: 20px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-content h2 {
+    font-size: 1.3em;
+    margin-bottom: 15px;
+  }
+  .modal-content select,
+  .modal-content input[type="number"],
+  .modal-content input[type="text"] {
+    padding: 10px 12px;
+    font-size: 0.95em;
+  }
+  .modal-content .button-group button {
+    padding: 10px 15px;
+    font-size: 0.9em;
+  }
+
+  /* Leaderboard */
+  .player-stats {
+    padding: 15px;
+  }
+  .player-name {
+    font-size: 1.1em;
+  }
+  .portfolio-entry {
+    grid-template-columns: minmax(50px, auto) 1fr minmax(70px, auto);
+    gap: 10px;
+  }
+
+  /* Canvas container - ensure it scales */
+  #canvas-container {
+    padding: 10px;
+    /* p5 sketch should handle its own responsive resizing if possible */
+  }
+
+  /* Activity Log */
+  #activity-log-content {
+    font-size: 0.8em;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 14px; /* Further adjust base font size for small screens */
+  }
+
+  h1 {
+    font-size: 1.6em;
+  }
+
+  h2 {
+    font-size: 1.3em;
+  }
+
+  .action-buttons button {
+    width: 100%; /* Stack action buttons */
+    flex-grow: 0;
+  }
+
+  #info-bar {
+    flex-direction: column; /* Stack info items */
+    align-items: flex-start;
+  }
+  #info-bar > span {
+    margin-bottom: 5px;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 15px;
+  }
+  .modal-content h2 {
+    font-size: 1.2em;
+  }
+
+  .join-controls input[type="text"],
+  .join-controls button {
+    font-size: 0.95em;
+  }
+
+  #price-log-table {
+    font-size: 0.75em;
+    min-width: 500px;
+  }
+
+  /* Further reduce padding on panels for very small screens */
+  .panel {
+    padding: 10px;
+  }
+}
+
+/* --- End of Responsive Styles --- */
+
+/* --- New Styles for HTML Market Board & Player Hand --- */
+
+/* Market Board Table */
+#market-board-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.market-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.market-table th,
+.market-table td {
+  border: 1px solid #000000;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: middle; /* Align content vertically for bars */
+}
+
+.market-table th {
+  background-color: #f0f0f0; /* Light grey for header */
+  font-weight: bold;
+}
+
+/* Styles for Price Level Bar Graph in Market Table */
+.market-table .price-level-bar-container {
+  height: 20px; /* Fixed height for the container */
+  width: 100%;
+  background-color: #e0e0e0; /* Light grey background for the bar area */
+  border-radius: 0; /* No rounded corners */
+  display: flex;
+  align-items: center;
+}
+
+.market-table .price-level-bar {
+  height: 100%;
+  background-color: #777777; /* Neutral grey for the bar */
+  transition: width 0.3s ease-in-out;
+}
+
+/* Text color for current price based on movement */
+.market-table td.price-up {
+  color: #28a745; /* Green - vibrant */
+  font-weight: bold;
+}
+
+.market-table td.price-down {
+  color: #dc3545; /* Red - vibrant */
+  font-weight: bold;
+}
+
+.market-table td.no-change {
+  color: #333333; /* Darker grey for no change text */
+}
+
+/* Player Hand Container & Cards */
+#player-hand-container h4 {
+  margin-bottom: 10px;
+}
+
+#player-hand-cards-content.player-hand-cards-flex-container {
+  display: flex;
+  flex-wrap: wrap; /* Allow cards to wrap to the next line */
+  gap: 15px; /* Spacing between cards */
+  justify-content: center; /* Center cards if they don't fill the row */
+}
+
+.card-html {
+  border: 1px solid #cccccc; /* Lighten border slightly for non-windfall cards */
+  background-color: #f8f9fa; /* Very light grey background for price/other cards */
+  padding: 15px;
+  width: 130px; /* Fixed width for cards */
+  height: 180px; /* Fixed height for cards */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around; /* Distribute content within card */
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-html:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Subtle shadow on hover for B&W theme */
+}
+
+.card-html .card-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #212529; /* Dark text for titles on light cards */
+}
+
+.card-html .card-value {
+  font-size: 1.4em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  /* Color for positive/negative is handled by .positive & .negative classes */
+}
+
+.card-html .card-value.positive {
+  color: #198754; /* Slightly darker, more saturated Green */
+}
+
+.card-html .card-value.negative {
+  color: #dc3545; /* Red (current is fine) */
+}
+
+.card-html .card-subtitle {
+  font-size: 0.8em;
+  color: #495057; /* Medium-dark grey for subtitles on light cards */
+}
+
+.card-html .windfall-subtype {
+  font-size: 1em;
+  text-transform: uppercase;
+}
+
+.card-html .card-icon {
+  font-size: 2em; /* Larger icon size */
+  margin-top: 5px;
+}
+
+/* Specific styles for windfall cards to match p5 sketch (black bg, white text) */
+.windfall-card-html {
+  background-color: #000000;
+  color: #ffffff;
+  border: 1px solid #444444; /* Dark border for black cards */
+}
+
+.windfall-card-html .card-title {
+    color: #ffffff; /* Ensure white text on black bg */
+}
+
+.windfall-card-html .card-subtitle,
+.windfall-card-html .card-value.positive, 
+.windfall-card-html .card-value.negative,
+.windfall-card-html .windfall-subtype /* Ensure subtype also gets light color */ {
+  color: #f0f0f0; /* Light grey text on black background */
+}
+
+/* Ensure card icons are also white/light on black windfall cards */
+.windfall-card-html .card-icon {
+  color: #f0f0f0;
+}
+
+/* Responsive adjustments for cards if needed (add to existing media queries) */
+@media (max-width: 480px) {
+  #player-hand-cards-content.player-hand-cards-flex-container {
+    gap: 10px;
+  }
+  .card-html {
+    width: 110px;
+    height: 160px;
+    padding: 10px;
+  }
+  .card-html .card-title {
+    font-size: 1em;
+  }
+  .card-html .card-value {
+    font-size: 1.2em;
+  }
+  .card-html .card-icon {
+    font-size: 1.8em;
+  }
+}
+
+/* --- End of New Styles for HTML Market Board & Player Hand --- */
+
+/* Add to existing button styles or ensure these are present */
+.game-button-small {
+    padding: 3px 8px;
+    font-size: 0.9em;
+    margin-left: 5px;
+}
+
+.admin-decision-panel {
+    background-color: #ffffff; /* Or your theme's panel background */
+    border: 1px solid #000000;    /* Or your theme's border */
+    padding: 20px;
+    margin-top: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.admin-decision-panel h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+    color: #000000; /* Or your theme's text color */
+}
+
+.admin-decision-panel p {
+    margin-bottom: 15px;
+    font-size: 1em;
+}
+
+.admin-decision-panel button {
+    padding: 10px 15px;
+    /* Ensure it matches general button styling or override as needed */
+}
+
+/* --- Leaderboard Styles --- */
+.leaderboard-content {
+    padding: 10px;
+}
+
+.leaderboard-list {
+    list-style-type: decimal; /* Or none if you prefer no numbers */
+    padding-left: 20px;
+    margin: 0;
+}
+
+.leaderboard-item {
+    border: 1px solid #000000;
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    background-color: #ffffff;
+    display: flex; /* Arrange columns side-by-side */
+    gap: 20px; /* Space between columns */
+}
+
+.leaderboard-player-column {
+    flex: 1; /* Allow player column to take available space, e.g., 40% */
+    min-width: 200px; /* Minimum width for player details */
+}
+
+.leaderboard-shares-column {
+    flex: 1.5; /* Allow shares column to take more space, e.g., 60% */
+    border-left: 1px solid #dddddd; /* Optional separator */
+    padding-left: 20px; /* Space after separator */
+}
+
+.leaderboard-player-name {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #000000;
+}
+
+.leaderboard-main-financials span {
+    display: block; /* Make worth and cash stack vertically */
+    margin-bottom: 5px;
+    font-size: 0.95em;
+    color: #333333;
+}
+
+.leaderboard-financials span { /* This class might be unused now, or adjust if still relevant */
+    margin-right: 10px;
+}
+
+.leaderboard-overall-worth {
+    font-weight: bold;
+    font-size: 1.05em; /* Slightly larger */
+    color: #000000 !important; /* Ensure it's black if other financials are lighter */
+}
+
+.leaderboard-portfolio-header {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 1em;
+    color: #000000;
+}
+
+.leaderboard-portfolio-details {
+    list-style-type: disc;
+    padding-left: 20px;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.leaderboard-portfolio-details li {
+    margin-bottom: 4px;
+    color: #000000;
+}
+
+.no-activity-msg {
+    color: #333333; /* Dark grey for no activity message */
+    font-style: italic;
+    padding: 10px 0;
+}
+
+.current-turn-player-name-highlight {
+    font-weight: bold;
+    color: #4CAF50; /* Green color for highlight */
+}
