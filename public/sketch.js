@@ -149,35 +149,28 @@ function drawCardVisual(x, y, card) {
     push();
     translate(x, y);
 
-    // --- Begin Debug Logs for drawCardVisual ---
-    // console.log('[drawCardVisual] Card data:', JSON.parse(JSON.stringify(card)));
-    // --- End Debug Logs ---
-
-    let cardBgColor = color(255); // Default white for windfall or unknown
+    let cardBgColor;
     let mainTextColor;
 
     if (card.type === 'price') {
         const companyColorHex = getCompanyColorForSketch(card.company);
         cardBgColor = color(companyColorHex);
         mainTextColor = color(getTextColorForBackground(companyColorHex));
-    } else { // Windfall or other types
-        cardBgColor = color(240, 240, 240); // Light grey for windfall
-        mainTextColor = color(0); // Black text for windfall
+    } else if (card.type === 'windfall') {
+        cardBgColor = color(0); // Black background for windfall
+        mainTextColor = color(255); // White text for windfall
+    } else { // Other types (if any)
+        cardBgColor = color(240, 240, 240); // Light grey default
+        mainTextColor = color(0); // Black text default
     }
 
-    // --- More Debug Logs ---
-    // console.log(`[drawCardVisual] For card type: ${card.type}, company: ${card.company}, change: ${card.change}`);
-    // console.log('[drawCardVisual] Calculated cardBgColor:', cardBgColor.toString());
-    // console.log('[drawCardVisual] Calculated mainTextColor:', mainTextColor.toString());
-    // console.log('[drawCardVisual] Card played status:', card.played);
-    // --- End More Debug Logs ---
-
     if (card.played) {
-        // Dim the original color slightly then overlay with semi-transparent grey
-        let playedBg = lerpColor(cardBgColor, color(120), 0.5); // Blend with grey
-        fill(red(playedBg), green(playedBg), blue(playedBg), 200); // Apply with alpha
+        let playedBg = lerpColor(cardBgColor, color(120), 0.5);
+        fill(red(playedBg), green(playedBg), blue(playedBg), 200);
         stroke(150);
-        mainTextColor = color(100); // Darker grey text for played cards
+        // For windfall cards, even when played, text should ideally remain white against the dimmed black.
+        // So, if it's a windfall, we might want to keep mainTextColor as white or a very light grey.
+        mainTextColor = (card.type === 'windfall') ? color(200) : color(100); 
     } else {
         fill(cardBgColor);
         stroke(100);
@@ -190,7 +183,6 @@ function drawCardVisual(x, y, card) {
         const bandWidth = 8;
         const bandHeight = CARD_HEIGHT;
         const bandX = 0; // Draw on the left edge
-        // const bandX = CARD_WIDTH - bandWidth; // Draw on the right edge
         
         if (card.change > 0) {
             fill(34, 139, 34, 230); // Dark Green, slightly transparent
@@ -200,12 +192,8 @@ function drawCardVisual(x, y, card) {
             noFill(); // Or a neutral color if change is 0
         }
         noStroke();
-        // rect(bandX, 0, bandWidth, bandHeight, 8,0,0,8); // Rounded on one side if bandX is 0
         rect(bandX, 0, bandWidth, bandHeight, (bandX === 0 ? 8 : 0), (bandX > 0 ? 8 : 0), (bandX > 0 ? 8 : 0), (bandX === 0 ? 8 : 0));
-
-
     }
-
 
     textAlign(CENTER, CENTER);
     textSize(11);
@@ -214,51 +202,73 @@ function drawCardVisual(x, y, card) {
     // Set text color based on calculations above (or specific for played)
     fill(mainTextColor);
 
-
-    let line1 = '';
-    let line2 = '';
-    let line3 = '';
-
     if (card.type === 'price') {
+        textSize(11); // Redundant if set before, but ensures context
         let companyDisplayName = getCompanyNameForSketch(card.company);
         let nameParts = splitLongName(companyDisplayName, 12);
-        line1 = nameParts[0] || '';
-        line2 = nameParts[1] || '';
+        let line1 = nameParts[0] || '';
+        let line2 = nameParts[1] || '';
+        let line3 = ''; // Initialize line3
         
         let changeText = `${card.change > 0 ? '+' : ''}${card.change}`;
-        if (nameParts.length <= 1) {
+        if (nameParts.length <= 1) { // If company name is short enough for one line
             line2 = `Price: ${changeText}`;
-        } else {
+        } else { // If company name took two lines
             line3 = `Price: ${changeText}`;
         }
-        
-        // Text color is already set by mainTextColor, price change color is handled by the band now
-        // push();
-        // if (card.change > 0) fill(34, 139, 34);
-        // else if (card.change < 0) fill(220, 20, 60);
-        // else fill(card.played ? 120 : 0);
 
-        if (line3) {
-            text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 18);
-            text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2);
-            text(line3, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 18);
-        } else {
-            text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
-            text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
+        // textAlign(CENTER, CENTER); // Already set
+        // fill(mainTextColor); // Already set
+
+        if (line3) { // Company name on 2 lines, price on 3rd
+            text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 20); // Company Line 1
+            text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 5);  // Company Line 2
+            text(line3, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10); // Price Change
+        } else { // Company name on 1 line, price on 2nd
+            text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10); // Company Name
+            text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10); // Price Change
         }
-        // pop();
 
     } else if (card.type === 'windfall') {
-        line1 = 'Windfall';
-        line2 = card.sub;
-        text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
-        text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
+        // Geometric shape icon drawing
+        noStroke(); 
+        fill(mainTextColor); // Ensures icon is white (or light grey if played)
+        const iconSize = 20;
+        const iconX = CARD_WIDTH / 2;
+        const iconY = CARD_HEIGHT / 3.5;
+        if (card.sub === 'LOAN') {
+            ellipse(iconX, iconY, iconSize * 1.2, iconSize * 1.2);
+        } else if (card.sub === 'DEBENTURE') {
+            rectMode(CENTER);
+            rect(iconX, iconY - iconSize / 4, iconSize * 1.5, iconSize / 2, 3);
+            rect(iconX, iconY + iconSize / 4, iconSize * 1.5, iconSize / 2, 3);
+            rectMode(CORNER);
+        } else if (card.sub === 'RIGHTS') {
+            triangle(
+                iconX, iconY - iconSize / 1.5,            
+                iconX - iconSize / 1.2, iconY + iconSize / 3, 
+                iconX + iconSize / 1.2, iconY + iconSize / 3  
+            );
+        }
+
+        // Text below the icon for windfall cards
+        let windfallText = card.sub.toUpperCase();
+        textAlign(CENTER, CENTER); // Ensure alignment
+        textSize(12); 
+        fill(mainTextColor); // Ensure text color
+        text(windfallText, CARD_WIDTH / 2, CARD_HEIGHT * 0.65); 
+        
     } else {
-        line1 = 'Unknown';
-        line2 = 'Card';
-        text(line1, CARD_WIDTH / 2, CARD_HEIGHT / 2 - 10);
-        text(line2, CARD_WIDTH / 2, CARD_HEIGHT / 2 + 10);
+        // Fallback for any other unknown card types
+        textSize(11);
+        // fill(mainTextColor); // Already set
+        // textAlign(CENTER, CENTER); // Already set
+        let line1 = card.type ? card.type.toUpperCase() : 'UNKNOWN';
+        let line2 = card.sub ? card.sub.toUpperCase() : 'CARD';
+        text(line1, CARD_WIDTH/2, CARD_HEIGHT/2 - 8);
+        text(line2, CARD_WIDTH/2, CARD_HEIGHT/2 + 8);
     }
+
     pop();
 }
 

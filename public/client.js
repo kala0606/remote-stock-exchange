@@ -1414,11 +1414,6 @@ function updateOpenShortsPanel(player, marketPrices, companiesStaticData) {
                     alert(`Cannot determine current price for ${getCompanyName(sym)}.`);
                     return;
                 }
-                const costToCover = priceToCoverAt * position.quantity;
-                if (player.cash < costToCover) {
-                    alert(`Insufficient cash for ${getCompanyName(sym)}. Need ₹${costToCover.toLocaleString()}, have ₹${player.cash.toLocaleString()}.`);
-                    return;
-                }
                 if (player.transactionsRemaining <= 0) {
                     alert('No transactions remaining to cover this short.');
                     return;
