@@ -299,66 +299,138 @@ select:focus {
 }
 
 .modal {
+  display: none;
   position: fixed;
-  top: 0;
+  z-index: 1000;
   left: 0;
+  top: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: none;
-  justify-content: center;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.6);
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
 }
 
 .modal-content {
-  background: #ffffff;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  padding: 30px;
-  border-radius: 25px;
-  min-width: 350px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  background-color: #fefefe;
+  margin: auto;
+  padding: 25px;
+  border: 1px solid #888;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  text-align: left;
+  max-width: 550px;
 }
 
 .modal-content h2 {
   margin-top: 0;
-  margin-bottom: 20px;
   color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
 }
 
-.button-group {
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-  margin-top: 25px;
+.modal-content select,
+.modal-content input[type="number"],
+.modal-content input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
 }
 
-.button-group button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
+.modal-content .button-group {
+  text-align: right;
+  margin-top: 20px;
+}
+
+.modal-content .button-group button {
+  padding: 10px 20px;
+  margin-left: 10px;
+  border-radius: 5px;
   cursor: pointer;
 }
 
+.modal-content .button-group button#confirm,
+.modal-content .button-group button#confirmShortSellBtn,
+.modal-content .button-group button#confirmRightsIssue,
+.modal-content .button-group button#confirmGeneralRightsIssue {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+}
+
+.modal-content .button-group button#cancel,
+.modal-content .button-group button#cancelShortSellBtn,
+.modal-content .button-group button#cancelRightsIssue,
+.modal-content .button-group button#cancelGeneralRightsIssue {
+  background-color: #f44336;
+  color: white;
+  border: none;
+}
+
 #playerList {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  padding: 20px;
-  border-radius: 15px;
-  margin-bottom: 25px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-  text-align: left;
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 5px;
 }
 
 #playerList h2 {
   margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 1.1em;
-  color: #555;
-  text-align: center;
+  font-size: 1.2em;
+  color: #333;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+}
+
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.player-row:last-child {
+  border-bottom: none;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+}
+
+.turn-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ccc;
+  margin-right: 10px;
+  transition: background-color 0.3s ease;
+  display: inline-block;
+}
+
+.turn-indicator.active {
+  background-color: #4CAF50 !important;
+}
+
+.player-row.current-turn .player-info > span:first-of-type {
+  font-weight: bold !important;
+  color: #1b5e20 !important;
+}
+
+.player-row.current-turn {
+  background-color: #e8f5e9 !important;
+}
+
+.admin-badge {
+  background-color: #007bff;
 }
 
 .panel {
@@ -510,32 +582,6 @@ select:focus {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-20px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.turn-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #ccc;
-    display: inline-block;
-    margin-right: 10px;
-}
-
-.turn-indicator.active {
-    background: #4CAF50;
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
-}
-
-.player-info {
-    display: flex;
-    align-items: center;
 }
 
 .turn-status {
@@ -739,3 +785,14 @@ select:focus {
   width: 100%;
   max-width: 300px;
 }
+
+/* Styling for the 'Your Turn' text in the info bar */
+.your-turn-indicator-text {
+  color: #28a745; /* Green color */
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background-color: rgba(76, 175, 80, 0.1); /* Light green background, subtle */
+}
+
+/* --- End of Appended Styles --- */

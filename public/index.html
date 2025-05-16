@@ -38,6 +38,7 @@
           <div class="action-buttons">
             <button id="buy">Buy</button>
             <button id="sell">Sell</button>
+            <button id="shortSell">Short Sell</button>
             <!-- <button id="windfall">Play Windfall</button> -->
             <button id="pass">Pass</button>
             <button id="endTurn">End Turn</button>
@@ -81,6 +82,21 @@
             <div id="activity-log-content" style="max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
                 <!-- Log entries will be added here by client.js -->
             </div>
+        </div>
+
+        <!-- NEW: Open Short Positions Panel -->
+        <div id="open-shorts-panel" class="panel" style="display: none; margin-top: 15px;">
+            <h4>Open Short Positions</h4>
+            <div id="open-shorts-content" style="font-size: 0.9em; line-height: 1.5;">
+                <!-- Short positions will be listed here by client.js -->
+                <!-- Example:
+                <div class="short-position-item">
+                    <span>WIPRO: 1000 @ ₹150 (Current: ₹140) P&L: +₹10,000</span>
+                    <button class="cover-short-btn" data-symbol="WIPRO">Cover</button>
+                </div>
+                -->
+            </div>
+            <p id="no-open-shorts-msg" style="display: block;">You have no open short positions.</p>
         </div>
 
       </div>
@@ -138,6 +154,29 @@
             <div class="button-group">
                 <button id="confirmGeneralRightsIssue">Confirm Purchase</button>
                 <button id="cancelGeneralRightsIssue">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Short Sell Modal -->
+    <div id="short-sell-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="shortSellTitle">Initiate Short Sell</h2>
+            <div class="modal-details">
+                <p style="font-size:0.9em; margin-bottom:10px;">Select a company to short. You will borrow its shares and sell them, hoping the price drops so you can buy them back cheaper to cover. This uses 1 transaction.</p>
+            </div>
+            <select id="shortCompanySelect">
+              <option value="" disabled selected>Select a company</option>
+              <!-- Options populated by JS -->
+            </select>
+            <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+            <div id="shortSellInfoDiv" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select company and quantity.</div>
+            <div class="modal-details">
+                <p style="font-size: 0.9em;">Transactions remaining: <span id="shortSellTransactionsRemaining">N/A</span></p>
+            </div>
+            <div class="button-group">
+                <button id="confirmShortSellBtn">Confirm Short</button>
+                <button id="cancelShortSellBtn">Cancel</button>
             </div>
         </div>
     </div>

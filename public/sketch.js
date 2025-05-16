@@ -53,6 +53,7 @@ function setup() {
 
 function draw() {
     background(255); // Light grey background, similar to Bootstrap's .bg-light
+    // console.log('[sketch.js] In draw() function, about to call drawMarketBoard and drawPlayerHand');
     drawMarketBoard(prices);
     drawPlayerHand();
 }
@@ -125,7 +126,9 @@ function drawMarketBoard(currentPrices) {
 }
 
 function drawPlayerHand() {
+    // console.log('[sketch.js] Entered drawPlayerHand()');
     const handToDraw = window.playerHand || [];
+    console.log('[sketch.js] drawPlayerHand - handToDraw:', JSON.parse(JSON.stringify(handToDraw)));
     if (handToDraw.length === 0) return;
 
     const totalWidth = handToDraw.length * (CARD_WIDTH + CARD_SPACING) - CARD_SPACING;
@@ -146,6 +149,10 @@ function drawCardVisual(x, y, card) {
     push();
     translate(x, y);
 
+    // --- Begin Debug Logs for drawCardVisual ---
+    // console.log('[drawCardVisual] Card data:', JSON.parse(JSON.stringify(card)));
+    // --- End Debug Logs ---
+
     let cardBgColor = color(255); // Default white for windfall or unknown
     let mainTextColor;
 
@@ -157,6 +164,13 @@ function drawCardVisual(x, y, card) {
         cardBgColor = color(240, 240, 240); // Light grey for windfall
         mainTextColor = color(0); // Black text for windfall
     }
+
+    // --- More Debug Logs ---
+    // console.log(`[drawCardVisual] For card type: ${card.type}, company: ${card.company}, change: ${card.change}`);
+    // console.log('[drawCardVisual] Calculated cardBgColor:', cardBgColor.toString());
+    // console.log('[drawCardVisual] Calculated mainTextColor:', mainTextColor.toString());
+    // console.log('[drawCardVisual] Card played status:', card.played);
+    // --- End More Debug Logs ---
 
     if (card.played) {
         // Dim the original color slightly then overlay with semi-transparent grey
@@ -249,33 +263,64 @@ function drawCardVisual(x, y, card) {
 }
 
 function splitLongName(name, maxLengthPerLine) {
-    if (typeof name !== 'string') return [''];
-    let parts = [];
-    let currentLine = '';
-    let words = name.split(' ');
-
-    for (let word of words) {
-        if (currentLine.length + word.length + (currentLine.length > 0 ? 1 : 0) <= maxLengthPerLine) {
-            currentLine += (currentLine.length > 0 ? ' ' : '') + word;
-        } else {
-            if (currentLine.length > 0) parts.push(currentLine);
-            currentLine = word;
-            if (word.length > maxLengthPerLine && parts.length === 0) {
-                 parts.push(word.substring(0, maxLengthPerLine-1) + '-');
-                 currentLine = word.substring(maxLengthPerLine-1);
-            }
-        }
+    if (name.length <= maxLengthPerLine) {
+        return [name];
     }
-    if (currentLine.length > 0) parts.push(currentLine);
-    return parts.slice(0, 2);
+    let parts = [];
+    let currentPart = '';
+    name.split(' ').forEach(word => {
+        if (currentPart.length + word.length + (currentPart.length > 0 ? 1 : 0) <= maxLengthPerLine) {
+            currentPart += (currentPart.length > 0 ? ' ' : '') + word;
+        } else {
+            if (currentPart) parts.push(currentPart);
+            currentPart = word;
+        }
+    });
+    if (currentPart) parts.push(currentPart);
+    return parts.slice(0, 2); // Max 2 lines for cards/market board for now
 }
 
 function updateMarketBoard(newPrices) {
     prices = newPrices;
 }
 
-// window.playerHand is updated directly by client.js
-// So, no specific updatePlayerHand function needed here unless for extra logic.
+// NEW or REPLACEMENT for window.updateP5Data
+window.updateP5Data = function(data) {
+    if (data) {
+        if (data.marketPrices) {
+            // Update the global prices object for drawMarketBoard
+            prices = data.marketPrices; 
+            // console.log('[sketch.js] Updated global prices:', JSON.parse(JSON.stringify(prices)));
+        }
+        if (data.playerHand) {
+            window.playerHand = data.playerHand; // Already done like this, for drawPlayerHand
+        }
+        if (data.companyData) {
+            // If COMPANIES_FOR_SKETCH needs to be dynamic, update it here.
+            // For now, it's static, but good to log we received it.
+            // console.log('[sketch.js] Received companyData:', data.companyData);
+        }
+        // activeSuspensions is also received, can be stored globally if needed for drawing
+        if (data.activeSuspensions) {
+            // window.activeSuspensions = data.activeSuspensions;
+        }
+    }
+    // p5.js draw loop will pick up the changes, no explicit redraw needed if in loop mode.
+};
 
-// mousePressed is handled by client.js for card clicks
-// function mousePressed() { ... }
+function mousePressed() {
+    if (typeof handleCardClick === 'function') {
+        const handToDraw = window.playerHand || [];
+        const totalWidth = handToDraw.length * (CARD_WIDTH + CARD_SPACING) - CARD_SPACING;
+        let startX = (width - totalWidth) / 2;
+
+        for (let i = 0; i < handToDraw.length; i++) {
+            const card = handToDraw[i];
+            const cardX = startX + i * (CARD_WIDTH + CARD_SPACING);
+            if (mouseX >= cardX && mouseX <= cardX + CARD_WIDTH && mouseY >= CARDS_Y && mouseY <= CARDS_Y + CARD_HEIGHT) {
+                handleCardClick(card, i); // Pass card object and its index
+                break; 
+            }
+        }
+    }
+}

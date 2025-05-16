@@ -105,10 +105,10 @@ function initGame(game, initialAdminPlayerId) {
   }
   console.log(`[initGame] Initial currentTurn set to index: ${game.state.currentTurn} for Period ${game.period}`);
 
-  // Deal 10 cards to each player
+  // Deal 10 cards to each player and set initial transactions
   game.players.forEach((player, index) => {
     player.hand = game.deck.splice(0, 10);
-    console.log(`[initGame] Dealt hand to player ${player.name}`);
+    player.transactionsRemaining = TRANSACTIONS_PER_PERIOD; // Initialize transactions
   });
 
   console.log(`[initGame] Emitting initial game state...`);
@@ -120,7 +120,6 @@ function emitGameState(game, context = 'normal') {
       console.error('[emitGameState] Error: Invalid game object.');
       return;
   }
-  console.log(`[emitGameState${context === 'rejoin' ? ' REJOIN' : ''}] Emitting state for Period: ${game.period}, Turn Index: ${game.state.currentTurn}, Admin ID: ${game.admin}`);
   game.players.forEach(player => {
     const currentAdminId = game.admin;
     const currentPlayerId = player.id;
@@ -129,16 +128,6 @@ function emitGameState(game, context = 'normal') {
     const currentTurnPlayer = game.players[game.state.currentTurn];
     const currentTurnPlayerId = currentTurnPlayer ? currentTurnPlayer.id : null;
     const isYourTurn = currentTurnPlayerId ? currentPlayerId === currentTurnPlayerId : false;
-    
-    // --- Extra Logging for Rejoin Context --- 
-    if (context === 'rejoin') {
-        console.log(`  [emitGameState REJOIN Check] Emitting to ${player.name} (${currentPlayerId})`);
-        console.log(`    isAdmin Check: currentPlayerId (${currentPlayerId}) === currentAdminId (${currentAdminId}) => ${isAdmin}`);
-        console.log(`    isYourTurn Check: currentPlayerId (${currentPlayerId}) === currentTurnPlayerId (${currentTurnPlayerId}) => ${isYourTurn}`);
-    }
-    // --- End Extra Logging --- 
-
-    console.log(`[emitGameState${context === 'rejoin' ? ' REJOIN' : ''}] Emitting to ${player.name} (${player.id}): isAdmin=${isAdmin}, isYourTurn=${isYourTurn}`);
     
     // Create company name mapping
     const companyNameMapping = COMPANIES.reduce((acc, company) => {
@@ -151,14 +140,18 @@ function emitGameState(game, context = 'normal') {
         id: p.id,
         name: p.name,
         portfolio: p.portfolio || {}, 
-        cash: p.cash 
+        cash: p.cash,
+        shortPositions: p.shortPositions || {},
+        transactionsRemaining: p.transactionsRemaining // Include transactionsRemaining
       })),
       state: { 
         prices: game.state.prices,
         init: game.state.init || {},
         companyNames: companyNameMapping,
+        companyList: COMPANIES,
         period: game.period,
         currentTurn: game.state.currentTurn,
+        currentTurnPlayerId: currentTurnPlayerId,
         roundNumberInPeriod: game.state.roundNumberInPeriod,
         activeRightsOffers: game.state.activeRightsOffers || {},
         chairmen: game.state.chairmen || {},
@@ -281,7 +274,6 @@ function resolvePeriod(roomID) {
     // Deal new hands
     game.players.forEach(player => {
       player.hand = game.deck.splice(0, 10);
-      console.log(`[resolvePeriod] Dealt 10 cards to player ${player.name}`);
     });
   } else {
     // This case (game.period <= 1 after increment) should ideally not happen if resolvePeriod is called correctly after period 1.
@@ -295,8 +287,14 @@ function resolvePeriod(roomID) {
   } else {
     game.state.currentTurn = 0; // Fallback if no players (should not happen in active game)
   }
-  game.state.turnTransactions = 0;
   game.state.roundNumberInPeriod = 1; // Reset to Round 1 for the new period
+
+  // Reset transactions for the player whose turn it is in the new period
+  if (game.players.length > 0 && game.players[game.state.currentTurn]) {
+    const firstPlayerOfNewPeriod = game.players[game.state.currentTurn];
+    firstPlayerOfNewPeriod.transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+    console.log(`[resolvePeriod] Reset transactions for ${firstPlayerOfNewPeriod.name} to ${TRANSACTIONS_PER_PERIOD} for start of Period ${game.period}`);
+  }
 
   console.log(`[resolvePeriod] Period ${game.period -1} resolved. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}, Turn Index: ${game.state.currentTurn}`);
   logActivity(game, null, 'PERIOD_RESOLVED', `Period ${game.period -1 } resolved. Prices updated. New cards dealt. Starting Period ${game.period}, Round ${game.state.roundNumberInPeriod}. Player ${game.players[game.state.currentTurn]?.name} starts.`);
@@ -390,9 +388,9 @@ io.on('connection', socket => {
       if (!sessionData) {
           console.log(`[rejoinWithToken] Token not found in tokenStore. Current tokenStore size: ${Object.keys(tokenStore).length}. Token: ${token}`);
           // Log a few existing tokens if store is small, for debugging
-          if (Object.keys(tokenStore).length < 10) {
-            console.log('[rejoinWithToken] Existing tokens:', Object.keys(tokenStore));
-          }
+          // if (Object.keys(tokenStore).length < 10) { // Removed debug log
+          //   console.log('[rejoinWithToken] Existing tokens:', Object.keys(tokenStore));
+          // }
           return callback({ error: 'Invalid or expired session token.' });
       }
 
@@ -491,7 +489,8 @@ io.on('connection', socket => {
       name,
       cash: START_CASH,
       portfolio: {},
-      hand: []
+      hand: [],
+      shortPositions: {}
     };
     game.players.push(player);
     socket.join(roomID);
@@ -683,9 +682,11 @@ io.on('connection', socket => {
         portfolio: JSON.stringify(player.portfolio)
     });
 
-    game.state.turnTransactions = (game.state.turnTransactions || 0) + 1;
-    game.state.trans++;
+    // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Old way
+    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New way
+    game.state.trans++; // Keep global transaction counter for other purposes if needed
 
+    console.log(`Player ${player.name} bought. Transactions remaining: ${player.transactionsRemaining}`);
     console.log('=== BUY TRANSACTION END ===\n');
     logActivity(game, player.name, 'BUY', `Bought ${quantity.toLocaleString()} shares of ${getCompanyName(company, game)} for ₹${(price * quantity).toLocaleString()}.`);
     emitGameState(game);
@@ -788,9 +789,11 @@ io.on('connection', socket => {
         portfolio: JSON.stringify(player.portfolio)
     });
 
-    game.state.turnTransactions = (game.state.turnTransactions || 0) + 1;
-    game.state.trans++;
+    // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Old way
+    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New way
+    game.state.trans++; // Keep global transaction counter
 
+    console.log(`Player ${player.name} sold. Transactions remaining: ${player.transactionsRemaining}`);
     console.log('=== SELL TRANSACTION END ===\n');
     logActivity(game, player.name, 'SELL', `Sold ${quantity.toLocaleString()} shares of ${getCompanyName(company, game)} for ₹${(price * quantity).toLocaleString()}.`);
     emitGameState(game);
@@ -925,8 +928,14 @@ io.on('connection', socket => {
     
     // Advance turn (only if period wasn't resolved)
     game.state.currentTurn = nextTurnIndex;
-    game.state.turnTransactions = 0; // Reset transactions for the new player's turn
+    game.state.turnTransactions = 0; // Reset transactions for the new player's turn (OLD SYSTEM - CAN BE REMOVED if fully on player.transactionsRemaining)
     
+    // Reset transactions for the new current player
+    if (game.players[game.state.currentTurn]) {
+        game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+        console.log(`[pass] Reset transactions for new turn player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD}`);
+    }
+
     console.log(`[pass] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
     // logActivity is now done above, before period resolution check
     emitGameState(game); // Emit state for normal turn advancement
@@ -977,8 +986,14 @@ io.on('connection', socket => {
     
     // Advance turn (only if period wasn't resolved)
     game.state.currentTurn = nextTurnIndex;
-    game.state.turnTransactions = 0; // Reset transactions for the new player's turn
-    
+    game.state.turnTransactions = 0; // Reset transactions for the new player's turn (OLD SYSTEM - CAN BE REMOVED if fully on player.transactionsRemaining)
+
+    // Reset transactions for the new current player
+    if (game.players[game.state.currentTurn]) {
+        game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+        console.log(`[endTurn] Reset transactions for new turn player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD}`);
+    }
+
     console.log(`[endTurn] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
     // logActivity is now done above, before period resolution check
     emitGameState(game); // Emit state for normal turn advancement
@@ -1041,7 +1056,8 @@ io.on('connection', socket => {
     // All checks passed, process the rights exercise
     player.cash -= totalCost;
     player.portfolio[targetCompany] = (player.portfolio[targetCompany] || 0) + actualSharesToGrant;
-    game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Increment transaction count
+    // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Increment transaction count // Old Way
+    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New Way
 
     // *** NEW: Remove the offer for this company as it has been claimed ***
     if (game.state.activeRightsOffers && game.state.activeRightsOffers[targetCompany]) {
@@ -1049,11 +1065,146 @@ io.on('connection', socket => {
         delete game.state.activeRightsOffers[targetCompany];
     }
 
-    console.log(`[exerciseGeneralRights] Player ${player.name} exercised rights for ${actualSharesToGrant} of ${targetCompany} for ₹${totalCost}. New cash: ${player.cash}. Transactions this turn: ${game.state.turnTransactions}`);
+    console.log(`[exerciseGeneralRights] Player ${player.name} exercised rights for ${actualSharesToGrant} of ${targetCompany} for ₹${totalCost}. New cash: ${player.cash}. Transactions remaining: ${player.transactionsRemaining}`);
     const generalRightsMessage = `Successfully exercised general rights: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} at ₹${rightsPricePerShare.toLocaleString()} each.`;
     socket.emit('info', { message: generalRightsMessage });
     logActivity(game, player.name, 'EXERCISE_GENERAL_RIGHTS', generalRightsMessage);
     emitGameState(game);
+  });
+
+  // --- NEW: Handler for initiating a short sell ---
+  socket.on('initiateShortSell', ({ roomID, companyId, quantity }) => {
+    console.log('\\n=== SHORT SELL INITIATE START ===');
+    console.log('Received short sell request:', { roomID, companyId, quantity });
+    const game = games[roomID];
+    if (!game) return socket.emit('error', { message: 'Game not found.' });
+    const player = game.players.find(p => p.id === socket.id);
+    if (!player) return socket.emit('error', { message: 'Player not found.' });
+
+    if (game.players[game.state.currentTurn]?.id !== socket.id) {
+        return socket.emit('error', { message: 'Not your turn.' });
+    }
+    if (player.transactionsRemaining <= 0) { 
+        return socket.emit('error', { message: 'No transactions left for this turn.' });
+    }
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity % 1000 !== 0) {
+        return socket.emit('error', { message: 'Quantity must be a positive multiple of 1000.' });
+    }
+    const currentPrice = game.state.prices[companyId];
+    if (currentPrice === undefined || currentPrice === null) { 
+        return socket.emit('error', { message: 'Invalid company or price not available.' });
+    }
+
+    const collateralForThisLot = currentPrice * quantity;
+    if (player.cash < collateralForThisLot) {
+        return socket.emit('error', { message: `Insufficient cash for short collateral. Need ₹${collateralForThisLot.toLocaleString()}, have ₹${player.cash.toLocaleString()}.` });
+    }
+    player.cash -= collateralForThisLot; // Deduct collateral
+    console.log(`[Short Sell New/Update] Player ${player.name} cash -${collateralForThisLot.toLocaleString()} (for short collateral). New cash: ${player.cash.toLocaleString()}`);
+
+
+    if (!player.shortPositions) player.shortPositions = {};
+    const existingShort = player.shortPositions[companyId];
+
+    if (existingShort) {
+        // Player is adding to an existing short position
+        const oldQuantity = existingShort.quantity;
+        const oldAvgPriceOpened = existingShort.priceOpened; // This is the average "collateralized price" for the old quantity
+
+        // Total collateral previously taken for existingShort = oldAvgPriceOpened * oldQuantity
+        // New collateral taken = collateralForThisLot (currentPrice * quantity for this new lot)
+        // Total collateral effectively taken for this companyId = (oldAvgPriceOpened * oldQuantity) + collateralForThisLot
+        const totalCollateralEffectivelyTaken = (oldAvgPriceOpened * oldQuantity) + collateralForThisLot;
+        const newTotalQuantity = oldQuantity + quantity;
+        
+        // The new average price opened should reflect the average collateral per share
+        const newAveragePriceOpened = totalCollateralEffectivelyTaken / newTotalQuantity;
+
+        existingShort.quantity = newTotalQuantity;
+        existingShort.priceOpened = parseFloat(newAveragePriceOpened.toFixed(2)); // This represents the new average price at which collateral was taken
+
+        console.log(`[Short Sell Update] Player ${player.name} added ${quantity} shares to short on ${getCompanyName(companyId, game)} at current price ${currentPrice.toLocaleString()}.`);
+        console.log(`  Collateral for this lot: ${collateralForThisLot.toLocaleString()}. Player cash reduced.`);
+        console.log(`  New total short: ${existingShort.quantity.toLocaleString()} shares, New avg open (collateral) price: ${existingShort.priceOpened.toLocaleString()}`);
+        logActivity(game, player.name, 'UPDATE_SHORT_SELL', `Added ${quantity.toLocaleString()} shares to short position on ${getCompanyName(companyId, game)} (avg. open price for collateral now ₹${existingShort.priceOpened.toLocaleString()}). Total short: ${existingShort.quantity.toLocaleString()}`);
+
+    } else {
+        // New short position
+        player.shortPositions[companyId] = {
+            quantity: quantity,
+            priceOpened: currentPrice // This is the price at which collateral was taken
+        };
+        console.log(`[Short Sell New] Player ${player.name} initiated new short of ${quantity} shares on ${getCompanyName(companyId, game)} at ${currentPrice.toLocaleString()}.`);
+        console.log(`  Collateral for this lot: ${collateralForThisLot.toLocaleString()}. Player cash reduced.`);
+        logActivity(game, player.name, 'INITIATE_SHORT_SELL', `Initiated short sell of ${quantity.toLocaleString()} shares of ${getCompanyName(companyId, game)} at ₹${currentPrice.toLocaleString()} (collateral taken).`);
+    }
+    
+    player.transactionsRemaining = Math.max(0, player.transactionsRemaining - 1);
+
+    console.log(`Player transactions remaining: ${player.transactionsRemaining}`);
+    emitGameState(game);
+    console.log('=== SHORT SELL INITIATE END ===\\n');
+  });
+
+  // --- NEW: Handler for covering a short position ---
+  socket.on('coverShortPosition', ({ roomID, companyId }) => {
+    console.log('\\n=== SHORT SELL COVER START ===');
+    console.log('Received cover short request:', { roomID, companyId });
+    const game = games[roomID];
+    if (!game) return socket.emit('error', { message: 'Game not found.' });
+    const player = game.players.find(p => p.id === socket.id);
+    if (!player) return socket.emit('error', { message: 'Player not found.' });
+
+    if (game.players[game.state.currentTurn]?.id !== socket.id) {
+        return socket.emit('error', { message: 'Not your turn.' });
+    }
+    if (player.transactionsRemaining <= 0) { 
+        return socket.emit('error', { message: 'No transactions left for this turn.' });
+    }
+
+    const shortPosition = player.shortPositions ? player.shortPositions[companyId] : null;
+    if (!shortPosition) {
+        return socket.emit('error', { message: `No open short position found for ${getCompanyName(companyId, game)}.` });
+    }
+
+    const currentMarketPrice = game.state.prices[companyId];
+    if (currentMarketPrice === undefined || currentMarketPrice === null) {
+        return socket.emit('error', { message: `Current market price for ${getCompanyName(companyId, game)} is not available. Cannot cover.` });
+    }
+
+    const quantityCovered = shortPosition.quantity;
+    const averagePriceOpenedCollateral = shortPosition.priceOpened; // Average price at which collateral was taken per share
+
+    const totalCollateralHeld = averagePriceOpenedCollateral * quantityCovered;
+    const costToBuyBackAtMarket = currentMarketPrice * quantityCovered;
+
+    // Calculate the amount to return to the player's cash
+    // This is: (original collateral back) + (profit) or (original collateral back) - (loss)
+    // which simplifies to: 2 * totalCollateralHeld - costToBuyBackAtMarket
+    const amountToReturnToPlayer = (2 * totalCollateralHeld) - costToBuyBackAtMarket;
+    player.cash += amountToReturnToPlayer;
+
+    // Calculate Profit/Loss for logging purposes
+    const profitOrLoss = totalCollateralHeld - costToBuyBackAtMarket; 
+    // This is equivalent to: (averagePriceOpenedCollateral - currentMarketPrice) * quantityCovered
+
+    delete player.shortPositions[companyId];
+    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1);
+
+    let PnLMessage = `Profit: ₹${profitOrLoss.toLocaleString()}`;
+    if (profitOrLoss < 0) PnLMessage = `Loss: ₹${Math.abs(profitOrLoss).toLocaleString()}`;
+    else if (profitOrLoss === 0) PnLMessage = `No profit or loss.`;
+    
+    console.log(`[Short Sell Cover] Player ${player.name} covered ${quantityCovered.toLocaleString()} shares of ${getCompanyName(companyId, game)}.`);
+    console.log(`  Avg Price Opened (Collateralized): ${averagePriceOpenedCollateral.toLocaleString()}, Market Price at Cover: ${currentMarketPrice.toLocaleString()}.`);
+    console.log(`  Total Collateral Originally Held: ${totalCollateralHeld.toLocaleString()}`);
+    console.log(`  Cost to Buy Back at Market: ${costToBuyBackAtMarket.toLocaleString()}`);
+    console.log(`  Amount Change to Player Cash (2*Collateral - CostToBuyBack): +₹${amountToReturnToPlayer.toLocaleString()}`);
+    console.log(`  Effective P/L: ₹${profitOrLoss.toLocaleString()}. Player new cash: ${player.cash.toLocaleString()}`);
+    console.log(`  Transactions remaining: ${player.transactionsRemaining}`);
+    logActivity(game, player.name, 'COVER_SHORT_SELL', `Covered short on ${quantityCovered.toLocaleString()} shares of ${getCompanyName(companyId, game)}. ${PnLMessage}`);
+    emitGameState(game);
+    console.log('=== SHORT SELL COVER END ===\\n');
   });
 
   // --- Handle Disconnect --- 
