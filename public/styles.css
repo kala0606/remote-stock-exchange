@@ -1460,6 +1460,21 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     color: #000000 !important; /* Ensure it's black if other financials are lighter */
 }
 
+.leaderboard-worth-change {
+    font-size: 0.85em;
+    font-weight: normal;
+    margin-left: 8px;
+    color: #555555; /* Neutral color for (New), (N/A) */
+}
+
+.leaderboard-worth-change.positive {
+    color: #28a745; /* Green for positive change */
+}
+
+.leaderboard-worth-change.negative {
+    color: #dc3545; /* Red for negative change */
+}
+
 .leaderboard-portfolio-header {
     font-weight: bold;
     margin-bottom: 8px;

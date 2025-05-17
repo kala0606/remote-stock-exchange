@@ -782,6 +782,10 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
 function updateLeaderboard(players, marketPrices, companiesStaticData) {
     if (!leaderboardContent) return;
 
+    // Ensure historicalWorthData is available via currentGameState
+    const historicalWorthData = currentGameState?.state?.historicalWorthData || [];
+    const currentPeriod = currentGameState?.state?.period;
+
     if (!players || players.length === 0 || !marketPrices || !companiesStaticData || companiesStaticData.length === 0) {
         leaderboardContent.innerHTML = '<p>Leaderboard data not available yet.</p>';
         return;
@@ -810,7 +814,31 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
             }
         }
         const overallWorth = player.cash + portfolioValue;
-        return { ...player, portfolioValue, overallWorth, portfolioDetails };
+
+        // Calculate percentage change from previous period
+        let worthChangeText = " <span class=\"leaderboard-worth-change\">(New)</span>"; // Default for period 0 or if no prior data
+        if (currentPeriod > 0 && historicalWorthData.length > 0) {
+            const previousPeriodData = historicalWorthData.find(d => d.playerId === player.id && d.period === (currentPeriod - 1));
+            if (previousPeriodData) {
+                const previousWorth = previousPeriodData.totalWorth;
+                if (previousWorth !== 0) { // Avoid division by zero
+                    const changePercent = ((overallWorth - previousWorth) / previousWorth) * 100;
+                    const changeSign = changePercent >= 0 ? '+' : '';
+                    const changeClass = changePercent >= 0 ? 'positive' : 'negative';
+                    worthChangeText = ` <span class="leaderboard-worth-change ${changeClass}">(${changeSign}${changePercent.toFixed(1)}%)</span>`;
+                } else if (overallWorth > 0) { // Previous was 0, current is positive
+                     worthChangeText = " <span class=\"leaderboard-worth-change positive\">(+Inf%)</span>";
+                } else { // Both were 0
+                     worthChangeText = " <span class=\"leaderboard-worth-change\">(0.0%)</span>";
+                }
+            } else {
+                 worthChangeText = " <span class=\"leaderboard-worth-change\">(N/A)</span>"; // No data for player in prev period
+            }
+        } else if (currentPeriod === 0) {
+             worthChangeText = " <span class=\"leaderboard-worth-change\">(Baseline)</span>";
+        }
+
+        return { ...player, portfolioValue, overallWorth, portfolioDetails, worthChangeText };
     }).sort((a, b) => b.overallWorth - a.overallWorth);
 
     let leaderboardHTML = '<ol class="leaderboard-list">';
@@ -819,7 +847,7 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
             <div class="leaderboard-player-column">
                 <div class="leaderboard-player-name">${player.name} ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</div>
                 <div class="leaderboard-main-financials">
-                    <span class="leaderboard-overall-worth">Overall Worth: ₹${player.overallWorth.toLocaleString()}</span>
+                    <span class="leaderboard-overall-worth">Overall Worth: ₹${player.overallWorth.toLocaleString()}${player.worthChangeText}</span>
                     <span>Cash: ₹${player.cash.toLocaleString()}</span>
                 </div>
             </div>
@@ -1597,17 +1625,14 @@ function renderMarketBoard(marketPrices, companiesStaticData, currentInitialPric
     const marketBoardContainer = document.getElementById('market-board-container');
     if (!marketBoardContainer) return;
 
-    let maxPriceForScaling = 1000; 
-    if (currentInitialPrices && Object.keys(currentInitialPrices).length > 0) {
-        const allInitialValues = Object.values(currentInitialPrices).map(p => parseFloat(p));
-        if (allInitialValues.length > 0) {
-            const maxInitial = Math.max(...allInitialValues.filter(p => !isNaN(p) && p > 0));
-            if (maxInitial > 0) {
-                maxPriceForScaling = maxInitial * 2.5; 
-            }
+    let maxCurrentPrice = 100; // Default minimum for scaling to prevent division by zero or tiny bars
+    if (marketPrices && Object.keys(marketPrices).length > 0) {
+        const allCurrentPrices = Object.values(marketPrices).map(p => parseFloat(p)).filter(p => !isNaN(p) && p > 0);
+        if (allCurrentPrices.length > 0) {
+            maxCurrentPrice = Math.max(...allCurrentPrices);
         }
     }
-    maxPriceForScaling = Math.max(maxPriceForScaling, 100); 
+    const maxPriceForScaling = maxCurrentPrice * 1.2; // Scale relative to current max price + 20% buffer
 
     let tableHTML = '<table class="market-table"><thead><tr><th>Company</th><th>Current</th><th>Price Level</th></tr></thead><tbody>';
 
