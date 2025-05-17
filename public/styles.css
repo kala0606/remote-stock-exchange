@@ -1184,6 +1184,39 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* --- End of Mobile Leaderboard Overrides (Applied Last) --- */
 
+/* --- Game Over Screen Mobile Friendliness --- */
+@media (max-width: 768px) {
+  #game-over-screen {
+    padding: 15px; /* Reduce padding */
+    margin-top: 20px; /* Reduce top margin */
+  }
+
+  #winner-announcement {
+    font-size: 1.3em; /* Reduce font size */
+    margin-bottom: 10px; /* Reduce margin */
+  }
+
+  #wisdom-quote {
+    font-size: 0.9em; /* Reduce font size */
+    margin-bottom: 15px; /* Reduce margin */
+  }
+}
+
+@media (max-width: 480px) {
+  #game-over-screen {
+    padding: 10px; /* Further reduce padding */
+  }
+
+  #winner-announcement {
+    font-size: 1.1em; /* Further reduce font size */
+  }
+
+  #wisdom-quote {
+    font-size: 0.8em; /* Further reduce font size */
+  }
+}
+/* --- End Game Over Screen Mobile Friendliness --- */
+
 /* --- New Styles for HTML Market Board & Player Hand --- */
 
 /* Market Board Table */

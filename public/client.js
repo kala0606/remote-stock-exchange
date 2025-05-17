@@ -572,7 +572,9 @@ socket.on('gameState', state => {
     console.log('Game state updated:', JSON.parse(JSON.stringify(state)));
     currentGameState = state; // Central update
     
-    initialPrices = state.state?.init || {};
+    initialPrices = state.state?.init || {}; // Still needed for the "Initial" row and first comparison
+    priceLog = state.state?.priceLog || []; // MODIFIED: Use server-provided priceLog directly
+
     if (state.state?.companyList) {
         currentGameState.state.companyList = state.state.companyList;
         window.companyNames = state.state.companyList.reduce((acc, company) => {
@@ -593,41 +595,6 @@ socket.on('gameState', state => {
     isAdmin = state.isAdmin; 
     isYourTurn = state.isYourTurn;
     
-    const statePeriod = state.state?.period;
-    const stateRound = state.state?.roundNumberInPeriod;
-    const pricesJustUpdatedByServer = state.state?.prices;
-    const pricesWereJustResolvedByAdminAction = state.state?.pricesResolvedThisCycle;
-
-    const lastLogEntry = priceLog.length > 0 ? priceLog[priceLog.length - 1] : null;
-    let logThisState = false;
-
-    if (pricesWereJustResolvedByAdminAction && pricesJustUpdatedByServer && statePeriod !== undefined) {
-        if (!(lastLogEntry &&
-              lastLogEntry.period === statePeriod &&
-              lastLogEntry.round === stateRound && 
-              lastLogEntry.wasResolved === true)) { 
-            logThisState = true;
-        }
-    } else if (!lastLogEntry && pricesJustUpdatedByServer && statePeriod === 1 && stateRound === 0 && state.state.gameStarted === false) {
-        // Special case: Log initial prices if game hasn't officially started but we have them (e.g. Period 1, Round 0 for display before start)
-        // This might be too specific or could be handled by ensuring first log is after first resolution.
-        // For now, focusing on user's request to reduce logs. If initial state is needed, it can be a separate consideration.
-        // REINSTATE INITIAL LOGGING:
-        console.log(`[gameState] Logging initial prices. Period ${statePeriod}, Round ${stateRound}.`);
-        logThisState = true; 
-    }
-
-
-    if (logThisState) {
-        console.log(`[gameState] Logging prices (RESOLVED). Period ${statePeriod}, Round ${stateRound}.`);
-        priceLog.push({
-            period: statePeriod,
-            round: stateRound, 
-            prices: { ...pricesJustUpdatedByServer },
-            wasResolved: true // All entries in priceLog will now be from resolved states
-        });
-    }
-
     if (lobbyScreen && gameScreen && lobbyScreen.style.display !== 'none') {
         lobbyScreen.style.display = 'none';
         gameScreen.style.display = 'block';

@@ -113,6 +113,7 @@ function initGame(game, initialAdminPlayerId) {
     prices: {...initialPrices},
     init: {...initialPrices},
     historicalWorthData: [], // NEW: Initialize historical worth data array
+    priceLog: [], // NEW: Initialize server-side price log
     trans: 0,
     played: [],
     currentTurn: 0, 
@@ -194,6 +195,7 @@ function emitGameState(game, context = 'normal') {
         prices: game.state.prices,
         init: game.state.init || {},
         historicalWorthData: game.state.historicalWorthData || [], // NEW: Send historical data
+        priceLog: game.state.priceLog || [], // NEW: Send server-authoritative price log
         companyNames: companyNameMapping,
         companyList: COMPANIES,
         period: game.period,
@@ -295,6 +297,20 @@ function calculateAndApplyPriceChanges(game) {
     game.state.prices[company] = Math.max(0, game.state.prices[company] + deltas[company]);
   });
   logActivity(game, null, 'PRICES_RESOLVED', `Market prices updated based on card effects for Period ${game.period}.`);
+  
+  // NEW: Add to server-side priceLog
+  const lastLogEntry = game.state.priceLog.length > 0 ? game.state.priceLog[game.state.priceLog.length - 1] : null;
+  if (!(lastLogEntry && lastLogEntry.period === game.period && lastLogEntry.round === game.state.roundNumberInPeriod)) {
+    game.state.priceLog.push({
+        period: game.period,
+        round: game.state.roundNumberInPeriod, // Log the round at the time of resolution
+        prices: { ...game.state.prices }
+    });
+    console.log(`[calculateAndApplyPriceChanges] Added to server priceLog for P${game.period}R${game.state.roundNumberInPeriod}`);
+  } else {
+    console.warn(`[calculateAndApplyPriceChanges] Price log entry for P${game.period}R${game.state.roundNumberInPeriod} already exists. Not adding duplicate.`);
+  }
+
   game.state.pricesResolvedThisCycle = true; // Mark that prices have been resolved for this decision cycle
   recordHistoricalWorth(game, game.period); // NEW: Record worth after price changes
   // Mark all 'price' cards in hands as played for this cycle if they were considered
