@@ -850,8 +850,10 @@ function handleCardClick(card, index) {
         return;
     }
 
-    if (!card) {
-        console.error('handleCardClick: Card data is undefined for index', index);
+    if (!card || card.played) { // MODIFIED: Check if card is undefined or already played
+        console.warn('handleCardClick: Card is undefined or already played.', card);
+        // Optionally provide user feedback if card is already played
+        if (card && card.played) alert('This card has already been played.');
         return;
     }
 
@@ -1379,7 +1381,7 @@ function openShortSellModal() {
         shortSellTransactionsRemaining.textContent = player.transactionsRemaining;
     }
     updateShortSellInfoDiv();
-    shortSellModal.style.display = 'block'; 
+    shortSellModal.style.display = 'flex'; // MODIFIED: Use flex for centering
 }
 
 function updateShortSellInfoDiv() {
@@ -1672,9 +1674,12 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         playerHandArray.forEach((card, index) => {
             let cardStyle = '';
             let cardClasses = 'card-html';
+            if (card.played) { // NEW: Check if card is marked as played
+                cardClasses += ' played-card';
+            }
 
             if (card.type === 'price') { 
-                cardClasses += ' price-card-html'; // Keep specific class if any specific styling relies on it
+                cardClasses += ' price-card-html'; 
                 const companyColor = companyColors[card.company];
                 if (companyColor) {
                     const lightBackgroundColor = lightenColor(companyColor, 0.85); // 85% towards white for a very light tint
@@ -1898,6 +1903,9 @@ socket.on('gameSummaryReceived', (summaryData) => {
 let playerWorthChartInstance = null; // To keep track of an existing chart instance
 
 function renderPlayerWorthChart(historicalData, playersInfo) {
+    console.log("[renderPlayerWorthChart] Received historicalData:", JSON.parse(JSON.stringify(historicalData))); // DEEP COPY FOR LOGGING
+    console.log("[renderPlayerWorthChart] Received playersInfo:", JSON.parse(JSON.stringify(playersInfo))); // DEEP COPY FOR LOGGING
+
     if (!playerWorthChartCanvas) {
         console.error('Player worth chart canvas not found.');
         return;
@@ -1909,13 +1917,19 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
 
     // Determine all unique periods for the x-axis labels
     const periods = [...new Set(historicalData.map(d => d.period))].sort((a, b) => a - b);
+    console.log("[renderPlayerWorthChart] Calculated periods for X-axis:", periods);
 
     const datasets = playersInfo.map(player => {
         const playerData = periods.map(p => {
             const record = historicalData.find(d => d.period === p && d.playerId === player.id);
             return record ? record.totalWorth : null; // Use null for missing data points in Chart.js
         });
-        const playerColor = companyColors[player.id] || COMPANY_COLOR_PALETTE[playersInfo.findIndex(p => p.id === player.id) % COMPANY_COLOR_PALETTE.length];
+        // Use a fallback color from the palette if companyColors[player.id] is somehow undefined
+        const playerAssignedColor = companyColors[player.id];
+        const fallbackColorIndex = playersInfo.findIndex(pInfo => pInfo.id === player.id) % COMPANY_COLOR_PALETTE.length;
+        const playerColor = playerAssignedColor || COMPANY_COLOR_PALETTE[fallbackColorIndex] || '#808080'; // Default to grey if all else fails
+
+        console.log(`[renderPlayerWorthChart] For player ${player.name} (ID: ${player.id}): Data points:`, playerData, `Assigned Color: ${playerColor}`);
 
         return {
             label: player.name,

@@ -1061,6 +1061,39 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   #activity-log-content {
     font-size: 0.8em;
   }
+
+  /* Leaderboard */
+  .leaderboard-item {
+    flex-direction: column; /* Stack columns vertically on mobile */
+    gap: 10px; /* Adjust gap for vertical stacking */
+  }
+  .leaderboard-player-column,
+  .leaderboard-shares-column {
+    width: 100%; /* Make each column take full width */
+    min-width: unset; /* Remove min-width constraints */
+    border-left: none; /* Remove the vertical separator */
+    padding-left: 0; /* Remove padding intended for separator */
+  }
+  .leaderboard-shares-column {
+    border-top: 1px solid #dddddd; /* Add a top separator for the shares section */
+    padding-top: 10px; /* Add some padding above the shares section */
+  }
+  .leaderboard-player-name {
+    font-size: 1.1em;
+  }
+  .leaderboard-portfolio-details li {
+    margin-bottom: 6px; /* Adjust spacing */
+    padding: 4px 0; /* Add some padding */
+    border-bottom: 1px dotted #eeeeee; /* Lighter separator for items */
+    display: flex; /* Allow for better alignment within the li */
+    justify-content: space-between; /* Space out name and share details */
+  }
+  .leaderboard-portfolio-details li:last-child {
+    border-bottom: none;
+  }
+  .leaderboard-portfolio-details li span[style*="color"] { /* Target the company name span */
+    margin-right: 10px; /* Add some space after company name */
+  }
 }
 
 @media (max-width: 480px) {
@@ -1114,6 +1147,43 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 /* --- End of Responsive Styles --- */
+
+/* --- Mobile Leaderboard Overrides (Applied Last) --- */
+@media (max-width: 768px) {
+  #leaderboard .leaderboard-list .leaderboard-item {
+    flex-direction: column !important; /* Force stacking */
+    gap: 10px;
+  }
+
+  #leaderboard .leaderboard-list .leaderboard-item .leaderboard-player-column,
+  #leaderboard .leaderboard-list .leaderboard-item .leaderboard-shares-column {
+    width: 100% !important; /* Force full width */
+    min-width: unset !important;
+    border-left: none !important;
+    padding-left: 0 !important;
+    flex: none !important; /* Remove flex-grow/shrink from desktop */
+  }
+
+  #leaderboard .leaderboard-list .leaderboard-item .leaderboard-shares-column {
+    border-top: 1px solid #dddddd !important;
+    padding-top: 10px !important;
+  }
+  
+  #leaderboard .leaderboard-list .leaderboard-item .leaderboard-portfolio-details li {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 5px 0 !important;
+    border-bottom: 1px dotted #e0e0e0 !important;
+  }
+  #leaderboard .leaderboard-list .leaderboard-item .leaderboard-portfolio-details li:last-child {
+    border-bottom: none !important;
+  }
+   #leaderboard .leaderboard-list .leaderboard-item .leaderboard-portfolio-details li span[style*="color"] {
+    margin-right: 10px !important;
+  }
+}
+
+/* --- End of Mobile Leaderboard Overrides (Applied Last) --- */
 
 /* --- New Styles for HTML Market Board & Player Hand --- */
 
@@ -1245,25 +1315,38 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Specific styles for windfall cards to match p5 sketch (black bg, white text) */
 .windfall-card-html {
-  background-color: #000000;
-  color: #ffffff;
-  border: 1px solid #444444; /* Dark border for black cards */
+  background-color: #282828; /* Dark grey instead of pure black */
+  color: #f0f0f0; /* Light grey text for good contrast */
+  border: 1px solid #404040; /* Slightly lighter border for dark grey cards */
 }
 
 .windfall-card-html .card-title {
-    color: #ffffff; /* Ensure white text on black bg */
+    color: #f0f0f0; /* Ensure light text on dark bg */
 }
 
 .windfall-card-html .card-subtitle,
 .windfall-card-html .card-value.positive, 
 .windfall-card-html .card-value.negative,
 .windfall-card-html .windfall-subtype /* Ensure subtype also gets light color */ {
-  color: #f0f0f0; /* Light grey text on black background */
+  color: #e0e0e0; /* Slightly brighter light grey text on dark background */
 }
 
 /* Ensure card icons are also white/light on black windfall cards */
 .windfall-card-html .card-icon {
-  color: #f0f0f0;
+  color: #e0e0e0;
+}
+
+/* NEW: Styles for played/disabled cards */
+.card-html.played-card {
+  opacity: 0.5;
+  cursor: not-allowed;
+  /* background-color: #777777 !important; /* Optionally override background to grey */
+  /* color: #bbbbbb !important; */ /* Optionally override text color */
+}
+
+.card-html.played-card:hover {
+    transform: none; /* No hover effect for played cards */
+    box-shadow: none;
 }
 
 /* Responsive adjustments for cards if needed (add to existing media queries) */
