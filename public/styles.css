@@ -1168,8 +1168,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     border-top: 1px solid #dddddd !important;
     padding-top: 10px !important;
   }
-  
-  #leaderboard .leaderboard-list .leaderboard-item .leaderboard-portfolio-details li {
+   #leaderboard .leaderboard-list .leaderboard-item .leaderboard-portfolio-details li {
     display: flex !important;
     justify-content: space-between !important;
     padding: 5px 0 !important;
@@ -1503,4 +1502,39 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 .current-turn-player-name-highlight {
     font-weight: bold;
     color: #4CAF50; /* Green color for highlight */
+}
+
+#game-over-screen {
+  display: none; /* Hidden by default */
+  width: 100%;
+  margin-top: 30px; /* Space from the content above it */
+  padding: 20px;
+  border: 1px solid #000000; /* Black border */
+  background-color: #f8f8f8; /* Light grey background to differentiate */
+  text-align: center;
+  box-sizing: border-box;
+}
+
+#game-over-screen h2 {
+  margin-top: 0;
+  color: #000000;
+}
+
+#winner-announcement {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #000000;
+}
+
+#wisdom-quote {
+  font-style: italic;
+  color: #333333;
+  margin-bottom: 20px;
+}
+
+#playerWorthChart {
+  max-width: 100%; /* Ensure chart is responsive */
+  height: auto;   /* Maintain aspect ratio */
+  margin-bottom: 20px;
 }

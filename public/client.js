@@ -782,9 +782,8 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
 function updateLeaderboard(players, marketPrices, companiesStaticData) {
     if (!leaderboardContent) return;
 
-    // Ensure historicalWorthData is available via currentGameState
     const historicalWorthData = currentGameState?.state?.historicalWorthData || [];
-    const currentPeriod = currentGameState?.state?.period;
+    // const currentPeriodForDisplay = currentGameState?.state?.period; // Used for context if needed
 
     if (!players || players.length === 0 || !marketPrices || !companiesStaticData || companiesStaticData.length === 0) {
         leaderboardContent.innerHTML = '<p>Leaderboard data not available yet.</p>';
@@ -815,27 +814,37 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
         }
         const overallWorth = player.cash + portfolioValue;
 
-        // Calculate percentage change from previous period
-        let worthChangeText = " <span class=\"leaderboard-worth-change\">(New)</span>"; // Default for period 0 or if no prior data
-        if (currentPeriod > 0 && historicalWorthData.length > 0) {
-            const previousPeriodData = historicalWorthData.find(d => d.playerId === player.id && d.period === (currentPeriod - 1));
-            if (previousPeriodData) {
-                const previousWorth = previousPeriodData.totalWorth;
-                if (previousWorth !== 0) { // Avoid division by zero
-                    const changePercent = ((overallWorth - previousWorth) / previousWorth) * 100;
+        // Calculate percentage change based on the two most recent *recorded* periods for this player
+        let worthChangeText = ""; 
+        const playerHistory = historicalWorthData.filter(d => d.playerId === player.id).sort((a,b) => b.period - a.period);
+        
+        if (playerHistory.length >= 1) {
+            // Latest recorded worth is playerHistory[0].totalWorth for playerHistory[0].period
+            if (playerHistory.length >= 2) {
+                // We have current and previous recorded periods
+                const currentRecordedPeriodWorth = playerHistory[0].totalWorth;
+                const previousRecordedPeriodWorth = playerHistory[1].totalWorth;
+                const previousRecordedPeriodNumber = playerHistory[1].period;
+
+                if (previousRecordedPeriodWorth !== 0) {
+                    const changePercent = ((currentRecordedPeriodWorth - previousRecordedPeriodWorth) / previousRecordedPeriodWorth) * 100;
                     const changeSign = changePercent >= 0 ? '+' : '';
                     const changeClass = changePercent >= 0 ? 'positive' : 'negative';
-                    worthChangeText = ` <span class="leaderboard-worth-change ${changeClass}">(${changeSign}${changePercent.toFixed(1)}%)</span>`;
-                } else if (overallWorth > 0) { // Previous was 0, current is positive
-                     worthChangeText = " <span class=\"leaderboard-worth-change positive\">(+Inf%)</span>";
-                } else { // Both were 0
-                     worthChangeText = " <span class=\"leaderboard-worth-change\">(0.0%)</span>";
+                    worthChangeText = ` <span class="leaderboard-worth-change ${changeClass}">(vs P${previousRecordedPeriodNumber}: ${changeSign}${changePercent.toFixed(1)}%)</span>`;
+                } else if (currentRecordedPeriodWorth > 0) {
+                    worthChangeText = ` <span class="leaderboard-worth-change positive">(vs P${previousRecordedPeriodNumber}: +Inf%)</span>`;
+                } else {
+                    worthChangeText = ` <span class="leaderboard-worth-change">(vs P${previousRecordedPeriodNumber}: 0.0%)</span>`;
                 }
+            } else if (playerHistory[0].period === 0) {
+                 // Only period 0 data exists, this is the baseline
+                 worthChangeText = " <span class=\"leaderboard-worth-change\">(Baseline P0)</span>";
             } else {
-                 worthChangeText = " <span class=\"leaderboard-worth-change\">(N/A)</span>"; // No data for player in prev period
+                // Only one period of data (not P0), so no change to show from a prior one yet
+                worthChangeText = " <span class=\"leaderboard-worth-change\">(New History)</span>"; 
             }
-        } else if (currentPeriod === 0) {
-             worthChangeText = " <span class=\"leaderboard-worth-change\">(Baseline)</span>";
+        } else {
+            worthChangeText = " <span class=\"leaderboard-worth-change\">(N/A)</span>"; // No historical data at all for this player
         }
 
         return { ...player, portfolioValue, overallWorth, portfolioDetails, worthChangeText };
@@ -1223,28 +1232,54 @@ function updatePriceLogTable() {
     }
 
     const companiesToDisplay = currentGameState.state.companyList;
+    const clientInitialPrices = currentGameState.state.init || {}; // Use client-side initialPrices
 
+    // Update table header (company names)
     while (priceLogTableHeader.children.length > 1) {
         priceLogTableHeader.removeChild(priceLogTableHeader.lastChild);
     }
-
     companiesToDisplay.forEach(company => {
         const th = document.createElement('th');
-        const companyColor = companyColors[company.id] || '#000000'; // Default to black
+        const companyColor = companyColors[company.id] || '#000000';
         th.textContent = company.name;
         th.style.color = companyColor;
         th.style.fontWeight = 'bold';
         priceLogTableHeader.appendChild(th);
     });
 
-    priceLogTableBody.innerHTML = '';
+    priceLogTableBody.innerHTML = ''; // Clear existing rows
 
+    // 1. Add Initial Prices Row
+    if (Object.keys(clientInitialPrices).length > 0) {
+        const trInitial = document.createElement('tr');
+        const tdPeriodInitial = document.createElement('td');
+        tdPeriodInitial.textContent = 'Initial';
+        tdPeriodInitial.style.fontWeight = 'bold';
+        trInitial.appendChild(tdPeriodInitial);
+
+        companiesToDisplay.forEach(company => {
+            const companyId = company.id;
+            const tdPrice = document.createElement('td');
+            const initialPrice = clientInitialPrices[companyId] !== undefined ? clientInitialPrices[companyId] : '--';
+            tdPrice.innerHTML = `${initialPrice === '--' ? '--' : '₹' + parseFloat(initialPrice).toFixed(2)} <span class="price-change price-no-change">(---)</span>`;
+            trInitial.appendChild(tdPrice);
+        });
+        priceLogTableBody.appendChild(trInitial);
+    }
+
+    // 2. Add Rows from priceLog array (resolved prices)
     priceLog.forEach((logEntry, index) => {
         const currentPricesInLog = logEntry.prices;
         const tr = document.createElement('tr');
         const tdPeriod = document.createElement('td');
-        tdPeriod.textContent = `${logEntry.period}`;
+        // Display period and round if available, otherwise just period
+        tdPeriod.textContent = `P${logEntry.period}` + (logEntry.round ? ` R${logEntry.round}` : '');
         tr.appendChild(tdPeriod);
+
+        // Determine the set of prices to compare against
+        // For the first entry in priceLog, compare against clientInitialPrices
+        // For subsequent entries, compare against the previous entry in priceLog
+        const comparePrices = index === 0 ? clientInitialPrices : priceLog[index - 1].prices;
 
         companiesToDisplay.forEach(company => {
             const companyId = company.id;
@@ -1253,25 +1288,21 @@ function updatePriceLogTable() {
             let changeText = '(0.0%)'; 
             let changeClass = 'price-no-change';
             
-            const comparePrices = index === 0 ? initialPrices : priceLog[index - 1].prices;
             const previousPrice = comparePrices[companyId];
 
             if (previousPrice !== undefined && currentPrice !== '--') {
                 const change = currentPrice - previousPrice;
-                const percentChange = (previousPrice !== 0) ? (change / previousPrice) * 100 : (change !== 0 ? Infinity : 0);
+                const percentChange = (previousPrice !== 0 && !isNaN(previousPrice)) ? (change / previousPrice) * 100 : (change !== 0 ? Infinity : 0);
                 changeText = `(${(change > 0 ? '+' : '')}${percentChange === Infinity ? 'New' : percentChange.toFixed(1)}%)`;
-                if (Math.abs(change) > 0.01) { 
+                if (Math.abs(change) > 0.001) { // Use a small tolerance for float comparison
                     changeClass = change > 0 ? 'price-up' : 'price-down';
                 } else {
                     changeClass = 'price-no-change'; 
                 }
             } else if (currentPrice !== '--' && previousPrice === undefined) {
-                changeText = '(New)';
+                changeText = '(New)'; // Or handle as no change if initial should be the only baseline for "New"
                 changeClass = 'price-no-change'; 
             }
-            // Optionally, color the price text itself in the log according to company color
-            // const priceColorStyle = companyColors[companyId] ? `color: ${companyColors[companyId]};` : '';
-            // tdPrice.innerHTML = `<span style="${priceColorStyle}">₹${currentPrice === '--' ? '--' : parseFloat(currentPrice).toFixed(2)}</span> <span class="price-change ${changeClass}">${changeText}</span>`;
             tdPrice.innerHTML = `${currentPrice === '--' ? '--' : '₹' + parseFloat(currentPrice).toFixed(2)} <span class="price-change ${changeClass}">${changeText}</span>`;
             tr.appendChild(tdPrice);
         });
@@ -1873,9 +1904,12 @@ if (adminEndGameBtn) {
 // NEW: Listener for game summary and to render chart
 socket.on('gameSummaryReceived', (summaryData) => {
     console.log('[gameSummaryReceived]', summaryData);
-    if (gameScreen) gameScreen.style.display = 'none';
-    if (lobbyScreen) lobbyScreen.style.display = 'none'; // Ensure lobby is hidden too
-    if (gameOverScreen) gameOverScreen.style.display = 'block';
+    // if (gameScreen) gameScreen.style.display = 'none'; // Keep game screen visible
+    if (lobbyScreen) lobbyScreen.style.display = 'none'; // Ensure lobby is hidden
+    if (gameOverScreen) {
+        gameOverScreen.style.display = 'block'; // Or 'flex' if it's a flex container, assuming 'block' is fine for appending
+        gameOverScreen.scrollIntoView({ behavior: 'smooth' }); // Scroll to the game over section
+    }
 
     if (summaryData && summaryData.historicalWorthData && summaryData.players) {
         renderPlayerWorthChart(summaryData.historicalWorthData, summaryData.players);
@@ -1949,6 +1983,12 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
             const record = historicalData.find(d => d.period === p && d.playerId === player.id);
             return record ? record.totalWorth : null; // Use null for missing data points in Chart.js
         });
+
+        // Log if a player has no data points for any period
+        if (playerData.every(dp => dp === null)) {
+            console.warn(`[renderPlayerWorthChart] Player ${player.name} (ID: ${player.id}) has no valid data points for any period. Line will be missing. Raw playerData:`, JSON.parse(JSON.stringify(playerData)), "Historical data for player:", JSON.parse(JSON.stringify(historicalData.filter(d => d.playerId === player.id))));
+        }
+
         // Use a fallback color from the palette if companyColors[player.id] is somehow undefined
         const playerAssignedColor = companyColors[player.id];
         const fallbackColorIndex = playersInfo.findIndex(pInfo => pInfo.id === player.id) % COMPANY_COLOR_PALETTE.length;

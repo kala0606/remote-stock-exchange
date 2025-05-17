@@ -1205,10 +1205,10 @@ io.on('connection', socket => {
     player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New Way
 
     // *** NEW: Remove the offer for this company as it has been claimed ***
-    if (game.state.activeRightsOffers && game.state.activeRightsOffers[targetCompany]) {
-        console.log(`[exerciseGeneralRights] Rights offer for ${targetCompany} claimed by ${player.name}. Removing offer.`);
-        delete game.state.activeRightsOffers[targetCompany];
-    }
+    // if (game.state.activeRightsOffers && game.state.activeRightsOffers[targetCompany]) {
+    //     console.log(`[exerciseGeneralRights] Rights offer for ${targetCompany} claimed by ${player.name}. Removing offer.`);
+    //     delete game.state.activeRightsOffers[targetCompany];
+    // }
 
     console.log(`[exerciseGeneralRights] Player ${player.name} exercised rights for ${actualSharesToGrant} of ${targetCompany} for ₹${totalCost}. New cash: ${player.cash}. Transactions remaining: ${player.transactionsRemaining}`);
     const generalRightsMessage = `Successfully exercised general rights: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} at ₹${rightsPricePerShare.toLocaleString()} each.`;
