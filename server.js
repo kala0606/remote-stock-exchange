@@ -84,6 +84,7 @@ function buildDeck() {
     company.moves.forEach(change => {
       deck.push({ type: 'price', company: company.id, change });
       deck.push({ type: 'price', company: company.id, change });
+      deck.push({ type: 'price', company: company.id, change }); // ADDED THIRD COPY
     });
   });
 
@@ -1202,9 +1203,14 @@ io.on('connection', socket => {
     }
 
     // Validate if player has transactions left for the turn
-    if ((game.state.turnTransactions || 0) >= TRANSACTIONS_PER_PERIOD) {
-        return socket.emit('error', { message: 'No transactions left for this turn.' });
-    }
+    // THIS VALIDATION IS NO LONGER NEEDED AS EXERCISING RIGHTS DOESN'T USE A TRANSACTION
+    // if ((player.transactionsRemaining || 0) <= 0) { // Check against actual player.transactionsRemaining
+    //     return socket.emit('error', { message: 'No transactions left for this turn.' });
+    // }
+    // ALSO, the (game.state.turnTransactions || 0) >= TRANSACTIONS_PER_PERIOD check was incorrect.
+    // It should use player.transactionsRemaining. However, since this action
+    // no longer consumes a transaction, this entire block can be reviewed/removed.
+    // For now, I will remove the specific check that would block the action if transactions were 0.
 
     // Validate if the rights offer is active and for the current round
     const offerDetails = game.state.activeRightsOffers ? game.state.activeRightsOffers[targetCompany] : null;
@@ -1246,7 +1252,7 @@ io.on('connection', socket => {
     player.cash -= totalCost;
     player.portfolio[targetCompany] = (player.portfolio[targetCompany] || 0) + actualSharesToGrant;
     // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Increment transaction count // Old Way
-    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New Way
+    // player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New Way - THIS IS THE LINE TO COMMENT OUT
 
     // *** NEW: Remove the offer for this company as it has been claimed ***
     // if (game.state.activeRightsOffers && game.state.activeRightsOffers[targetCompany]) {

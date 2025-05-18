@@ -1967,21 +1967,18 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
     const periods = [...new Set(historicalData.map(d => d.period))].sort((a, b) => a - b);
     console.log("[renderPlayerWorthChart] Calculated periods for X-axis:", periods);
 
-    const datasets = playersInfo.map(player => {
-        const playerData = periods.map(p => {
+    const datasets = playersInfo.map((player, index) => { // Added index here
+        const playerData = periods.map(p => { 
             const record = historicalData.find(d => d.period === p && d.playerId === player.id);
-            return record ? record.totalWorth : null; // Use null for missing data points in Chart.js
+            return record ? record.totalWorth : null; 
         });
 
-        // Log if a player has no data points for any period
         if (playerData.every(dp => dp === null)) {
             console.warn(`[renderPlayerWorthChart] Player ${player.name} (ID: ${player.id}) has no valid data points for any period. Line will be missing. Raw playerData:`, JSON.parse(JSON.stringify(playerData)), "Historical data for player:", JSON.parse(JSON.stringify(historicalData.filter(d => d.playerId === player.id))));
         }
 
-        // Use a fallback color from the palette if companyColors[player.id] is somehow undefined
-        const playerAssignedColor = companyColors[player.id];
-        const fallbackColorIndex = playersInfo.findIndex(pInfo => pInfo.id === player.id) % COMPANY_COLOR_PALETTE.length;
-        const playerColor = playerAssignedColor || COMPANY_COLOR_PALETTE[fallbackColorIndex] || '#808080'; // Default to grey if all else fails
+        // Corrected player color assignment to use the player's index
+        const playerColor = COMPANY_COLOR_PALETTE[index % COMPANY_COLOR_PALETTE.length] || '#808080'; // Fallback to grey if palette is exhausted
 
         console.log(`[renderPlayerWorthChart] For player ${player.name} (ID: ${player.id}): Data points:`, playerData, `Assigned Color: ${playerColor}`);
 
