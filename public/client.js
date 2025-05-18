@@ -805,7 +805,7 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
 
         // Calculate percentage change based on the two most recent *recorded* periods for this player
         let worthChangeText = ""; 
-        const playerHistory = historicalWorthData.filter(d => d.playerId === player.id).sort((a,b) => b.period - a.period);
+        const playerHistory = historicalWorthData.filter(d => d.playerId === player.uuid).sort((a,b) => b.period - a.period);
         
         if (playerHistory.length >= 1) {
             // Latest recorded worth is playerHistory[0].totalWorth for playerHistory[0].period
@@ -1969,18 +1969,18 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
 
     const datasets = playersInfo.map((player, index) => { // Added index here
         const playerData = periods.map(p => { 
-            const record = historicalData.find(d => d.period === p && d.playerId === player.id);
+            const record = historicalData.find(d => d.period === p && d.playerId === player.uuid);
             return record ? record.totalWorth : null; 
         });
 
         if (playerData.every(dp => dp === null)) {
-            console.warn(`[renderPlayerWorthChart] Player ${player.name} (ID: ${player.id}) has no valid data points for any period. Line will be missing. Raw playerData:`, JSON.parse(JSON.stringify(playerData)), "Historical data for player:", JSON.parse(JSON.stringify(historicalData.filter(d => d.playerId === player.id))));
+            console.warn(`[renderPlayerWorthChart] Player ${player.name} (UUID: ${player.uuid}) has no valid data points for any period. Line will be missing. Raw playerData:`, JSON.parse(JSON.stringify(playerData)), "Historical data for player:", JSON.parse(JSON.stringify(historicalData.filter(d => d.playerId === player.uuid))));
         }
 
         // Corrected player color assignment to use the player's index
         const playerColor = COMPANY_COLOR_PALETTE[index % COMPANY_COLOR_PALETTE.length] || '#808080'; // Fallback to grey if palette is exhausted
 
-        console.log(`[renderPlayerWorthChart] For player ${player.name} (ID: ${player.id}): Data points:`, playerData, `Assigned Color: ${playerColor}`);
+        console.log(`[renderPlayerWorthChart] For player ${player.name} (UUID: ${player.uuid}): Data points:`, playerData, `Assigned Color: ${playerColor}`);
 
         return {
             label: player.name,

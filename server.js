@@ -10,11 +10,11 @@ const SHARE_LOTS = [500, 1000, 5000, 10000];
 const MAX_SHARES_PER_COMPANY = 200000;
 const COMPANIES = [
   { id:'WCK', name: 'Wockhardt Pharma', initial:20, moves:[10,5,-5,-10] },
-  { id:'HDF', name: 'HDFC Bank', initial:25, moves:[15,10,-5,-15] },
+  { id:'HDF', name: 'HDFC Bank', initial:25, moves:[15,10,-5,-20] }, // Sum: 0
   { id:'TIS', name: 'Tata Steel', initial:40, moves:[20,10,-10,-20] },
-  { id:'ONG', name: 'ONGC Ltd', initial:55, moves:[25,15,-10,-25] },
-  { id:'REL', name: 'Reliance Industries', initial:75, moves:[30,25,-15,-30] },
-  { id:'INF', name: 'Infosys Ltd', initial:80, moves:[30,20,-10,-5] }
+  { id:'ONG', name: 'ONGC Ltd', initial:55, moves:[25,15,-10,-30] }, // Sum: 0
+  { id:'REL', name: 'Reliance Industries', initial:75, moves:[30,25,-15,-40] }, // Sum: 0
+  { id:'INF', name: 'Infosys Ltd', initial:80, moves:[30,20,-10,-40] } // Sum: 0
 ];
 const WINDFALLS = ['LOAN','DEBENTURE','RIGHTS'];
 
@@ -68,30 +68,46 @@ function recordHistoricalWorth(game, periodMarker) {
         const totalWorth = calculatePlayerTotalWorth(player, game.state.prices);
         game.state.historicalWorthData.push({
             period: periodMarker, // Use the passed marker (e.g., 0 for initial, game.period for resolved)
-            playerId: player.id,
+            playerId: player.uuid, // CHANGED: Use persistent UUID
             playerName: player.name, // Store name for easier chart labeling later
             totalWorth: totalWorth
         });
-        console.log(`[recordHistoricalWorth] Period ${periodMarker}: Player ${player.name}, Worth: ${totalWorth}`);
+        console.log(`[recordHistoricalWorth] Period ${periodMarker}: Player ${player.name} (UUID: ${player.uuid}), Worth: ${totalWorth}`);
     });
 }
 
-function buildDeck() {
+function buildDeck(game) { // Added game parameter
   let deck = [];
+
+  const numPlayers = game && game.players && game.players.length > 0 ? game.players.length : 1;
+  const minRemainingCards = 50; // Desired minimum cards left in deck after dealing
+
+  // Calculate N, the scaling factor for deck units. Ensure N is at least 1.
+  // A single deck unit (78 cards) is based on 3 copies of each price card variant and 2 of each windfall.
+  const cardsInOneDeckUnit = (COMPANIES.length * COMPANIES[0].moves.length * 3) + (WINDFALLS.length * 2);
   
+  const cardsNeededForDealingAndBuffer = (numPlayers * 10) + minRemainingCards;
+  const N = Math.max(1, Math.ceil(cardsNeededForDealingAndBuffer / cardsInOneDeckUnit));
+
+  const effectivePriceCardCopies = 3 * N;
+  const effectiveWindfallCardCopies = 2 * N;
+
+  console.log(`[buildDeck] Building deck for ${numPlayers} players. Min remaining desired: ${minRemainingCards}. Scaling factor N=${N}. PriceCardCopies=${effectivePriceCardCopies}, WindfallCardCopies=${effectiveWindfallCardCopies}.`);
+
   // Add price movement cards
   COMPANIES.forEach(company => {
     company.moves.forEach(change => {
-      deck.push({ type: 'price', company: company.id, change });
-      deck.push({ type: 'price', company: company.id, change });
-      deck.push({ type: 'price', company: company.id, change }); // ADDED THIRD COPY
+      for (let i = 0; i < effectivePriceCardCopies; i++) {
+        deck.push({ type: 'price', company: company.id, change });
+      }
     });
   });
 
   // Add windfall cards
   WINDFALLS.forEach(windfall => {
-    deck.push({ type: 'windfall', sub: windfall });
-    deck.push({ type: 'windfall', sub: windfall });
+    for (let i = 0; i < effectiveWindfallCardCopies; i++) {
+      deck.push({ type: 'windfall', sub: windfall });
+    }
   });
 
   // Shuffle deck
@@ -100,7 +116,7 @@ function buildDeck() {
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
 
-  console.log(`[buildDeck] Deck built with ${deck.length} cards (Currency cards removed).`);
+  console.log(`[buildDeck] Deck built with ${deck.length} cards.`);
   return deck;
 }
 
@@ -126,7 +142,7 @@ function initGame(game, initialAdminPlayerId) {
     pricesResolvedThisCycle: false // ADDED: Flag to track if prices have been resolved in the current admin decision cycle
   };
   game.period = 1;
-  game.deck = buildDeck();
+  game.deck = buildDeck(game); // Pass game object
   game.discard = [];
   
   // Admin is now determined *before* initGame based on first join
@@ -185,6 +201,7 @@ function emitGameState(game, context = 'normal') {
     const stateToSend = {
       players: game.players.map(p => ({ 
         id: p.id,
+        uuid: p.uuid, // ADDED: Send UUID to client
         name: p.name,
         portfolio: p.portfolio || {}, 
         cash: p.cash,
@@ -299,6 +316,47 @@ function calculateAndApplyPriceChanges(game) {
   });
   logActivity(game, null, 'PRICES_RESOLVED', `Market prices updated based on card effects for Period ${game.period}.`);
   
+  // --- NEW: Automatic Short Position Covering at End of Period ---
+  console.log(`[calculateAndApplyPriceChanges] Period ${game.period}: Starting automatic cover of short positions.`);
+  game.players.forEach(player => {
+    if (player.shortPositions && Object.keys(player.shortPositions).length > 0) {
+      console.log(`[calculateAndApplyPriceChanges] Checking player ${player.name} (UUID: ${player.uuid}) for shorts.`);
+      for (const companyId in player.shortPositions) {
+        if (player.shortPositions.hasOwnProperty(companyId)) {
+          const shortPosition = player.shortPositions[companyId];
+          const quantityCovered = shortPosition.quantity;
+          const averagePriceOpenedCollateral = shortPosition.priceOpened;
+          const currentMarketPrice = game.state.prices[companyId]; // Use the just-resolved market price
+
+          if (currentMarketPrice === undefined || currentMarketPrice === null) {
+            console.warn(`[Auto Short Cover] Market price for ${companyId} is undefined for player ${player.name}. Skipping auto-cover for this short.`);
+            logActivity(game, player.name, 'AUTO_SHORT_COVER_FAIL', `Could not auto-cover ${quantityCovered} of ${getCompanyName(companyId, game)} due to missing market price.`);
+            continue; // Skip to next short position
+          }
+
+          const totalCollateralHeld = averagePriceOpenedCollateral * quantityCovered;
+          const costToBuyBackAtMarket = currentMarketPrice * quantityCovered;
+          const amountToReturnToPlayer = (2 * totalCollateralHeld) - costToBuyBackAtMarket;
+          
+          player.cash += amountToReturnToPlayer;
+          const profitOrLoss = totalCollateralHeld - costToBuyBackAtMarket;
+          delete player.shortPositions[companyId];
+
+          let PnLMessage = `Profit: ₹${profitOrLoss.toLocaleString()}`;
+          if (profitOrLoss < 0) PnLMessage = `Loss: ₹${Math.abs(profitOrLoss).toLocaleString()}`;
+          else if (profitOrLoss === 0) PnLMessage = `No profit or loss.`;
+
+          console.log(`[Auto Short Cover] Player ${player.name} auto-covered ${quantityCovered} of ${getCompanyName(companyId, game)}. ${PnLMessage}. New cash: ${player.cash}`);
+          logActivity(game, player.name, 'AUTO_SHORT_COVER', 
+            `Automatically covered short on ${quantityCovered.toLocaleString()} shares of ${getCompanyName(companyId, game)} at period end. ${PnLMessage}`
+          );
+        }
+      }
+    }
+  });
+  console.log(`[calculateAndApplyPriceChanges] Period ${game.period}: Finished automatic cover of short positions.`);
+  // --- END NEW: Automatic Short Position Covering ---
+
   // NEW: Add to server-side priceLog
   const lastLogEntry = game.state.priceLog.length > 0 ? game.state.priceLog[game.state.priceLog.length - 1] : null;
   if (!(lastLogEntry && lastLogEntry.period === game.period && lastLogEntry.round === game.state.roundNumberInPeriod)) {
@@ -559,6 +617,7 @@ io.on('connection', socket => {
 
     const player = {
       id: socket.id,
+      uuid: uuidv4(), // ADDED: Persistent unique ID for the player
       name,
       cash: START_CASH,
       portfolio: {},
@@ -591,6 +650,7 @@ io.on('connection', socket => {
     console.log('Player joined:', name, 'to room:', roomID);
     io.to(roomID).emit('playerList', game.players.map(p => ({
       id: p.id,
+      uuid: p.uuid, // ADDED: Send UUID to client
       name: p.name,
       isAdmin: game.admin === p.id 
     })));
@@ -613,6 +673,7 @@ io.on('connection', socket => {
     io.to(player.id).emit('kicked');
     io.to(roomID).emit('playerList', game.players.map(p => ({
       id: p.id,
+      uuid: p.uuid, // ADDED: Send UUID to client
       name: p.name,
       isAdmin: game.admin === p.id
     })));
@@ -628,6 +689,7 @@ io.on('connection', socket => {
     game.admin = newAdmin.id;
     io.to(roomID).emit('playerList', game.players.map(p => ({
       id: p.id,
+      uuid: p.uuid, // ADDED: Send UUID to client
       name: p.name,
       isAdmin: game.admin === p.id
     })));
@@ -678,6 +740,7 @@ io.on('connection', socket => {
     const summaryData = {
         players: game.players.map(p => ({ // Send a snapshot of player details for the summary
             id: p.id,
+            uuid: p.uuid, // ADDED: Send UUID to client
             name: p.name,
             // No need to send full portfolio/cash again if chart only uses historical worth
             // But can be useful for a final leaderboard display on the summary screen
@@ -1351,9 +1414,9 @@ io.on('connection', socket => {
     if (game.players[game.state.currentTurn]?.id !== socket.id) {
         return socket.emit('error', { message: 'Not your turn.' });
     }
-    if (player.transactionsRemaining <= 0) { 
-        return socket.emit('error', { message: 'No transactions left for this turn.' });
-    }
+    // if (player.transactionsRemaining <= 0) { 
+    //     return socket.emit('error', { message: 'No transactions left for this turn.' });
+    // }
 
     const shortPosition = player.shortPositions ? player.shortPositions[companyId] : null;
     if (!shortPosition) {
@@ -1382,7 +1445,7 @@ io.on('connection', socket => {
     // This is equivalent to: (averagePriceOpenedCollateral - currentMarketPrice) * quantityCovered
 
     delete player.shortPositions[companyId];
-    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1);
+    // player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1);
 
     let PnLMessage = `Profit: ₹${profitOrLoss.toLocaleString()}`;
     if (profitOrLoss < 0) PnLMessage = `Loss: ₹${Math.abs(profitOrLoss).toLocaleString()}`;
