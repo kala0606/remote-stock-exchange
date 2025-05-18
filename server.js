@@ -341,7 +341,9 @@ function dealNewCardsAndStartNewPeriod(game) {
   game.discard = [];
   game.players.forEach(player => {
     player.hand = game.deck.splice(0, 10);
+    player.transactionsRemaining = TRANSACTIONS_PER_PERIOD; // Reset for ALL players at start of new period
   });
+  console.log(`[dealNewCardsAndStartNewPeriod] Reset transactions for ALL players to ${TRANSACTIONS_PER_PERIOD} for start of Period ${game.period}`);
 
   if (game.players.length > 0) {
     game.state.currentTurn = (game.period - 1) % game.players.length;
@@ -349,12 +351,6 @@ function dealNewCardsAndStartNewPeriod(game) {
     game.state.currentTurn = 0;
   }
   
-  if (game.players.length > 0 && game.players[game.state.currentTurn]) {
-    const firstPlayerOfNewPeriod = game.players[game.state.currentTurn];
-    firstPlayerOfNewPeriod.transactionsRemaining = TRANSACTIONS_PER_PERIOD;
-    console.log(`[dealNewCardsAndStartNewPeriod] Reset transactions for ${firstPlayerOfNewPeriod.name} to ${TRANSACTIONS_PER_PERIOD} for start of Period ${game.period}`);
-  }
-
   // Reset admin decision flags for the new period cycle
   game.state.awaitingAdminDecision = false;
   game.state.pricesResolvedThisCycle = false;
@@ -801,8 +797,7 @@ io.on('connection', socket => {
         portfolio: JSON.stringify(player.portfolio)
     });
 
-    // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Old way
-    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New way
+    // player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New way
     game.state.trans++; // Keep global transaction counter for other purposes if needed
 
     console.log(`Player ${player.name} bought. Transactions remaining: ${player.transactionsRemaining}`);
@@ -908,8 +903,7 @@ io.on('connection', socket => {
         portfolio: JSON.stringify(player.portfolio)
     });
 
-    // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // Old way
-    player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New way
+    // player.transactionsRemaining = Math.max(0, (player.transactionsRemaining || 0) - 1); // New way
     game.state.trans++; // Keep global transaction counter
 
     console.log(`Player ${player.name} sold. Transactions remaining: ${player.transactionsRemaining}`);
@@ -1004,104 +998,124 @@ io.on('connection', socket => {
 
   socket.on('pass', ({ roomID }) => {
     const game = games[roomID];
-    if (!game || !game.players || game.players.length === 0) return;
-    const playerIndex = game.players.findIndex(p => p.id === socket.id);
-    if (playerIndex === -1 || playerIndex !== game.state.currentTurn) {
-        console.warn(`[pass] Invalid pass attempt by player index ${playerIndex} (current turn: ${game.state.currentTurn})`);
-        io.to(socket.id).emit('error', { message: 'It\'s not your turn or invalid state.' });
-        return;
+    if (!game || !game.players || game.players.length === 0) {
+        console.warn(`[pass] Game or players not found for roomID: ${roomID}`);
+        return socket.emit('error', { message: 'Game or players not found.' });
     }
 
-    const roundAtActionTime = game.state.roundNumberInPeriod; // CAPTURE ROUND NUMBER
+    const player = game.players.find(p => p.id === socket.id);
+    if (!player || game.state.currentTurnPlayerId !== player.id) { // Ensure player object exists for the check
+        console.warn(`[pass] Invalid pass attempt by player ${player?.name || socket.id}. Not their turn or player not found. Current turn: ${game.state.currentTurnPlayerId}`);
+        return socket.emit('error', { message: 'It\'s not your turn.' });
+    }
 
-    console.log(`[pass] Player ${game.players[playerIndex].name} (Turn ${playerIndex}, Round ${roundAtActionTime}) is passing.`);
+    const roundAtActionTime = game.state.roundNumberInPeriod;
+    console.log(`[pass] Player ${player.name} (Socket: ${socket.id}, Round: ${roundAtActionTime}) is passing.`);
 
-    // Add remaining transactions to total
-    const remainingTransactions = TRANSACTIONS_PER_PERIOD - (game.state.turnTransactions || 0);
-    game.state.trans += Math.max(0, remainingTransactions);
+    if (player.transactionsRemaining > 0) {
+        player.transactionsRemaining--;
+        console.log(`[pass] Player ${player.name} transactions_remaining decremented to: ${player.transactionsRemaining}`);
+    } else {
+        console.log(`[pass] Player ${player.name} passed with 0 transactions remaining.`);
+    }
     
-    // --- LOG THE PLAYER'S ACTION FIRST ---
-    console.log(`[SERVER TRACER] Logging PASS_TURN for player: ${game.players[playerIndex]?.name} with roundAtActionTime: ${roundAtActionTime}`);
-    logActivity(game, game.players[playerIndex]?.name, 'PASS_TURN', `Passed turn.`, roundAtActionTime);
+    logActivity(game, player.name, 'PASS_TURN', `Passed turn. Transactions left: ${player.transactionsRemaining}`, roundAtActionTime);
 
-    // Calculate next turn index and round completion
-    const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
-    const periodStarterIndex = (game.period - 1) % game.players.length; // Determine who started the period/round
-    let roundCompleted = (nextTurnIndex === periodStarterIndex); // Round completes if turn returns to starter
-    let currentRoundForCheck = game.state.roundNumberInPeriod || 1; // Use for decision logic
+    const currentPlayerIndex = game.players.findIndex(p => p.id === game.state.currentTurnPlayerId);
+    const nextTurnPlayerIndex = (currentPlayerIndex + 1) % game.players.length;
+    const periodStartingPlayerActualIndex = (game.period - 1 + game.players.length) % game.players.length; // Ensure positive index
+
+    let roundCompleted = (nextTurnPlayerIndex === periodStartingPlayerActualIndex);
+    let currentRoundForCheck = game.state.roundNumberInPeriod || 1;
 
     if (roundCompleted) {
-        // Check if it's time for an admin decision
-        // This happens if the current round about to be completed is a multiple of MAX_ROUNDS_PER_PERIOD
         if (currentRoundForCheck % MAX_ROUNDS_PER_PERIOD === 0 && !game.state.awaitingAdminDecision) {
-            console.log(`[pass] SERVER TRACER: Checkpoint reached for admin decision. Round: ${currentRoundForCheck}, Period: ${game.period}. Setting awaitingAdminDecision = true.`);
+            console.log(`[pass] Checkpoint reached for admin decision. Round: ${currentRoundForCheck}, Period: ${game.period}. Setting awaitingAdminDecision = true.`);
             game.state.awaitingAdminDecision = true;
-            // Do not advance roundNumberInPeriod or turn yet. Admin action will handle it.
-            emitGameState(game);
-            console.log(`[pass] SERVER TRACER: Emitted game state with awaitingAdminDecision = true. Now returning.`);
+            emitGameState(game, 'pass_awaiting_admin');
             return;
         } else if (!game.state.awaitingAdminDecision) {
-            // Normal round advancement if not an admin decision point
             game.state.roundNumberInPeriod++;
-             if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
+            console.log(`[pass] Round ${currentRoundForCheck} completed. Advancing to Round ${game.state.roundNumberInPeriod}.`);
+            if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
                 console.log(`[pass] End of round ${currentRoundForCheck}. Clearing active rights offers.`);
                 game.state.activeRightsOffers = {};
             }
+            // Reset transactions for ALL players at the start of a new round
+            game.players.forEach(p => {
+                p.transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+            });
+            console.log(`[pass] New round started. Reset transactions for all players.`);
         }
     }
     
-    // Advance turn (only if not awaiting admin decision)
     if (!game.state.awaitingAdminDecision) {
-        game.state.currentTurn = nextTurnIndex;
-        if (game.players[game.state.currentTurn]) {
-            game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
-            console.log(`[pass] Reset transactions for player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD} for turn in Round ${game.state.roundNumberInPeriod}.`);
+        game.state.currentTurnPlayerId = game.players[nextTurnPlayerIndex].id;
+        game.state.currentTurn = nextTurnPlayerIndex; // Also update currentTurn index
+        
+        const nextPlayer = game.players[nextTurnPlayerIndex];
+        if (nextPlayer) {
+            // If the round did NOT advance, reset for the next player (they haven't had full T_P_P for this turn yet).
+            // If the round DID advance, all players (including next) were already reset by the block above.
+            if (!roundCompleted) {
+                nextPlayer.transactionsRemaining = TRANSACTIONS_PER_PERIOD;
+                console.log(`[pass] Still in same round. Reset transactions for next player ${nextPlayer.name} to ${TRANSACTIONS_PER_PERIOD}.`);
+            } else {
+                 console.log(`[pass] Round advanced or admin decision. Transactions for ${nextPlayer.name} were already handled (or will be after admin).`);
+            }
         }
-        console.log(`[pass] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
-        emitGameState(game);
+        console.log(`[pass] Advanced turn. New Turn Player ID: ${game.state.currentTurnPlayerId}, Round: ${game.state.roundNumberInPeriod}`);
+        emitGameState(game, 'pass_turn_advanced');
     }
   });
 
   socket.on('endTurn', ({ roomID }) => {
     const game = games[roomID];
-    if (!game || !game.players || game.players.length === 0) return;
-    const playerIndex = game.players.findIndex(p => p.id === socket.id);
-    if (playerIndex === -1 || playerIndex !== game.state.currentTurn) {
-        console.warn(`[endTurn] Invalid endTurn attempt by player index ${playerIndex} (current turn: ${game.state.currentTurn})`);
+    if (!game || !game.players || game.players.length === 0) {
+        console.warn(`[endTurn] Game or players not found for roomID: ${roomID}`);
+        return socket.emit('error', { message: 'Game or players not found.' });
+    }
+    
+    const player = game.players.find(p => p.id === socket.id); 
+
+    if (!player || player.id !== game.players[game.state.currentTurn]?.id) { 
+        console.warn(`[endTurn] Invalid endTurn attempt by socket ${socket.id}. Current turn player ID: ${game.players[game.state.currentTurn]?.id}, Player found: ${!!player}`);
         io.to(socket.id).emit('error', { message: 'It\'s not your turn or invalid state.' });
         return;
     }
 
-    const roundAtActionTime = game.state.roundNumberInPeriod; // CAPTURE ROUND NUMBER
+    const roundAtActionTime = game.state.roundNumberInPeriod;
 
-    console.log(`[endTurn] Player ${game.players[playerIndex].name} (Turn ${playerIndex}, Round ${roundAtActionTime}) is ending turn.`);
+    console.log(`[endTurn] Player ${player.name} (Current Turn Index: ${game.state.currentTurn}, Socket: ${socket.id}, Round: ${roundAtActionTime}) is ending turn.`);
 
-    // Add remaining transactions to total
-    const remainingTransactions = TRANSACTIONS_PER_PERIOD - (game.state.turnTransactions || 0);
-    game.state.trans += Math.max(0, remainingTransactions);
+    // Decrement transactions remaining for the player by 1, ensuring it doesn't go below 0.
+    if (player.transactionsRemaining > 0) {
+        player.transactionsRemaining--;
+        console.log(`[endTurn] Player ${player.name} transactions_remaining decremented to: ${player.transactionsRemaining}`);
+    } else {
+        console.log(`[endTurn] Player ${player.name} ended turn with 0 transactions remaining. Not decrementing further.`);
+    }
     
-    // --- LOG THE PLAYER'S ACTION FIRST ---
-    console.log(`[SERVER TRACER] Logging END_TURN for player: ${game.players[playerIndex]?.name} with roundAtActionTime: ${roundAtActionTime}`);
-    logActivity(game, game.players[playerIndex]?.name, 'END_TURN', `Ended turn.`, roundAtActionTime);
+    logActivity(game, player.name, 'END_TURN', `Ended turn. Transactions left: ${player.transactionsRemaining}`, roundAtActionTime);
     
-    // Calculate next turn index and round completion
-    const nextTurnIndex = (game.state.currentTurn + 1) % game.players.length;
-    const periodStarterIndex = (game.period - 1) % game.players.length; // Determine who started the period/round
-    let roundCompleted = (nextTurnIndex === periodStarterIndex); // Round completes if turn returns to starter
-    let currentRoundForCheck = game.state.roundNumberInPeriod || 1; // Use for decision logic
+    const currentPlayerIndex = game.players.findIndex(p => p.id === player.id); 
+    const nextTurnPlayerIndex = (currentPlayerIndex + 1) % game.players.length;
+    const periodStartingPlayerActualIndex = (game.period - 1 + game.players.length) % game.players.length;
+
+
+    let roundCompleted = (nextTurnPlayerIndex === periodStartingPlayerActualIndex);
+    let currentRoundForCheck = game.state.roundNumberInPeriod || 1;
 
     if (roundCompleted) {
-         // Check if it's time for an admin decision
         if (currentRoundForCheck % MAX_ROUNDS_PER_PERIOD === 0 && !game.state.awaitingAdminDecision) {
-            console.log(`[endTurn] SERVER TRACER: Checkpoint reached for admin decision. Round: ${currentRoundForCheck}, Period: ${game.period}. Setting awaitingAdminDecision = true.`);
+            console.log(`[endTurn] Checkpoint reached for admin decision. Round: ${currentRoundForCheck}, Period: ${game.period}. Setting awaitingAdminDecision = true.`);
             game.state.awaitingAdminDecision = true;
-            // Do not advance roundNumberInPeriod or turn yet. Admin action will handle it.
-            emitGameState(game);
-            console.log(`[endTurn] SERVER TRACER: Emitted game state with awaitingAdminDecision = true. Now returning.`);
-            return;
+            // For admin decision, transaction reset for the next player (if any) will be handled when admin action advances the game.
+            emitGameState(game, 'endturn_awaiting_admin'); 
+            return; 
         } else if (!game.state.awaitingAdminDecision) {
-            // Normal round advancement if not an admin decision point
             game.state.roundNumberInPeriod++;
+            console.log(`[endTurn] Round ${currentRoundForCheck} completed. Advancing to Round ${game.state.roundNumberInPeriod}.`);
             if (game.state.activeRightsOffers && Object.keys(game.state.activeRightsOffers).length > 0) {
                 console.log(`[endTurn] End of round ${currentRoundForCheck}. Clearing active rights offers.`);
                 game.state.activeRightsOffers = {};
@@ -1109,15 +1123,29 @@ io.on('connection', socket => {
         }
     }
     
-    // Advance turn (only if not awaiting admin decision)
     if (!game.state.awaitingAdminDecision) {
-        game.state.currentTurn = nextTurnIndex;
-        if (game.players[game.state.currentTurn]) {
-            game.players[game.state.currentTurn].transactionsRemaining = TRANSACTIONS_PER_PERIOD;
-             console.log(`[endTurn] Reset transactions for player ${game.players[game.state.currentTurn].name} to ${TRANSACTIONS_PER_PERIOD} for turn in Round ${game.state.roundNumberInPeriod}.`);
-        }
-        console.log(`[endTurn] Advanced turn. New Turn Index: ${game.state.currentTurn}, Round: ${game.state.roundNumberInPeriod}`);
-        emitGameState(game);
+        const playerWhoseTurnItWas = player; // Save ref to current player, already named 'player'
+        const nextPlayerObject = game.players[nextTurnPlayerIndex];
+
+        // Set current turn to the next player
+        game.state.currentTurnPlayerId = nextPlayerObject.id;
+        game.state.currentTurn = nextTurnPlayerIndex; 
+        
+        // Reset transactions for the player whose turn it is NOW
+        // nextPlayerObject.transactionsRemaining = TRANSACTIONS_PER_PERIOD; // THIS LINE IS NOW COMMENTED OUT
+        
+        // Log states for clarity
+        // Player variable is the one who just finished their turn.
+        console.log(`[endTurn] Player ${player.name} (who just played) TR: ${player.transactionsRemaining}.`);
+        // console.log(`[endTurn] Upcoming player ${nextPlayerObject.name} TR set to: ${nextPlayerObject.transactionsRemaining} for their turn in Round ${game.state.roundNumberInPeriod}.`);
+        console.log(`[endTurn] Upcoming player ${nextPlayerObject.name} TR is: ${nextPlayerObject.transactionsRemaining} (not reset this turn) for their turn in Round ${game.state.roundNumberInPeriod}.`);
+        
+        console.log(`[SERVER EndTurn - Before Emit] Player transactions state (after potential TR reset for next player):`);
+        game.players.forEach(p_debug => {
+            console.log(`  - ${p_debug.name}: ${p_debug.transactionsRemaining}`);
+        });
+
+        emitGameState(game, 'endturn_turn_advanced'); 
     }
   });
 
@@ -1299,7 +1327,7 @@ io.on('connection', socket => {
         logActivity(game, player.name, 'INITIATE_SHORT_SELL', `Initiated short sell of ${quantity.toLocaleString()} shares of ${getCompanyName(companyId, game)} at ₹${currentPrice.toLocaleString()} (collateral taken).`);
     }
     
-    player.transactionsRemaining = Math.max(0, player.transactionsRemaining - 1);
+    // player.transactionsRemaining = Math.max(0, player.transactionsRemaining - 1);
 
     console.log(`Player transactions remaining: ${player.transactionsRemaining}`);
     emitGameState(game);

@@ -205,6 +205,8 @@ let currentGameState = null; // Central game state holder
 let activityLogEntries = []; // MODIFIED: Added to store activity log entries
 let handDeltas = {}; // NEW: To store net impact of hand cards
 
+let playerTurnOrderTableElement = null; // NEW: Renamed to reflect it IS the table element
+
 let lastLoggedPeriodForSeparator = null;
 let lastLoggedRoundForSeparator = null;
 let cardBeingPlayed = null;
@@ -246,7 +248,7 @@ socket.on('connect', () => {
                 history.replaceState(null, '', window.location.pathname);
                 currentSessionToken = null;
                 isRejoining = false;
-                if (lobbyScreen) lobbyScreen.style.display = 'flex';
+                if (lobbyScreen) lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
                 if (gameScreen) gameScreen.style.display = 'none';
                 return;
             }
@@ -257,7 +259,7 @@ socket.on('connect', () => {
         });
     } else {
         console.log('[connect] No session token found. Fresh connection.');
-        if (lobbyScreen) lobbyScreen.style.display = 'flex';
+        if (lobbyScreen) lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
         if (gameScreen) gameScreen.style.display = 'none';
     }
 });
@@ -352,7 +354,8 @@ if (joinRoomBtn) {
                 console.log('[joinRoom] Updated URL with session token:', url.toString());
             }
             currentRoom = roomID;
-            if (startGameBtn) startGameBtn.style.display = 'block';
+            // Visibility of startGameBtn is now handled by updateUI based on isAdmin from server
+            // if (startGameBtn) startGameBtn.style.display = 'block'; 
         });
     };
 }
@@ -510,7 +513,16 @@ socket.on('error', ({ message }) => {
 });
 
 function updatePlayerList(players, currentTurnPlayerId) {
-    if (!playerListDiv || !players) return;
+    if (!playerListDiv) return;
+
+    if (!players || players.length === 0) {
+        playerListDiv.innerHTML = '';
+        playerListDiv.style.display = 'none';
+        return;
+    }
+
+    playerListDiv.style.display = 'block'; // Or its default display if not block
+
     // const currentPlayer = players.find(p => p.id === socket.id);
     // isAdmin = currentPlayer?.isAdmin || false; // Previous global isAdmin update
 
@@ -518,26 +530,33 @@ function updatePlayerList(players, currentTurnPlayerId) {
     const localIsAdminForControls = currentPlayerForControls ? currentPlayerForControls.isAdmin : false; // Determine if they are admin for showing controls
     
     playerListDiv.innerHTML = '<h2>Players</h2>' + 
-        players.map(p => `
-            <div class="player-row ${p.id === currentTurnPlayerId ? 'current-turn' : ''}">
+        players.map((p, idx, arr) => {
+            const isCurrent = p.id === currentTurnPlayerId;
+            const currentTurnGameIndex = arr.findIndex(player => player.id === currentTurnPlayerId);
+            let isNext = false;
+            if (currentTurnGameIndex !== -1 && arr.length > 1) {
+                const nextTurnGameIndex = (currentTurnGameIndex + 1) % arr.length;
+                isNext = (idx === nextTurnGameIndex);
+            }
+
+            return `
+            <div class="player-row ${isCurrent ? 'current-turn' : ''}">
                 <div class="player-info">
-                    <span class="turn-indicator ${p.id === currentTurnPlayerId ? 'active' : ''}"></span>
+                    <span class="turn-indicator ${isCurrent ? 'active' : ''}"></span>
                     <span>${p.name}</span>
+                    ${isNext ? '<span style="font-style: italic; color: #007bff; margin-left: 5px;">(Next)</span>' : ''}
+                    ${currentGameState && currentGameState.state && currentGameState.state.gameStarted ? `<span style="font-size: 0.85em; color: #555555; margin-left: 8px;">(Turns left: ${p.transactionsRemaining})</span>` : ''}
                     ${p.isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
                 </div>
                 ${localIsAdminForControls && p.id !== socket.id ? ` 
                     <div class="admin-controls">
-                        <button class="kick-btn game-button game-button-small" onclick="kickPlayer('${p.name}')">Kick</button>
-                        <button class="admin-btn game-button game-button-small" onclick="transferAdmin('${p.name}')">Make Admin</button>
+                        <button class="kick-btn game-button game-button-small" onclick="kickPlayer(\'${p.name}\')">Kick</button>
+                        <button class="admin-btn game-button game-button-small" onclick="transferAdmin(\'${p.name}\')">Make Admin</button>
                     </div>
                 ` : ''}
             </div>
-        `).join('');
+        `;}).join('');
     
-    // The following lines that manipulated startGameBtn.style.display were removed:
-    // if (startGameBtn && gameScreen) {
-    //     startGameBtn.style.display = (gameScreen.style.display === 'none' && isAdmin) ? 'block' : 'none';
-    // }
 }
 
 function kickPlayer(playerName) {
@@ -598,6 +617,9 @@ socket.on('gameState', state => {
     if (lobbyScreen && gameScreen && lobbyScreen.style.display !== 'none') {
         lobbyScreen.style.display = 'none';
         gameScreen.style.display = 'block';
+    } else {
+        lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
+        gameScreen.style.display = 'none';
     }
     
     updateUI(state);
@@ -632,17 +654,18 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
     }
 
     const currentPlayerNameForBar = state.players.find(p => p.id === state.state.currentTurnPlayerId)?.name || 'N/A';
-    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-text">Your Turn</span>' : ''; // Removed parentheses
+    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-text">Your Turn</span>' : '';
     const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
 
     if (periodSpan) periodSpan.innerHTML = `Period ${state.state.period} | Round ${state.state.roundNumberInPeriod} | Player: ${highlightedPlayerName}${yourTurnText}`;
-    
+
     renderMarketBoard(currentMarketPrices, companiesStaticData, currentInitialPrices); 
     renderPlayerHand(playerHandToRender, companiesStaticData); 
 
     updatePlayerList(state.players, state.state.currentTurnPlayerId); 
     updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
     updatePriceLogTable(); 
+    renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted); // NEW: Call to render turn order table
 
     // NEW: Calculate hand deltas and update the summary display
     calculateHandDeltas(playerHandToRender, companiesStaticData); // Pass companiesStaticData for getCompanyName
@@ -653,7 +676,7 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
             lobbyScreen.style.display = 'none';
             gameScreen.style.display = 'block';
         } else {
-            lobbyScreen.style.display = 'flex';
+            lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
             gameScreen.style.display = 'none';
         }
     }
@@ -695,7 +718,7 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
         }
     }
 
-    const normalActionButtons = [buyBtn, sellBtn, shortSellBtn, passBtn, endTurnBtn];
+    const normalActionButtons = [buyBtn, sellBtn, shortSellBtn, /*passBtn,*/ endTurnBtn];
     const canPerformTransaction = isYourTurn && me && me.transactionsRemaining > 0 && !state.state.awaitingAdminDecision;
     const canPassOrEnd = isYourTurn && !state.state.awaitingAdminDecision;
 
@@ -735,7 +758,6 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
         if (buyBtn) buyBtn.disabled = !canPerformTransaction;
         if (sellBtn) sellBtn.disabled = !canPerformTransaction;
         if (shortSellBtn) shortSellBtn.disabled = !canPerformTransaction;
-        if (passBtn) passBtn.disabled = !canPassOrEnd;
         if (endTurnBtn) endTurnBtn.disabled = !canPassOrEnd;
         // if(advancePeriodBtn && isAdmin) advancePeriodBtn.style.display = 'inline-block'; // Removed
     }
@@ -2007,5 +2029,104 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
                 }
             }
         }
+    });
+}
+
+// NEW: Function to render Player Turn Order Table
+function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameStarted) {
+    const infoBar = document.getElementById('info-bar');
+    if (!infoBar) {
+        if (playerTurnOrderTableElement) {
+            playerTurnOrderTableElement.style.display = 'none';
+        }
+        return;
+    }
+
+    if (!gameStarted || !players || players.length === 0) {
+        if (playerTurnOrderTableElement) {
+            playerTurnOrderTableElement.style.display = 'none';
+        }
+        return;
+    }
+
+    if (!playerTurnOrderTableElement) {
+        playerTurnOrderTableElement = document.createElement('table');
+        playerTurnOrderTableElement.className = 'player-turn-order-table';
+        
+        // Add table headers only once when table is created
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const thName = document.createElement('th');
+        thName.textContent = 'Player';
+        headerRow.appendChild(thName);
+        const thTurns = document.createElement('th');
+        thTurns.textContent = 'Turns';
+        thTurns.style.textAlign = 'right'; // Align header text to match dots
+        headerRow.appendChild(thTurns);
+        thead.appendChild(headerRow);
+        playerTurnOrderTableElement.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        playerTurnOrderTableElement.appendChild(tbody);
+        infoBar.parentNode.insertBefore(playerTurnOrderTableElement, infoBar.nextSibling);
+    }
+
+    playerTurnOrderTableElement.style.display = 'table';
+    const tableBody = playerTurnOrderTableElement.querySelector('tbody');
+    
+    if (!tableBody) return; // Should not happen if table created correctly, but good guard
+    tableBody.innerHTML = ''; // Ensure this is called to clear previous rows
+
+    // Determine the starting player index for the current period
+    // (period - 1) because period is 1-indexed.
+    // Add players.length before modulo to ensure positive result if (period - 1) is 0
+    const periodStartingPlayerIndex = ((period - 1) % players.length + players.length) % players.length;
+
+    players.forEach((player, idx) => {
+        const tr = document.createElement('tr');
+        const isCurrentTurn = player.id === currentTurnPlayerId;
+        const isPeriodStarter = idx === periodStartingPlayerIndex;
+
+        // DEBUG LOG ADDED HERE
+        console.log(`[renderPlayerTurnOrderTable DEBUG] Rendering dots for ${player.name}. transactionsRemaining: ${player.transactionsRemaining}, isCurrentTurn: ${isCurrentTurn}`);
+
+        if (isCurrentTurn) {
+            tr.classList.add('current-turn-highlight-table');
+        }
+
+        const tdName = document.createElement('td');
+        tdName.classList.add('player-name-cell');
+        
+        let nameHTML = '';
+        if (isPeriodStarter) {
+            nameHTML += '<span class="round-starter-star">★</span> ';
+        }
+        nameHTML += player.name;
+        // No (Next) or (Turns left) here as per simplification, player list handles those.
+        
+        tdName.innerHTML = nameHTML;
+        tr.appendChild(tdName);
+
+        // Add Turns Remaining Dots Cell
+        const tdTurns = document.createElement('td');
+        tdTurns.classList.add('turns-dots-cell');
+        
+        const totalAllowedTransactions = 3; // Assuming max 3 transactions per round for display
+        const turnsRemaining = player.transactionsRemaining;
+
+        for (let i = 0; i < totalAllowedTransactions; i++) {
+            const dot = document.createElement('span');
+            dot.classList.add('turn-dot-indicator');
+            // If dot index is less than the number of REMAINING turns, it's green.
+            if (i < turnsRemaining) {
+                dot.classList.add('turn-dot-green');
+            } else {
+                dot.classList.add('turn-dot-grey');
+            }
+            tdTurns.appendChild(dot);
+        }
+        tr.appendChild(tdTurns);
+
+        tableBody.appendChild(tr);
     });
 }

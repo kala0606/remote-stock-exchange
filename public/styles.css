@@ -46,6 +46,7 @@ body {
   max-width: 1200px;
   width: 100%;
   text-align: center;
+  box-sizing: border-box; /* ADDED to include padding/border in width */
 }
 
 h1, h2, h3, h4 {
@@ -242,7 +243,7 @@ select:focus {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: #ffffff; /* White background */
+  background: transparent; /* REVERTED */
   backdrop-filter: none; /* No blur */
   -webkit-backdrop-filter: none; /* No blur */
   border-radius: 0; /* No border-radius */
@@ -257,13 +258,49 @@ select:focus {
     margin: 5px 10px;
 }
 
+/* New styles for player turn status in info bar */
+/* .player-turn-item-infobar {
+  margin: 0 5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: inline-block; 
+}
+
+.player-name-infobar {
+  font-weight: normal;
+}
+
+.current-player-dot-infobar {
+  font-weight: bold;
+  color: #4CAF50; 
+  margin: 0 2px;
+}
+
+.next-player-text-infobar {
+  font-style: italic;
+  color: #007bff; 
+  margin: 0 2px;
+}
+
+.player-turns-remaining-infobar {
+  font-size: 0.85em;
+  color: #555555;
+  margin-left: 3px;
+} */
+
 #canvas-container {
-  background: #ffffff; /* White background */
-  border-radius: 0; /* No border-radius */
+  width: 100%;
+  max-width: 100%; /* Ensure it doesn't overflow */
   margin-bottom: 20px;
-  padding: 15px;
-  box-shadow: none; /* No shadow */
+  /* background: transparent; */ /* Keep transparent or set specific color if needed, not white panel */
   border: 1px solid #000000; /* Black border */
+  border-radius: 0; /* No border-radius */
+  box-shadow: none; /* No shadow */
+  padding: 0; /* No padding for canvas container itself */
+  display: flex; /* For centering canvas if smaller than container */
+  justify-content: center; /* Center canvas horizontally */
+  align-items: center; /* Center canvas vertically */
+  overflow: hidden; /* Hide scrollbars if canvas is larger */
 }
 
 .action-buttons {
@@ -279,7 +316,7 @@ select:focus {
 }
 
 #hand-section {
-  background: #ffffff; /* White background */
+  background: transparent; /* Keep transparent - this was an intentional part of the previous style */
   padding: 20px;
   border-radius: 0; /* No border-radius */
   margin-bottom: 20px;
@@ -377,7 +414,7 @@ select:focus {
 }
 
 .modal-content {
-  background-color: #ffffff; /* White background */
+  background-color: #ffffff; /* ENSURE MODAL CONTENT IS WHITE */
   margin: auto;
   padding: 30px;
   border-radius: 0; /* No border-radius */
@@ -454,14 +491,13 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 #playerList {
   margin-top: 20px;
-  padding: 15px;
-  background-color: #ffffff; /* White background */
-  backdrop-filter: none; /* No blur */
-  -webkit-backdrop-filter: none; /* No blur */
-  border-radius: 0; /* No border-radius */
-  box-shadow: none; /* No shadow */
+  width: 100%;
+  padding: 20px;
+  background: transparent; /* REVERTED */
   border: 1px solid #000000; /* Black border */
-  color: #000000; /* Black text */
+  box-shadow: none; /* No shadow */
+  border-radius: 0; /* No border-radius */
+  box-sizing: border-box; /* ADDED */
 }
 
 #playerList h2 {
@@ -523,13 +559,13 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .panel {
-  background: #ffffff; /* White background */
-  padding: 25px;
-  border-radius: 0; /* No border-radius */
-  box-shadow: none; /* No shadow */
-  margin-bottom: 25px;
+  width: 100%;
+  padding: 20px; /* Keep padding for now */
+  margin-bottom: 20px;
+  background: transparent; /* REVERTED */
   border: 1px solid #000000; /* Black border */
-  color: #000000; /* Black text */
+  box-shadow: none; /* No shadow */
+  border-radius: 0; /* No border-radius */
 }
 
 .leaderboard-content {
@@ -541,7 +577,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 .player-stats {
   padding: 20px;
   border-radius: 0;
-  background: #ffffff; /* White background */
+  background: transparent; /* Keep transparent - this was likely intended */
   border: 1px solid #000000; /* Black border */
   box-shadow: none;
 }
@@ -692,21 +728,24 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Lobby Specific Styles */
 #lobby {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 25px;
-  background: #ffffff; /* White background */
-  padding: 40px;
-  border-radius: 0; /* No border-radius */
-  box-shadow: none; /* No shadow */
-  max-width: 500px;
+  width: 100%;
+  max-width: 600px; /* Max width for lobby */
+  margin: 20px auto; /* Centering lobby */
+  padding: 30px; /* Keep padding for now */
+  background: transparent; /* REVERTED */
   border: 1px solid #000000; /* Black border */
+  box-shadow: none; /* No shadow */
+  border-radius: 0; /* No border-radius */
 }
 
-#startGame { /* Already styled as a primary black button */
-  /* background-color: #4CAF50; */
-  margin-top: 10px;
+#startGame { 
+  margin-top: 20px; /* Increased margin-top for better spacing */
+  width: 100%; /* Take full width of its container */
+  max-width: 400px; /* But not wider than the input group */
+  display: block; /* Needed for auto margins to center */
+  margin-left: auto;
+  margin-right: auto;
+  /* Other styles like background/color are inherited or set by primary button class */
 }
 
 #startGame:hover {
@@ -715,8 +754,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* --- Price Log Panel --- */
 #price-log-panel {
-    /* Inherits .panel B&W style */
-    /* Comments removed to ensure syntactical correctness if block is empty */
+    background: transparent; /* REVERTED */
 }
 
 /* --- Price Log Table --- */
@@ -772,14 +810,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Update specific panel styles if needed */
 #hand-summary {
-  /* display: none; */ /* Handled by JS */
-  /* Ensure this comment is valid or content is fixed */
+  background: transparent; /* REVERTED */
 }
 
 /* Styling for the new Activity Log panel */
 #activity-log-panel {
-    /* Uses general .panel B&W styling */
-    margin-top: 20px;
+    background: transparent; /* REVERTED */
 }
 
 #activity-log-content {
@@ -834,25 +870,17 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     color: #333333; /* Dark grey for no change */
 }
 
-/* New styles for lobby layout */
-#lobby .controls {
+/* ADDING BACK STYLES FOR LOBBY INPUT GROUP FOR BETTER ALIGNMENT */
+.lobby-input-group { 
   display: flex;
   flex-direction: column;
-  align-items: center; /* Center the control sections */
-  gap: 20px; /* Reduced gap for a tighter look */
-  margin-bottom: 20px; /* Reduced margin */
-  width: 100%; /* Ensure controls take full width for centering */
-  max-width: 450px; /* Limit max width of the controls area */
-}
-
-.lobby-input-group { /* NEW: Styles for the name input group */
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* Center items within this group */
+  align-items: center; 
   gap: 8px;
-  margin-bottom: 25px; /* Space before Create/Join options */
+  margin-bottom: 25px; 
   width: 100%;
-  max-width: 400px; /* Max width for the name input */
+  max-width: 400px; /* Centered and constrained */
+  margin-left: auto; /* Added for centering the group itself */
+  margin-right: auto; /* Added for centering the group itself */
 }
 
 .lobby-input-group label {
@@ -861,22 +889,11 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .lobby-input-group input#playerName {
-  width: 100%;
+  width: 100%; /* Input takes full width of the 400px max-width group */
+  box-sizing: border-box; /* Ensure padding/border included in width */
   text-align: center;
 }
-
-.create-room-section button#createRoom {
-  width: 100%; /* Make button take full width of its container */
-  max-width: none; /* Override previous max-width if any */
-  padding: 15px 25px; /* Adjusted padding */
-  font-size: 18px;
-  background-color: #000000; /* Black button */
-  color: #ffffff; /* White text */
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  max-width: 400px; /* Max width for join controls area */
-}
+/* END OF ADDED STYLES FOR LOBBY INPUT GROUP */
 
 .join-section {
   display: flex;
@@ -1217,6 +1234,95 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 /* --- End Game Over Screen Mobile Friendliness --- */
 
+/* --- Player Turn Order Table (Below Info Bar) --- */
+/* #player-turn-order-panel {
+    width: 100%;
+    max-width: 1200px; 
+    margin: 10px auto 20px auto; 
+    padding: 15px;
+    background: #ffffff;
+    border: 1px solid #000000;
+    box-sizing: border-box;
+}
+
+#player-turn-order-panel h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    color: #000000;
+    border-bottom: 1px solid #000000;
+    padding-bottom: 8px;
+} */
+
+.player-turn-order-table {
+    width: 100%;
+    max-width: 1200px; /* Match screen max-width */
+    margin: 10px auto 20px auto; /* Center and provide spacing */
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+.player-turn-order-table th,
+.player-turn-order-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #dddddd; /* Lighter border for inner rows */
+}
+
+.player-turn-order-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+.player-turn-order-table tr:last-child td {
+    border-bottom: none;
+}
+
+.player-turn-order-table .player-name-cell {
+    /* Main content cell */
+}
+
+.player-turn-order-table .round-starter-star {
+    color: #FFD700; /* Gold star */
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.player-turn-order-table tr.current-turn-highlight-table td {
+    background-color: #e8f5e9; /* Light green background */
+    font-weight: bold;
+}
+
+.player-turn-order-table tr.current-turn-highlight-table .player-name-cell {
+    color: #388E3C; /* Darker Green text for current player's name for better contrast */
+}
+
+/* Styles for Turns Remaining Dots */
+.player-turn-order-table .turns-dots-cell {
+    text-align: right; /* Align dots to the right */
+    white-space: nowrap; /* Prevent dots from wrapping */
+}
+
+.turn-dot-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-left: 3px;
+    border: 1px solid #777777; /* Default border */
+}
+
+.turn-dot-green {
+    background-color: #4CAF50;
+    border-color: #388E3C;
+}
+
+.turn-dot-grey {
+    background-color: #cccccc;
+    border-color: #999999;
+}
+
+/* --- End of Player Turn Order Table --- */
+
 /* --- New Styles for HTML Market Board & Player Hand --- */
 
 /* Market Board Table */
@@ -1412,12 +1518,14 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .admin-decision-panel {
-    background-color: #ffffff; /* Or your theme's panel background */
-    border: 1px solid #000000;    /* Or your theme's border */
     padding: 20px;
-    margin-top: 15px;
+    margin-top: 20px;
     margin-bottom: 20px;
+    background-color: transparent; /* REVERTED */
+    border: 1px solid #000000; /* Black border */
+    border-radius: 0; /* No border-radius */
     text-align: center;
+    box-shadow: none; /* No shadow */
 }
 
 .admin-decision-panel h4 {
@@ -1543,7 +1651,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   margin-top: 30px; /* Space from the content above it */
   padding: 20px;
   border: 1px solid #000000; /* Black border */
-  background-color: #f8f8f8; /* Light grey background to differentiate */
+  background-color: transparent; /* Keep transparent - this was likely intended or can be white if preferred later */
   text-align: center;
   box-sizing: border-box;
 }
@@ -1570,4 +1678,24 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   max-width: 100%; /* Ensure chart is responsive */
   height: auto;   /* Maintain aspect ratio */
   margin-bottom: 20px;
+}
+
+/* New style for presence indicator in lobby */
+.presence-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #cccccc; /* Default light grey for not present / or to be hidden */
+  margin-right: 8px;
+  display: inline-block;
+  border: 1px solid #999999; /* Grey border for inactive */
+}
+
+.presence-indicator.active {
+  background-color: #4CAF50; /* Green for present */
+  border: 1px solid #388E3C; /* Darker green border */
+}
+
+.player-row.current-turn {
+  /* ... existing code ... */
 }
