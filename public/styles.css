@@ -3,7 +3,7 @@ body {
   margin: 0;
   min-height: 100vh;
   padding: 0;
-  padding-top: 30px; /* Space for the fixed title bar */
+  padding-top: 48px; /* Increased to match 40px title bar + a bit of spacing */
   /* background: #ececec;  Remove static background */
   box-sizing: border-box;
   color: #000000; /* Black text */
@@ -45,23 +45,30 @@ body {
   background-color: #000000; /* Black background */
   color: #ffffff; /* White text */
   text-align: center;
-  padding: 5px 0; /* Small vertical padding */
+  padding: 5px 0;
   width: 100%;
-  position: fixed; /* Fixed at the top */
+  position: fixed;
   top: 0;
   left: 0;
-  z-index: 2000; /* Ensure it's above other content */
-  height: 20px; /* Thin rectangle - adjust as needed including padding */
+  z-index: 2000;
+  height: 40px; /* Increased height */
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0 0 4px 4px; /* Add subtle rounded corners at bottom */
+  border-radius: 0 0 4px 4px;
+}
+
+.app-logo-titlebar {
+  filter: invert(1) brightness(2);
+  height: 28px !important;
+  margin-right: 14px !important;
+  vertical-align: middle;
 }
 
 #game-title-text {
-  font-size: 0.9em; /* Small font size */
-  font-weight: 500;
-  letter-spacing: 0.5px;
+  font-size: 1.35em;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .screen {
@@ -961,6 +968,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   body {
     padding: 10px;
     font-size: 15px; /* Slightly adjust base font size */
+    padding-top: 48px; /* Ensure enough space for the 40px title bar on mobile */
   }
 
   .screen {
@@ -1544,15 +1552,18 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .admin-decision-panel {
     width: 100%;
-    max-width: 600px;
-    margin: 20px auto;
-    padding: 15px 24px; /* Add left and right padding */
-    background-color: #fff;
-    border: 1px solid #000;
+    margin: 0;
+    max-width: none;
+    border: 1px solid #cccccc;
     border-radius: 4px;
+    background: #fff;
     box-sizing: border-box;
     text-align: center;
     box-shadow: none;
+    padding: 15px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .admin-decision-panel h4 {
@@ -1568,9 +1579,9 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .admin-decision-panel button {
-    padding: 10px 15px;
-    margin: 0 6px 0 0; /* Add right margin between buttons */
-    /* Ensure it matches general button styling or override as needed */
+    margin: 0 8px 0 0;
+    padding: 10px 18px;
+    min-width: 160px;
 }
 
 .admin-decision-panel button:last-child {
@@ -1814,7 +1825,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     margin: 15px 0 10px;
     color: #333;
     font-size: 15px;
-    border-bottom: 1px solid #cccccc; /* Use same grey for section lines */
+    border-bottom: 0px solid #cccccc; /* Use same grey for section lines */
 }
 
 .deck-info-details ul {
@@ -2007,4 +2018,41 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 #hand-summary th,
 #hand-summary td {
   border: 1px solid #cccccc !important;
+}
+
+.app-logo-titlebar {
+  filter: invert(1) brightness(2);
+  /* Ensures the SVG appears white on black background */
+}
+
+.deck-info-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 12px;
+  font-size: 0.97em;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.deck-info-table th, .deck-info-table td {
+  border: 1px solid #cccccc !important;
+  padding: 8px 14px !important;
+  text-align: left;
+  background: #fff;
+}
+.deck-info-table th {
+  background: #f5f5f5 !important;
+  font-weight: bold;
+}
+.deck-info-table tr:first-child th:first-child {
+  border-top-left-radius: 6px;
+}
+.deck-info-table tr:first-child th:last-child {
+  border-top-right-radius: 6px;
+}
+.deck-info-table tr:last-child td:first-child {
+  border-bottom-left-radius: 6px;
+}
+.deck-info-table tr:last-child td:last-child {
+  border-bottom-right-radius: 6px;
 }

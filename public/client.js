@@ -2297,24 +2297,26 @@ function renderDeckInfoPanel() {
             <p>Minimum Cards Remaining: 50</p>
         </div>
         <div class="deck-info-details">
-            <h5>Price Cards (${6 * 4 * 3 * N} total)</h5>
-            <ul>
+            <h5>Price Cards</h5>
+            <table class="deck-info-table" style="margin-bottom: 16px; width: 100%; border-collapse: collapse;">
+              <thead><tr><th style='text-align:left;'>Company</th><th style='text-align:left;'>Moves</th><th style='text-align:right;'>Copies</th></tr></thead>
+              <tbody>
     `;
-
-    // Add price cards info
+    // Add price cards info as table rows
     COMPANIES.forEach(company => {
-        html += `<li><strong>${company.name} (${company.id})</strong>: ${company.moves.map(move => 
-            `${move > 0 ? '+' : ''}${move}`).join(', ')} × ${3 * N} copies</li>`;
+        html += `<tr><td><strong>${company.name} (${company.id})</strong></td><td>${company.moves.map(move => `${move > 0 ? '+' : ''}${move}`).join(', ')}</td><td style='text-align:right;'>${3 * N}</td></tr>`;
     });
-
+    html += `</tbody></table>`;
     html += `
-            </ul>
-            <h5>Windfall Cards (${3 * 2 * N} total)</h5>
-            <ul>
-                <li>LOAN × ${2 * N} copies</li>
-                <li>DEBENTURE × ${2 * N} copies</li>
-                <li>RIGHTS × ${2 * N} copies</li>
-            </ul>
+            <h5>Windfall Cards</h5>
+            <table class="deck-info-table" style="width: 100%; border-collapse: collapse;">
+              <thead><tr><th style='text-align:left;'>Type</th><th style='text-align:right;'>Copies</th></tr></thead>
+              <tbody>
+                <tr><td>LOAN</td><td style='text-align:right;'>${2 * N}</td></tr>
+                <tr><td>DEBENTURE</td><td style='text-align:right;'>${2 * N}</td></tr>
+                <tr><td>RIGHTS</td><td style='text-align:right;'>${2 * N}</td></tr>
+              </tbody>
+            </table>
         </div>
     `;
 
