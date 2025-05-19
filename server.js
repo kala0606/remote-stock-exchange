@@ -258,51 +258,40 @@ function calculateAndApplyPriceChanges(game) {
     });
   });
 
-  if (game.state.presidents && Object.keys(game.state.presidents).length > 0) {
-    game.players.forEach(player => {
-      for (const companyId in game.state.presidents) {
-        if (game.state.presidents.hasOwnProperty(companyId) && game.state.presidents[companyId].includes(player.id)) {
-          let mostNegativeEffectForPresident = null;
-          allPriceCardEffects.forEach(effect => {
-            if (effect.playerId === player.id && effect.companyId === companyId && effect.status === 'active' && effect.change < 0) {
-              if (!mostNegativeEffectForPresident || effect.change < mostNegativeEffectForPresident.change) {
-                mostNegativeEffectForPresident = effect;
-              }
-            }
-          });
-          if (mostNegativeEffectForPresident) {
-            mostNegativeEffectForPresident.status = 'negated_by_president';
-            logActivity(game, player.name, 'PRESIDENT_POWER', 
-              `President power for ${getCompanyName(companyId, game)} negated their own ${mostNegativeEffectForPresident.change} price card effect.`
-            );
-          }
-        }
-      }
-    });
-  }
-
-  if (game.state.chairmen && Object.keys(game.state.chairmen).length > 0) {
-    for (const companyId in game.state.chairmen) {
-      if (game.state.chairmen.hasOwnProperty(companyId) && game.state.chairmen[companyId].length > 0) {
-        let mostNegativeEffectForCompany = null;
-        allPriceCardEffects.forEach(effect => {
-          if (effect.companyId === companyId && effect.status === 'active' && effect.change < 0) {
-            if (!mostNegativeEffectForCompany || effect.change < mostNegativeEffectForCompany.change) {
-              mostNegativeEffectForCompany = effect;
-            }
-          }
-        });
-        if (mostNegativeEffectForCompany) {
-          mostNegativeEffectForCompany.status = 'negated_by_chairman';
-          const chairmanNames = game.state.chairmen[companyId].map(pid => game.players.find(p=>p.id === pid)?.name || 'A chairman').join(', ');
-          logActivity(game, null, 'CHAIRMAN_POWER', 
-            `Chairman power for ${getCompanyName(companyId, game)} (by ${chairmanNames}) negated a ${mostNegativeEffectForCompany.change} price card effect (player: ${mostNegativeEffectForCompany.playerName}).`
-          );
-        }
+  // --- NEW: Only ONE negative card can be negated per period, chairman supersedes president ---
+  let mostNegativeEffect = null;
+  allPriceCardEffects.forEach(effect => {
+    if (effect.status === 'active' && effect.change < 0) {
+      if (!mostNegativeEffect || effect.change < mostNegativeEffect.change) {
+        mostNegativeEffect = effect;
       }
     }
+  });
+
+  if (mostNegativeEffect) {
+    const companyId = mostNegativeEffect.companyId;
+    const playerId = mostNegativeEffect.playerId;
+    let negatedBy = null;
+    // Check for chairman first
+    if (game.state.chairmen && game.state.chairmen[companyId] && game.state.chairmen[companyId].length > 0) {
+      mostNegativeEffect.status = 'negated_by_chairman';
+      negatedBy = 'chairman';
+      const chairmanNames = game.state.chairmen[companyId].map(pid => game.players.find(p=>p.id === pid)?.name || 'A chairman').join(', ');
+      logActivity(game, null, 'CHAIRMAN_POWER', 
+        `Chairman power for ${getCompanyName(companyId, game)} (by ${chairmanNames}) negated a ${mostNegativeEffect.change} price card effect (player: ${mostNegativeEffect.playerName}).`
+      );
+    } else if (game.state.presidents && game.state.presidents[companyId] && game.state.presidents[companyId].includes(playerId)) {
+      mostNegativeEffect.status = 'negated_by_president';
+      negatedBy = 'president';
+      const player = game.players.find(p => p.id === playerId);
+      logActivity(game, player.name, 'PRESIDENT_POWER', 
+        `President power for ${getCompanyName(companyId, game)} negated their own ${mostNegativeEffect.change} price card effect.`
+      );
+    }
+    // If neither, do not negate
   }
-  
+  // --- END NEW LOGIC ---
+
   let deltas = {};
   COMPANIES.forEach(company => { deltas[company.id] = 0; });
   allPriceCardEffects.forEach(effect => {

@@ -9,6 +9,16 @@ const socket = io();
 const SHARE_LOTS = [500, 1000, 5000, 10000];
 const MAX_SHARES_PER_COMPANY_CLIENT = 200000;
 
+// Add COMPANIES constant for Deck Info panel and other client logic
+const COMPANIES = [
+  { id: 'WCK', name: 'Wockhardt Pharma', moves: [10, 5, -5, -10] },
+  { id: 'HDF', name: 'HDFC Bank', moves: [15, 10, -5, -20] },
+  { id: 'TIS', name: 'Tata Steel', moves: [20, 10, -10, -20] },
+  { id: 'ONG', name: 'ONGC Ltd', moves: [25, 15, -10, -30] },
+  { id: 'REL', name: 'Reliance Industries', moves: [30, 25, -15, -40] },
+  { id: 'INF', name: 'Infosys Ltd', moves: [30, 20, -10, -40] }
+];
+
 // Track connection state
 let isConnected = false;
 let currentRoom = null;
@@ -666,6 +676,7 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
     updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
     updatePriceLogTable(); 
     renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted); // NEW: Call to render turn order table
+    renderDeckInfoPanel(); // Add this line
 
     // NEW: Calculate hand deltas and update the summary display
     calculateHandDeltas(playerHandToRender, companiesStaticData); // Pass companiesStaticData for getCompanyName
@@ -772,8 +783,6 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
     if (!leaderboardContent) return;
 
     const historicalWorthData = currentGameState?.state?.historicalWorthData || [];
-    // const currentPeriodForDisplay = currentGameState?.state?.period; // Used for context if needed
-
     if (!players || players.length === 0 || !marketPrices || !companiesStaticData || companiesStaticData.length === 0) {
         leaderboardContent.innerHTML = '<p>Leaderboard data not available yet.</p>';
         return;
@@ -782,7 +791,6 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
     const rankedPlayers = players.map(player => {
         let portfolioValue = 0;
         const portfolioDetails = [];
-
         if (player.portfolio) {
             for (const companyId in player.portfolio) {
                 const shares = player.portfolio[companyId];
@@ -796,73 +804,125 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                         name: companyName,
                         shares: shares.toLocaleString(),
                         value: value.toLocaleString(),
-                        color: color
+                        color: color,
+                        type: 'long'
                     });
                 }
             }
         }
+        // Add short positions to portfolio details
+        if (player.shortPositions) {
+            for (const companyId in player.shortPositions) {
+                const shortPosition = player.shortPositions[companyId];
+                const currentPrice = marketPrices[companyId] !== undefined ? marketPrices[companyId] : 0;
+                const value = shortPosition.quantity * currentPrice;
+                portfolioValue -= value; // Subtract short position value from portfolio
+                const companyName = getCompanyName(companyId, companiesStaticData);
+                const color = companyColors[companyId] || '#000000';
+                const unrealizedPnl = (shortPosition.priceOpened - currentPrice) * shortPosition.quantity;
+                portfolioDetails.push({
+                    name: companyName,
+                    shares: `-${shortPosition.quantity.toLocaleString()}`,
+                    value: value.toLocaleString(),
+                    color: color,
+                    type: 'short',
+                    priceOpened: shortPosition.priceOpened,
+                    unrealizedPnl: unrealizedPnl
+                });
+            }
+        }
         const overallWorth = player.cash + portfolioValue;
-
-        // Calculate percentage change based on the two most recent *recorded* periods for this player
-        let worthChangeText = ""; 
+        let worthChangeText = "";
         const playerHistory = historicalWorthData.filter(d => d.playerId === player.uuid).sort((a,b) => b.period - a.period);
-        
         if (playerHistory.length >= 1) {
-            // Latest recorded worth is playerHistory[0].totalWorth for playerHistory[0].period
             if (playerHistory.length >= 2) {
-                // We have current and previous recorded periods
                 const currentRecordedPeriodWorth = playerHistory[0].totalWorth;
                 const previousRecordedPeriodWorth = playerHistory[1].totalWorth;
                 const previousRecordedPeriodNumber = playerHistory[1].period;
-
                 if (previousRecordedPeriodWorth !== 0) {
                     const changePercent = ((currentRecordedPeriodWorth - previousRecordedPeriodWorth) / previousRecordedPeriodWorth) * 100;
                     const changeSign = changePercent >= 0 ? '+' : '';
                     const changeClass = changePercent >= 0 ? 'positive' : 'negative';
-                    worthChangeText = ` <span class="leaderboard-worth-change ${changeClass}">(vs P${previousRecordedPeriodNumber}: ${changeSign}${changePercent.toFixed(1)}%)</span>`;
+                    worthChangeText = ` <span class=\"leaderboard-worth-change ${changeClass}\">(vs P${previousRecordedPeriodNumber}: ${changeSign}${changePercent.toFixed(1)}%)</span>`;
                 } else if (currentRecordedPeriodWorth > 0) {
-                    worthChangeText = ` <span class="leaderboard-worth-change positive">(vs P${previousRecordedPeriodNumber}: +Inf%)</span>`;
+                    worthChangeText = ` <span class=\"leaderboard-worth-change positive\">(vs P${previousRecordedPeriodNumber}: +Inf%)</span>`;
                 } else {
-                    worthChangeText = ` <span class="leaderboard-worth-change">(vs P${previousRecordedPeriodNumber}: 0.0%)</span>`;
+                    worthChangeText = ` <span class=\"leaderboard-worth-change\">(vs P${previousRecordedPeriodNumber}: 0.0%)</span>`;
                 }
             } else if (playerHistory[0].period === 0) {
-                 // Only period 0 data exists, this is the baseline
-                 worthChangeText = " <span class=\"leaderboard-worth-change\">(Baseline P0)</span>";
+                worthChangeText = " <span class=\"leaderboard-worth-change\">(Baseline P0)</span>";
             } else {
-                // Only one period of data (not P0), so no change to show from a prior one yet
-                worthChangeText = " <span class=\"leaderboard-worth-change\">(New History)</span>"; 
+                worthChangeText = " <span class=\"leaderboard-worth-change\">(New History)</span>";
             }
         } else {
-            worthChangeText = " <span class=\"leaderboard-worth-change\">(N/A)</span>"; // No historical data at all for this player
+            worthChangeText = " <span class=\"leaderboard-worth-change\">(N/A)</span>";
         }
-
         return { ...player, portfolioValue, overallWorth, portfolioDetails, worthChangeText };
     }).sort((a, b) => b.overallWorth - a.overallWorth);
 
-    let leaderboardHTML = '<ol class="leaderboard-list">';
+    // Hybrid format: table with main stats, portfolio details as a second row per player
+    let leaderboardHTML = `<table class="leaderboard-table"><thead><tr>
+        <th>Player</th>
+        <th>Overall Worth</th>
+        <th>Cash</th>
+        <th>Portfolio Value</th>
+    </tr></thead><tbody>`;
     rankedPlayers.forEach(player => {
-        leaderboardHTML += `<li class="leaderboard-item">
-            <div class="leaderboard-player-column">
-                <div class="leaderboard-player-name">${player.name} ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</div>
-                <div class="leaderboard-main-financials">
-                    <span class="leaderboard-overall-worth">Overall Worth: ₹${player.overallWorth.toLocaleString()}${player.worthChangeText}</span>
-                    <span>Cash: ₹${player.cash.toLocaleString()}</span>
-                </div>
-            </div>
-            <div class="leaderboard-shares-column">
-                <div class="leaderboard-portfolio-header">Portfolio Value: ₹${player.portfolioValue.toLocaleString()}</div>`;
-        
+        leaderboardHTML += `<tr>
+            <td><strong>${player.name}</strong> ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</td>
+            <td>₹${player.overallWorth.toLocaleString()}${player.worthChangeText}</td>
+            <td>₹${player.cash.toLocaleString()}</td>
+            <td>₹${player.portfolioValue.toLocaleString()}</td>
+        </tr>`;
+        // Portfolio details as a second row
+        leaderboardHTML += `<tr class="portfolio-details-row"><td colspan="4">`;
         if (player.portfolioDetails.length > 0) {
             leaderboardHTML += '<ul class="leaderboard-portfolio-details">';
             player.portfolioDetails.forEach(item => {
-                leaderboardHTML += `<li><span style="color:${item.color}; font-weight:bold;">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
+                if (item.type === 'long') {
+                    leaderboardHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
+                } else {
+                    const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
+                    leaderboardHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></li>`;
+                }
             });
             leaderboardHTML += '</ul>';
+        } else {
+            leaderboardHTML += '<span class="no-shares">No positions</span>';
         }
-        leaderboardHTML += '</div></li>'; // Close shares-column and item
+        leaderboardHTML += '</td></tr>';
     });
-    leaderboardHTML += '</ol>';
+    leaderboardHTML += '</tbody></table>';
     leaderboardContent.innerHTML = leaderboardHTML;
+
+    // Mobile: stacked card/list format
+    if (window.innerWidth <= 700) {
+        let mobileHTML = '';
+        rankedPlayers.forEach(player => {
+            mobileHTML += `<div class="leaderboard-card">
+                <div class="leaderboard-card-header"><strong>${player.name}</strong> ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</div>
+                <div>Overall Worth: <span class="leaderboard-overall-worth">₹${player.overallWorth.toLocaleString()}</span>${player.worthChangeText}</div>
+                <div>Cash: ₹${player.cash.toLocaleString()}</div>
+                <div>Portfolio Value: ₹${player.portfolioValue.toLocaleString()}</div>
+                <div>Portfolio:`;
+            if (player.portfolioDetails.length > 0) {
+                mobileHTML += '<ul class="leaderboard-portfolio-details">';
+                player.portfolioDetails.forEach(item => {
+                    if (item.type === 'long') {
+                        mobileHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value})</span></li>`;
+                    } else {
+                        const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
+                        mobileHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></span></li>`;
+                    }
+                });
+                mobileHTML += '</ul>';
+            } else {
+                mobileHTML += '<span class="no-shares">No positions</span>';
+            }
+            mobileHTML += '</div></div>';
+        });
+        leaderboardContent.innerHTML = mobileHTML;
+    }
 }
 
 function playWindfall(sub) {
@@ -2126,4 +2186,80 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
 
         tableBody.appendChild(tr);
     });
+}
+
+function renderDeckInfoPanel() {
+    const leaderboard = document.querySelector('.leaderboard');
+    if (!leaderboard) return;
+
+    let deckInfoPanel = document.getElementById('deck-info-panel');
+    if (!deckInfoPanel) {
+        deckInfoPanel = document.createElement('div');
+        deckInfoPanel.id = 'deck-info-panel';
+        deckInfoPanel.className = 'panel deck-info-panel';
+        deckInfoPanel.style.marginTop = '20px';
+        
+        const header = document.createElement('div');
+        header.className = 'deck-info-header';
+        header.innerHTML = '<h4>Deck Info <span class="expand-icon">▼</span></h4>';
+        header.style.cursor = 'pointer';
+        header.onclick = () => {
+            const content = deckInfoPanel.querySelector('.deck-info-content');
+            const icon = header.querySelector('.expand-icon');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        };
+        
+        const content = document.createElement('div');
+        content.className = 'deck-info-content';
+        content.style.display = 'none';
+        
+        deckInfoPanel.appendChild(header);
+        deckInfoPanel.appendChild(content);
+        leaderboard.parentNode.insertBefore(deckInfoPanel, leaderboard.nextSibling);
+    }
+
+    const content = deckInfoPanel.querySelector('.deck-info-content');
+    if (!content) return;
+
+    const numPlayers = currentGameState?.players?.length || 0;
+    const cardsInOneDeckUnit = (6 * 4 * 3) + (3 * 2); // 6 companies * 4 moves * 3 copies + 3 windfalls * 2 copies
+    const cardsNeededForDealingAndBuffer = (numPlayers * 10) + 50; // 10 cards per player + 50 buffer
+    const N = Math.max(1, Math.ceil(cardsNeededForDealingAndBuffer / cardsInOneDeckUnit));
+    const totalCards = cardsInOneDeckUnit * N;
+
+    let html = `
+        <div class="deck-info-summary">
+            <p>Total Cards in Deck: ${totalCards}</p>
+            <p>Cards per Player: 10</p>
+            <p>Minimum Cards Remaining: 50</p>
+        </div>
+        <div class="deck-info-details">
+            <h5>Price Cards (${6 * 4 * 3 * N} total)</h5>
+            <ul>
+    `;
+
+    // Add price cards info
+    COMPANIES.forEach(company => {
+        html += `<li><strong>${company.name} (${company.id})</strong>: ${company.moves.map(move => 
+            `${move > 0 ? '+' : ''}${move}`).join(', ')} × ${3 * N} copies</li>`;
+    });
+
+    html += `
+            </ul>
+            <h5>Windfall Cards (${3 * 2 * N} total)</h5>
+            <ul>
+                <li>LOAN × ${2 * N} copies</li>
+                <li>DEBENTURE × ${2 * N} copies</li>
+                <li>RIGHTS × ${2 * N} copies</li>
+            </ul>
+        </div>
+    `;
+
+    content.innerHTML = html;
 }

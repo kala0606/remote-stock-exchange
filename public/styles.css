@@ -34,6 +34,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 0 0 4px 4px; /* Add subtle rounded corners at bottom */
 }
 
 #game-title-text {
@@ -76,7 +77,7 @@ h1 {
 .join-controls input[type="text"] {
   flex-grow: 1;
   padding: 15px;
-  border-radius: 0; /* No border-radius */
+  border-radius: 4px; /* Add subtle rounded corners */
   border: 1px solid #000000; /* Black border */
   font-size: 16px;
   background-color: #ffffff; /* White background */
@@ -89,7 +90,7 @@ h1 {
 
 button {
   padding: 12px 22px;
-  border-radius: 0; /* No border-radius */
+  border-radius: 4px; /* Add subtle rounded corners */
   background-color: #ffffff; /* White background */
   color: #000000; /* Black text */
   cursor: pointer;
@@ -205,7 +206,7 @@ button:disabled {
 input, select {
   background: #ffffff; /* White background */
   border: 1px solid #000000; /* Black border */
-  border-radius: 0; /* No border-radius */
+  border-radius: 4px; /* Add subtle rounded corners */
   padding: 15px 20px;
   color: #000000; /* Black text */
   box-shadow: none; /* No shadow */
@@ -229,12 +230,10 @@ select:focus {
   margin-bottom: 20px;
 }
 
-.game-left {
-  margin-bottom: 20px;
-}
-
+.game-left,
 .game-right {
   width: 100%;
+  box-sizing: border-box;
 }
 
 #info-bar {
@@ -246,7 +245,7 @@ select:focus {
   background: transparent; /* REVERTED */
   backdrop-filter: none; /* No blur */
   -webkit-backdrop-filter: none; /* No blur */
-  border-radius: 0; /* No border-radius */
+  border-radius: 4px; /* Add subtle rounded corners */
   border: 1px solid #000000; /* Black border */
   box-shadow: none; /* No shadow */
   margin-bottom: 25px;
@@ -415,14 +414,14 @@ select:focus {
 
 .modal-content {
   background-color: #ffffff; /* ENSURE MODAL CONTENT IS WHITE */
-  margin: auto;
-  padding: 30px;
-  border-radius: 0; /* No border-radius */
-  width: 90%;
-  max-width: 500px; /* Keep max-width for readability */
-  box-shadow: none; /* No shadow */
-  text-align: left;
+  margin: 15% auto;
+  padding: 20px;
   border: 1px solid #000000; /* Black border */
+  width: 80%;
+  max-width: 500px; /* Keep max-width for readability */
+  border-radius: 4px; /* Add subtle rounded corners */
+  position: relative;
+  text-align: left;
   color: #000000; /* Black text */
 }
 
@@ -560,18 +559,18 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .panel {
   width: 100%;
-  padding: 20px; /* Keep padding for now */
+  padding: 15px;
   margin-bottom: 20px;
-  background: transparent; /* REVERTED */
-  border: 1px solid #000000; /* Black border */
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 4px; /* Add subtle rounded corners */
   box-shadow: none; /* No shadow */
-  border-radius: 0; /* No border-radius */
 }
 
 .leaderboard-content {
   margin-top: 20px;
   display: grid;
-  gap: 25px;
+  gap: 1px;
 }
 
 .player-stats {
@@ -1394,19 +1393,19 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .card-html {
-  border: 1px solid #cccccc; /* Lighten border slightly for non-windfall cards */
-  background-color: #f8f9fa; /* Very light grey background for price/other cards */
-  padding: 15px;
-  width: 130px; /* Fixed width for cards */
-  height: 180px; /* Fixed height for cards */
+  background: #ffffff;
+  border: 1px solid #000000;
+  padding: 10px;
+  margin: 5px;
+  width: 120px;
+  height: 180px;
   display: flex;
   flex-direction: column;
-  justify-content: space-around; /* Distribute content within card */
+  justify-content: space-between;
   align-items: center;
-  text-align: center;
   cursor: pointer;
-  box-sizing: border-box;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 4px; /* Add subtle rounded corners */
+  transition: transform 0.2s ease;
 }
 
 .card-html:hover {
@@ -1518,14 +1517,16 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .admin-decision-panel {
-    padding: 20px;
-    margin-top: 20px;
-    margin-bottom: 20px;
-    background-color: transparent; /* REVERTED */
-    border: 1px solid #000000; /* Black border */
-    border-radius: 0; /* No border-radius */
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 15px 24px; /* Add left and right padding */
+    background-color: #fff;
+    border: 1px solid #000;
+    border-radius: 4px;
+    box-sizing: border-box;
     text-align: center;
-    box-shadow: none; /* No shadow */
+    box-shadow: none;
 }
 
 .admin-decision-panel h4 {
@@ -1542,7 +1543,21 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .admin-decision-panel button {
     padding: 10px 15px;
+    margin: 0 6px 0 0; /* Add right margin between buttons */
     /* Ensure it matches general button styling or override as needed */
+}
+
+.admin-decision-panel button:last-child {
+    margin-right: 0;
+}
+
+@media (max-width: 700px) {
+  .admin-decision-panel {
+    max-width: 100%;
+    margin: 10px 0;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 }
 
 /* --- Leaderboard Styles --- */
@@ -1698,4 +1713,229 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .player-row.current-turn {
   /* ... existing code ... */
+}
+
+/* Deck Info Panel Styles */
+.deck-info-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.deck-info-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+}
+
+.deck-info-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+    width: 100%;
+    text-align: center;
+}
+
+.deck-info-content {
+    margin-top: 15px;
+}
+
+.deck-info-summary {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.deck-info-summary p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #555;
+}
+
+.deck-info-details {
+    font-size: 14px;
+}
+
+.deck-info-details h5 {
+    margin: 15px 0 10px;
+    color: #333;
+    font-size: 15px;
+}
+
+.deck-info-details ul {
+    list-style: none;
+    padding-left: 15px;
+    margin: 0;
+}
+
+.deck-info-details li {
+    margin: 5px 0;
+    color: #555;
+}
+
+.deck-info-details strong {
+    color: #333;
+}
+
+#player-hand-container.panel {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#player-hand-container.panel,
+#hand-summary.panel,
+#price-log-panel.panel,
+#general-rights-offers-panel.panel,
+#activity-log-panel.panel,
+#open-shorts-panel.panel,
+.deck-info-panel {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#leaderboard.panel {
+  padding-left: 0;
+  padding-right: 0;
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+#leaderboard .leaderboard-list {
+  display: block;
+  padding-left: 0;
+}
+
+#leaderboard .leaderboard-item {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+#leaderboard .leaderboard-player-column,
+#leaderboard .leaderboard-shares-column {
+  align-items: flex-start;
+  text-align: left;
+}
+
+@media (max-width: 700px) {
+  #leaderboard .leaderboard-player-column,
+  #leaderboard .leaderboard-shares-column {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+/* Leaderboard Table Styles */
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  border-radius: 4px; /* Add subtle rounded corners */
+  overflow: hidden; /* Ensure content respects border radius */
+  background: #fff;
+  font-size: 1em;
+}
+.leaderboard-table th, .leaderboard-table td {
+  border: 1px solid #000;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.leaderboard-table th {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+.leaderboard-table tr:nth-child(even) {
+  background: #f9f9f9;
+}
+.leaderboard-table ul.leaderboard-portfolio-details {
+  margin: 0;
+  padding-left: 8px;
+  font-size: 0.97em;
+}
+.leaderboard-table .no-shares {
+  color: #888;
+  font-style: italic;
+}
+@media (max-width: 700px) {
+  .leaderboard-table th, .leaderboard-table td {
+    padding: 7px 4px;
+    font-size: 0.95em;
+  }
+  .leaderboard-table {
+    font-size: 0.95em;
+  }
+}
+
+/* Leaderboard Hybrid Format Styles */
+.leaderboard-table .portfolio-details-row td {
+  background: #f8f8f8;
+  padding-top: 0;
+  padding-bottom: 2px;
+  border-top: none;
+  font-size: 0.97em;
+}
+
+.leaderboard-table .leaderboard-portfolio-details {
+  margin: 0;
+  padding-left: 8px;
+  font-size: 0.97em;
+}
+
+.leaderboard-table .no-shares {
+  color: #888;
+  font-style: italic;
+}
+
+/* Mobile Card/List Format */
+.leaderboard-card {
+  background: #ffffff;
+  border: 1px solid #000000;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 4px; /* Add subtle rounded corners */
+}
+.leaderboard-card-header {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+.leaderboard-card .leaderboard-portfolio-details {
+  margin: 0;
+  padding-left: 8px;
+  font-size: 0.97em;
+}
+.leaderboard-card .no-shares {
+  color: #888;
+  font-style: italic;
+}
+
+@media (min-width: 701px) {
+  .leaderboard-card { display: none; }
+  .leaderboard-table .portfolio-details-row td {
+    padding-top: 6px;
+  }
+}
+@media (max-width: 700px) {
+  .leaderboard-table { display: none; }
+  .portfolio-details-row { display: none; }
+  .leaderboard-card .leaderboard-portfolio-details li {
+    display: block !important;
+    justify-content: flex-start !important;
+    padding: 4px 0 !important;
+    border-bottom: 1px dotted #e0e0e0 !important;
+    margin-bottom: 2px !important;
+  }
+  .leaderboard-card .leaderboard-portfolio-details li:last-child {
+    border-bottom: none !important;
+  }
 }
