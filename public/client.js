@@ -455,7 +455,7 @@ if (quantityInput) {
 if (confirmTransactionBtn) {
     confirmTransactionBtn.addEventListener('click', () => {
         const selectedCompany = companySelect?.value;
-        const rawQuantity = quantityInput?.value;
+        const rawQuantity = quantityInput?.value || '0';
         const quantity = parseInt(rawQuantity);
 
         if (!selectedCompany) {
@@ -635,20 +635,95 @@ socket.on('gameState', state => {
     updateUI(state);
 });
 
-function updateUI(state) { // Renamed from gameState to state for consistency with call
-    console.log("[updateUI] Received game state:", state);
-    currentGameState = state; // Store the latest state globally
+// Function to calculate market sentiment
+function calculateMarketSentiment(marketPrices, initialPrices) {
+    if (!marketPrices || !initialPrices) {
+        console.log('Missing market data:', { marketPrices, initialPrices });
+        return 0;
+    }
+    
+    let totalChange = 0;
+    let validCompanies = 0;
+    
+    console.log('Calculating sentiment with prices:', {
+        market: marketPrices,
+        initial: initialPrices
+    });
+    
+    for (const companyId in marketPrices) {
+        const currentPrice = parseFloat(marketPrices[companyId]);
+        const initialPrice = parseFloat(initialPrices[companyId]);
+        
+        if (!isNaN(currentPrice) && !isNaN(initialPrice) && initialPrice > 0) {
+            const priceChange = ((currentPrice - initialPrice) / initialPrice) * 100;
+            totalChange += priceChange;
+            validCompanies++;
+            console.log(`Company ${companyId}: Current=${currentPrice}, Initial=${initialPrice}, Change=${priceChange.toFixed(2)}%`);
+        } else {
+            console.log(`Skipping company ${companyId}: Invalid prices - Current=${currentPrice}, Initial=${initialPrice}`);
+        }
+    }
+    
+    const sentiment = validCompanies > 0 ? totalChange / validCompanies : 0;
+    console.log('Final Market Sentiment:', sentiment.toFixed(2), '%');
+    return sentiment;
+}
 
-    if (!state || !state.players || !state.state) { // Added check for state.state
+// Function to update background gradient based on market sentiment
+function updateBackgroundGradient(sentiment) {
+    // Normalize sentiment to range between -1 and 1
+    const normalizedSentiment = Math.max(-1, Math.min(1, sentiment / 100));
+    
+    // Calculate pastel color intensities based on sentiment
+    // Using very light base colors for a more pastel effect
+    const redIntensity = normalizedSentiment < 0 ? 255 : Math.floor(220 + (35 * (1 - normalizedSentiment)));
+    const greenIntensity = normalizedSentiment > 0 ? 255 : Math.floor(220 + (35 * (1 + normalizedSentiment)));
+    
+    // Create pastel RGB colors with higher blue component for softer look
+    const redColor = `rgb(${redIntensity}, 220, 220)`;
+    const greenColor = `rgb(220, ${greenIntensity}, 220)`;
+    
+    // Calculate animation speed based on sentiment
+    // More volatile market (higher absolute sentiment) = faster animation
+    const baseSpeed = 15; // Base animation duration in seconds
+    const speedMultiplier = 1 + Math.abs(normalizedSentiment); // 1 to 2 range
+    const animationDuration = baseSpeed / speedMultiplier;
+    
+    console.log('Gradient Update:', {
+        rawSentiment: sentiment.toFixed(2),
+        normalizedSentiment: normalizedSentiment.toFixed(2),
+        redIntensity,
+        greenIntensity,
+        redColor,
+        greenColor,
+        animationDuration: animationDuration.toFixed(2)
+    });
+    
+    // Update the body background with the new gradient and animation speed
+    document.body.style.background = `linear-gradient(45deg, ${redColor}, ${greenColor})`;
+    document.body.style.backgroundSize = '400% 400%';
+    document.body.style.animation = `gradientAnimation ${animationDuration}s ease-in-out infinite`;
+}
+
+// Modify the updateUI function to include sentiment calculation and background update
+function updateUI(state) {
+    console.log("[updateUI] Received game state:", state);
+    currentGameState = state;
+
+    if (!state || !state.players || !state.state) {
         console.error("[updateUI] Invalid or incomplete game state received (missing players or state.state).");
         if (lobbyScreen) lobbyScreen.style.display = 'flex';
         if (gameScreen) gameScreen.style.display = 'none';
         return;
     }
 
-    const companiesStaticData = state.state.companyList || []; 
-    const currentMarketPrices = state.state.prices || {};      
-    const currentInitialPrices = state.state.init || {};       
+    const companiesStaticData = state.state.companyList || [];
+    const currentMarketPrices = state.state.prices || {};
+    const currentInitialPrices = state.state.init || {};
+
+    // Calculate and update market sentiment
+    const sentiment = calculateMarketSentiment(currentMarketPrices, currentInitialPrices);
+    updateBackgroundGradient(sentiment);
 
     const me = state.players.find(p => p.id === socket.id || p.name === currentPlayerName);
     const playerHandToRender = state.hand || []; 

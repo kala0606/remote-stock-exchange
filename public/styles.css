@@ -4,26 +4,20 @@ body {
   min-height: 100vh;
   padding: 0;
   padding-top: 48px; /* Increased to match 40px title bar + a bit of spacing */
-  /* background: #ececec;  Remove static background */
   box-sizing: border-box;
   color: #000000; /* Black text */
-  background: linear-gradient(120deg, #f8e1f4, #e1f4f8, #f8f4e1, #e1e8f8, #f8e1e8);
+  background: linear-gradient(45deg, rgb(255, 220, 220), rgb(220, 255, 220));
   background-size: 400% 400%;
-  animation: pastelGradientBG 18s ease-in-out infinite;
+  transition: background 0.5s ease-in-out;
+  animation: gradientAnimation 15s ease-in-out infinite;
 }
 
-@keyframes pastelGradientBG {
+@keyframes gradientAnimation {
   0% {
     background-position: 0% 50%;
   }
-  25% {
-    background-position: 50% 100%;
-  }
   50% {
     background-position: 100% 50%;
-  }
-  75% {
-    background-position: 50% 0%;
   }
   100% {
     background-position: 0% 50%;
