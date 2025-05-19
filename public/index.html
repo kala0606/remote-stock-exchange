@@ -201,14 +201,15 @@
 
     <!-- NEW: Game Over Screen -->
     <div id="game-over-screen" class="screen panel" style="display: none; text-align: center;">
-      <h2>Game Over!</h2>
-      <h4 id="winner-announcement" style="margin-bottom: 15px;">Calculating winner...</h4>
-      <h3>Player Worth Over Time</h3>
-      <div style="width: 80%; max-width: 800px; margin: 20px auto;">
-          <canvas id="playerWorthChart"></canvas>
+      <div class="game-over-content">
+        <h2>Game Over!</h2>
+        <h4 id="winner-announcement" style="margin-bottom: 15px;">Calculating winner...</h4>
+        <div style="width: 80%; max-width: 800px; margin: 20px auto;">
+            <canvas id="playerWorthChart"></canvas>
+        </div>
+        <div id="game-over-stats" style="margin: 24px 0 0 0;"></div>
+        <div id="wisdom-quote" style="margin-top: 25px; font-style: italic; color: #333333;"></div>
       </div>
-      <div id="wisdom-quote" style="margin-top: 25px; font-style: italic; color: #333333;"></div>
-      <!-- Further summary details can be added here -->
     </div>
   </div>
 

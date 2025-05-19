@@ -4,9 +4,30 @@ body {
   min-height: 100vh;
   padding: 0;
   padding-top: 30px; /* Space for the fixed title bar */
-  background: #ececec; /* White background */
+  /* background: #ececec;  Remove static background */
   box-sizing: border-box;
   color: #000000; /* Black text */
+  background: linear-gradient(120deg, #f8e1f4, #e1f4f8, #f8f4e1, #e1e8f8, #f8e1e8);
+  background-size: 400% 400%;
+  animation: pastelGradientBG 18s ease-in-out infinite;
+}
+
+@keyframes pastelGradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 100%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 0%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 #main-content-wrapper { /* NEW STYLES */
@@ -246,7 +267,7 @@ select:focus {
   backdrop-filter: none; /* No blur */
   -webkit-backdrop-filter: none; /* No blur */
   border-radius: 4px; /* Add subtle rounded corners */
-  border: 1px solid #000000; /* Black border */
+  border: 1px solid #cccccc; /* Lighter grey border */
   box-shadow: none; /* No shadow */
   margin-bottom: 25px;
   font-size: 0.95em;
@@ -255,6 +276,7 @@ select:focus {
 
 #info-bar > span {
     margin: 5px 10px;
+    border-bottom: 0px solid #cccccc; /* Remove or lighten bottom border */
 }
 
 /* New styles for player turn status in info bar */
@@ -416,7 +438,7 @@ select:focus {
   background-color: #ffffff; /* ENSURE MODAL CONTENT IS WHITE */
   margin: 15% auto;
   padding: 20px;
-  border: 1px solid #000000; /* Black border */
+  border: 1px solid #cccccc; /* Lighter grey border */
   width: 80%;
   max-width: 500px; /* Keep max-width for readability */
   border-radius: 4px; /* Add subtle rounded corners */
@@ -493,7 +515,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   width: 100%;
   padding: 20px;
   background: transparent; /* REVERTED */
-  border: 1px solid #000000; /* Black border */
+  border: 1px solid #cccccc; /* Lighter grey border */
   box-shadow: none; /* No shadow */
   border-radius: 0; /* No border-radius */
   box-sizing: border-box; /* ADDED */
@@ -512,7 +534,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 5px;
+  padding: 10px;
   border-bottom: 1px solid #cccccc; /* Lighter grey border for rows */
 }
 
@@ -562,7 +584,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   padding: 15px;
   margin-bottom: 20px;
   background: #ffffff;
-  border: 1px solid #000000;
+  border: 1px solid #cccccc; /* Lighter grey border */
   border-radius: 4px; /* Add subtle rounded corners */
   box-shadow: none; /* No shadow */
 }
@@ -587,7 +609,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   color: #000000; /* Black text */
   margin-bottom: 15px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #000000; /* Black border */
+  border-bottom: 1px solid #cccccc; /* Use same grey for underline */
 }
 
 .player-cash {
@@ -614,7 +636,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   gap: 15px;
   padding: 8px 0;
   align-items: center;
-  border-bottom: 1px dotted #666666; /* Dotted grey border */
+  border-bottom: 1px dotted #cccccc; /* Use same grey for dotted lines */
 }
 
 .portfolio-entry:last-child {
@@ -670,7 +692,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   align-items: center;
   justify-content: space-between;
   padding: 10px;
-  border-bottom: 1px solid #cccccc; /* Lighter grey border for rows */
+  border-bottom: 1px solid #cccccc; /* Lighter grey border */
 }
 
 .player-row:last-child {
@@ -1265,7 +1287,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 .player-turn-order-table td {
     padding: 8px 10px;
     text-align: left;
-    border-bottom: 1px solid #dddddd; /* Lighter border for inner rows */
+    border-bottom: 1px solid #cccccc; /* Use same grey for table lines */
 }
 
 .player-turn-order-table th {
@@ -1328,20 +1350,24 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 #market-board-container {
   width: 100%;
   margin-bottom: 20px;
+  border: 1px solid #cccccc !important;
+  border-radius: 4px;
+  background: #fff;
 }
 
 .market-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9em;
+  border: 1px solid #cccccc;
 }
 
 .market-table th,
 .market-table td {
-  border: 1px solid #000000;
+  border: 1px solid #cccccc;
   padding: 8px 10px;
   text-align: left;
-  vertical-align: middle; /* Align content vertically for bars */
+  vertical-align: middle;
 }
 
 .market-table th {
@@ -1572,7 +1598,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .leaderboard-item {
-    border: 1px solid #000000;
+    border: 1px solid #cccccc; /* Lighter grey border */
     margin-bottom: 15px;
     padding: 10px 15px;
     background-color: #ffffff;
@@ -1647,6 +1673,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 .leaderboard-portfolio-details li {
     margin-bottom: 4px;
     color: #000000;
+    border-bottom: 1px dotted #cccccc; /* Use same grey for list item separators */
 }
 
 .no-activity-msg {
@@ -1661,14 +1688,35 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 #game-over-screen {
-  display: none; /* Hidden by default */
-  width: 100%;
-  margin-top: 30px; /* Space from the content above it */
-  padding: 20px;
-  border: 1px solid #000000; /* Black border */
-  background-color: transparent; /* Keep transparent - this was likely intended or can be white if preferred later */
-  text-align: center;
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.85);
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-over-screen .game-over-content {
+  background: #fff;
+  border-radius: 8px;
+  padding: 32px 24px;
+  max-width: 600px;
+  width: 90vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  margin: 0 auto;
+  text-align: center;
+  border: 1px solid #cccccc; /* Lighter grey border */
 }
 
 #game-over-screen h2 {
@@ -1729,7 +1777,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     justify-content: center;
     align-items: center;
     padding: 5px 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 0px solid #cccccc; /* Remove or lighten bottom border */
     text-align: center;
 }
 
@@ -1766,6 +1814,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     margin: 15px 0 10px;
     color: #333;
     font-size: 15px;
+    border-bottom: 1px solid #cccccc; /* Use same grey for section lines */
 }
 
 .deck-info-details ul {
@@ -1786,6 +1835,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 #player-hand-container.panel {
   padding-left: 0;
   padding-right: 0;
+  background: transparent !important;
 }
 
 #player-hand-container.panel,
@@ -1843,9 +1893,10 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   overflow: hidden; /* Ensure content respects border radius */
   background: #fff;
   font-size: 1em;
+  border: 1px solid #cccccc; /* Lighter grey border for table */
 }
 .leaderboard-table th, .leaderboard-table td {
-  border: 1px solid #000;
+  border: 1px solid #cccccc; /* Lighter grey border */
   padding: 10px 12px;
   text-align: left;
   vertical-align: top;
@@ -1856,6 +1907,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 .leaderboard-table tr:nth-child(even) {
   background: #f9f9f9;
+  border-bottom: 1px solid #cccccc; /* Use same grey for row separators */
 }
 .leaderboard-table ul.leaderboard-portfolio-details {
   margin: 0;
@@ -1882,6 +1934,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   padding-top: 0;
   padding-bottom: 2px;
   border-top: none;
+  border-bottom: 1px solid #cccccc; /* Use same grey for details row separator */
   font-size: 0.97em;
 }
 
@@ -1899,7 +1952,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 /* Mobile Card/List Format */
 .leaderboard-card {
   background: #ffffff;
-  border: 1px solid #000000;
+  border: 1px solid #cccccc; /* Lighter grey border */
   padding: 15px;
   margin-bottom: 15px;
   border-radius: 4px; /* Add subtle rounded corners */
@@ -1938,4 +1991,20 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   .leaderboard-card .leaderboard-portfolio-details li:last-child {
     border-bottom: none !important;
   }
+}
+
+@media (max-width: 600px) {
+  #game-over-screen .game-over-content {
+    padding: 16px 4vw;
+    max-width: 98vw;
+  }
+}
+
+#price-log-panel table,
+#price-log-panel th,
+#price-log-panel td,
+#hand-summary table,
+#hand-summary th,
+#hand-summary td {
+  border: 1px solid #cccccc !important;
 }

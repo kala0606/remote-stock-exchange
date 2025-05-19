@@ -654,7 +654,7 @@ function updateUI(state) { // Renamed from gameState to state for consistency wi
     const playerHandToRender = state.hand || []; 
 
     if (me) {
-        if (cashSpan) cashSpan.textContent = `Cash: ₹${me.cash.toLocaleString()}`;
+        if (cashSpan) cashSpan.textContent = `Your Cash: ₹${me.cash.toLocaleString()}`;
         updateGeneralRightsOffers(me); 
         updateOpenShortsPanel(me, currentMarketPrices, companiesStaticData); 
     } else {
@@ -1953,11 +1953,10 @@ if (adminEndGameBtn) {
 // NEW: Listener for game summary and to render chart
 socket.on('gameSummaryReceived', (summaryData) => {
     console.log('[gameSummaryReceived]', summaryData);
-    // if (gameScreen) gameScreen.style.display = 'none'; // Keep game screen visible
-    if (lobbyScreen) lobbyScreen.style.display = 'none'; // Ensure lobby is hidden
+    if (lobbyScreen) lobbyScreen.style.display = 'none';
     if (gameOverScreen) {
-        gameOverScreen.style.display = 'block'; // Or 'flex' if it's a flex container, assuming 'block' is fine for appending
-        gameOverScreen.scrollIntoView({ behavior: 'smooth' }); // Scroll to the game over section
+        gameOverScreen.style.display = 'flex'; // Overlay
+        gameOverScreen.scrollIntoView({ behavior: 'smooth' });
     }
 
     if (summaryData && summaryData.historicalWorthData && summaryData.players) {
@@ -1966,23 +1965,21 @@ socket.on('gameSummaryReceived', (summaryData) => {
         // --- NEW: Determine Winner and Display Quote ---
         const { historicalWorthData, players: playersInfo } = summaryData;
 
-        // Determine Winner
-        if (winnerAnnouncementElement) { // Check if element exists
+        // Determine Winner (fix: use uuid)
+        if (winnerAnnouncementElement) {
             if (historicalWorthData.length > 0) {
                 const maxPeriod = Math.max(...historicalWorthData.map(d => d.period));
                 const finalPeriodData = historicalWorthData.filter(d => d.period === maxPeriod);
-                
                 if (finalPeriodData.length > 0) {
                     const maxWorth = Math.max(...finalPeriodData.map(d => d.totalWorth));
                     const winners = finalPeriodData.filter(d => d.totalWorth === maxWorth);
-                    
                     let winnerText = "";
                     if (winners.length === 1) {
-                        const winnerInfo = playersInfo.find(p => p.id === winners[0].playerId);
+                        const winnerInfo = playersInfo.find(p => p.uuid === winners[0].playerId);
                         winnerText = `🎉 Winner: ${winnerInfo ? winnerInfo.name : 'Unknown Player'}! 🎉`;
                     } else if (winners.length > 1) {
                         const winnerNames = winners.map(w => {
-                            const playerInfo = playersInfo.find(p => p.id === w.playerId);
+                            const playerInfo = playersInfo.find(p => p.uuid === w.playerId);
                             return playerInfo ? playerInfo.name : 'Unknown Player';
                         }).join(' and ');
                         winnerText = `🎉 It's a tie between ${winnerNames}! 🎉`;
@@ -1998,12 +1995,72 @@ socket.on('gameSummaryReceived', (summaryData) => {
             }
         }
 
+        // --- NEW: Add Stats Section ---
+        const statsDiv = document.getElementById('game-over-stats');
+        if (statsDiv) {
+            // Final net worths, cash, portfolio value
+            const maxPeriod = Math.max(...historicalWorthData.map(d => d.period));
+            const finalPeriodData = historicalWorthData.filter(d => d.period === maxPeriod);
+            // Map uuid to player info
+            const playerMap = {};
+            summaryData.players.forEach(p => { playerMap[p.uuid] = p; });
+            // Sort by net worth descending
+            const ranked = [...finalPeriodData].sort((a, b) => b.totalWorth - a.totalWorth);
+            let html = '<h3>Final Standings</h3>';
+            html += '<table style="margin: 0 auto; border-collapse: collapse; min-width: 320px;">';
+            html += '<tr><th style="padding:4px 8px;">Rank</th><th style="padding:4px 8px;">Player</th><th style="padding:4px 8px;">Net Worth</th><th style="padding:4px 8px;">Cash</th><th style="padding:4px 8px;">Portfolio</th></tr>';
+            ranked.forEach((d, i) => {
+                const p = playerMap[d.playerId];
+                html += `<tr><td style="padding:4px 8px;">${i+1}</td><td style="padding:4px 8px; font-weight:bold;">${p ? p.name : d.playerId}</td><td style="padding:4px 8px;">₹${d.totalWorth.toLocaleString()}</td><td style="padding:4px 8px;">₹${p ? (p.finalCash || 0).toLocaleString() : 'N/A'}</td><td style="padding:4px 8px;">₹${p ? (p.finalPortfolioValue || 0).toLocaleString() : 'N/A'}</td></tr>`;
+            });
+            html += '</table>';
+
+            // Best single-period gain
+            let bestGain = { player: null, value: -Infinity, period: null };
+            const playerPeriods = {};
+            historicalWorthData.forEach(d => {
+                if (!playerPeriods[d.playerId]) playerPeriods[d.playerId] = [];
+                playerPeriods[d.playerId].push(d);
+            });
+            Object.keys(playerPeriods).forEach(pid => {
+                const arr = playerPeriods[pid].sort((a,b) => a.period - b.period);
+                for (let i = 1; i < arr.length; ++i) {
+                    const gain = arr[i].totalWorth - arr[i-1].totalWorth;
+                    if (gain > bestGain.value) {
+                        bestGain = { player: pid, value: gain, period: arr[i].period };
+                    }
+                }
+            });
+            if (bestGain.player) {
+                const p = playerMap[bestGain.player];
+                html += `<div style="margin-top:18px;"><b>Best Single-Period Gain:</b> ${p ? p.name : bestGain.player} (+₹${bestGain.value.toLocaleString()} in P${bestGain.period})</div>`;
+            }
+
+            // Most valuable portfolio
+            let mostValuablePortfolio = { player: null, value: -Infinity };
+            summaryData.players.forEach(p => {
+                if ((p.finalPortfolioValue || 0) > mostValuablePortfolio.value) {
+                    mostValuablePortfolio = { player: p, value: p.finalPortfolioValue };
+                }
+            });
+            if (mostValuablePortfolio.player) {
+                html += `<div style="margin-top:8px;"><b>Most Valuable Portfolio:</b> ${mostValuablePortfolio.player.name} (₹${mostValuablePortfolio.value.toLocaleString()})</div>`;
+            }
+
+            // Most profitable short (not tracked in summaryData, so show N/A)
+            html += `<div style="margin-top:8px;"><b>Most Profitable Short:</b> <span style='color:#888'>N/A (not tracked)</span></div>`;
+
+            // Number of transactions (not tracked in summaryData, so show N/A)
+            html += `<div style="margin-top:8px;"><b>Number of Transactions:</b> <span style='color:#888'>N/A (not tracked)</span></div>`;
+
+            statsDiv.innerHTML = html;
+        }
+
         // Display Random Wisdom Quote
-        if (wisdomQuoteElement && wisdomQuotes.length > 0) { // Check if element and quotes exist
+        if (wisdomQuoteElement && wisdomQuotes.length > 0) {
             const randomIndex = Math.floor(Math.random() * wisdomQuotes.length);
             wisdomQuoteElement.textContent = wisdomQuotes[randomIndex];
         }
-        // --- END NEW ---
     }
 });
 
