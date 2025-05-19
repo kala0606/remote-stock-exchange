@@ -133,7 +133,11 @@
               <select id="company">
                 <option value="" disabled selected>Select a company</option>
               </select>
-              <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+              <div class="quantity-input-container">
+                <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+                <button type="button" class="quantity-btn increment">+</button>
+                <button type="button" class="quantity-btn decrement">-</button>
+              </div>
               <div id="costInfo" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select a company and enter quantity.</div>
               <div class="button-group">
                   <button id="confirm">Confirm</button>
@@ -149,7 +153,11 @@
               <select id="rightsCompanySelect"></select>
               <div style="margin-top: 10px; margin-bottom: 10px;">
                   <label for="desiredRightsSharesInput">How many shares do you want to try to acquire via rights?</label>
-                  <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1" style="width: 100%; margin-top: 5px;">
+                  <div class="quantity-input-container">
+                    <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1" style="width: 100%; margin-top: 5px;">
+                    <button type="button" class="quantity-btn increment">+</button>
+                    <button type="button" class="quantity-btn decrement">-</button>
+                  </div>
               </div>
               <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
               <div class="button-group">
@@ -166,7 +174,11 @@
               <p>For <strong id="generalRightsCompanyName">[Company]</strong>. Exercise rights (1 share per 2 owned) at <strong id="generalRightsPricePerShare">₹[Price]</strong> per share. Shares are issued in multiples of 1000.</p>
               <div style="margin-top: 10px; margin-bottom: 10px;">
                   <label for="desiredGeneralRightsSharesInput">How many shares do you want to acquire via these rights?</label>
-                  <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1" style="width: 100%; margin-top: 5px;">
+                  <div class="quantity-input-container">
+                    <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1" style="width: 100%; margin-top: 5px;">
+                    <button type="button" class="quantity-btn increment">+</button>
+                    <button type="button" class="quantity-btn decrement">-</button>
+                  </div>
               </div>
               <div id="general-rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
               <div class="button-group">
@@ -187,7 +199,11 @@
                 <option value="" disabled selected>Select a company</option>
                 <!-- Options populated by JS -->
               </select>
-              <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+              <div class="quantity-input-container">
+                <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+                <button type="button" class="quantity-btn increment">+</button>
+                <button type="button" class="quantity-btn decrement">-</button>
+              </div>
               <div id="shortSellInfoDiv" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select company and quantity.</div>
               <div class="modal-details">
                   <p style="font-size: 0.9em;">Transactions remaining: <span id="shortSellTransactionsRemaining">N/A</span></p>

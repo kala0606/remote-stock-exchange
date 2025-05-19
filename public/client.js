@@ -1133,6 +1133,11 @@ function updateRightsIssueInfo() {
         }
         const actualOfferedShares = Math.floor(desiredSharesNum / 1000) * 1000;
         if (actualOfferedShares > 0) {
+            // Add share limit check
+            if (ownedShares + actualOfferedShares > MAX_SHARES_PER_COMPANY_CLIENT) {
+                const canBuy = MAX_SHARES_PER_COMPANY_CLIENT - ownedShares;
+                infoHtml += `<span style="color:red;">Warning: This would exceed the ${MAX_SHARES_PER_COMPANY_CLIENT.toLocaleString()} share limit. You can only exercise rights for up to ${canBuy.toLocaleString()} more shares.</span><br>`;
+            }
             const totalCost = actualOfferedShares * rightsPricePerShare;
             infoHtml += `Requesting ${desiredSharesNum.toLocaleString()} means <strong>${actualOfferedShares.toLocaleString()}</strong> shares offered (multiples of 1000).<br>`;
             infoHtml += `Cost: ${actualOfferedShares.toLocaleString()} × ₹${rightsPricePerShare.toLocaleString()}/share = <strong>₹${totalCost.toLocaleString()}</strong>.<br>`;
@@ -1261,6 +1266,11 @@ function updateGeneralRightsCostInfo() {
         }
         const actualOfferedShares = Math.floor(desiredSharesNum / 1000) * 1000;
         if (actualOfferedShares > 0) {
+            // Add share limit check
+            if (ownedShares + actualOfferedShares > MAX_SHARES_PER_COMPANY_CLIENT) {
+                const canBuy = MAX_SHARES_PER_COMPANY_CLIENT - ownedShares;
+                infoHtml += `<span style="color:red;">Warning: This would exceed the ${MAX_SHARES_PER_COMPANY_CLIENT.toLocaleString()} share limit. You can only exercise rights for up to ${canBuy.toLocaleString()} more shares.</span><br>`;
+            }
             const totalCost = actualOfferedShares * rightsPricePerShare;
             infoHtml += `Requesting ${desiredSharesNum.toLocaleString()} = <strong>${actualOfferedShares.toLocaleString()}</strong> shares offered.<br>`;
             infoHtml += `Cost: ${actualOfferedShares.toLocaleString()} × ₹${rightsPricePerShare.toLocaleString()}/share = <strong>₹${totalCost.toLocaleString()}</strong>.<br>`;
@@ -1971,28 +1981,43 @@ socket.on('activityLog', logEntry => {
 });
 
 function renderActivityLog() {
+    const activityLogContent = document.getElementById('activity-log-content');
     if (!activityLogContent) return;
 
-    if (activityLogEntries.length === 0) {
-        activityLogContent.innerHTML = '<p class="no-activity-msg">No activity yet.</p>';
-        return;
-    }
+    // Clear existing entries
+    activityLogContent.innerHTML = '';
 
-    let logHTML = '';
-    // Iterate in reverse to show newest logs at the top, or normal and scroll down.
-    // For now, normal order and scroll down.
+    // Add each log entry
     activityLogEntries.forEach(entry => {
-        const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        let prefix = `[${time}] `;
-        if (entry.period !== undefined && entry.round !== undefined) {
-            prefix += `P${entry.period}R${entry.round} - `;
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+        
+        // Add data-action-type for power negation logs
+        if (entry.details && entry.details.includes('Chairman power negated')) {
+            logEntry.setAttribute('data-action-type', 'CHAIRMAN_POWER');
+        } else if (entry.details && entry.details.includes('President power negated')) {
+            logEntry.setAttribute('data-action-type', 'PRESIDENT_POWER');
         }
-        const playerNameStr = entry.playerName ? `<strong>${entry.playerName}</strong>: ` : '';
-        logHTML += `<div class="log-entry">${prefix}${playerNameStr}${entry.details}</div>`;
+        
+        // Format the log entry text
+        let logText = '';
+        
+        // Add period/round prefix if available
+        if (entry.period && entry.round) {
+            logText += `<span class="period-round-info">P${entry.period}R${entry.round}</span> `;
+        }
+        
+        if (entry.playerName) {
+            logText += `${entry.playerName}: `;
+        }
+        logText += entry.details;
+        
+        logEntry.innerHTML = logText; // Use innerHTML to render the span
+        activityLogContent.appendChild(logEntry);
     });
 
-    activityLogContent.innerHTML = logHTML;
-    activityLogContent.scrollTop = activityLogContent.scrollHeight; // Scroll to the bottom
+    // Scroll to bottom
+    activityLogContent.scrollTop = activityLogContent.scrollHeight;
 }
 
 if (activityLogPanel) activityLogPanel.style.display = 'block'; // Make sure it's visible by default if it exists 
@@ -2121,12 +2146,6 @@ socket.on('gameSummaryReceived', (summaryData) => {
             if (mostValuablePortfolio.player) {
                 html += `<div style="margin-top:8px;"><b>Most Valuable Portfolio:</b> ${mostValuablePortfolio.player.name} (₹${mostValuablePortfolio.value.toLocaleString()})</div>`;
             }
-
-            // Most profitable short (not tracked in summaryData, so show N/A)
-            html += `<div style="margin-top:8px;"><b>Most Profitable Short:</b> <span style='color:#888'>N/A (not tracked)</span></div>`;
-
-            // Number of transactions (not tracked in summaryData, so show N/A)
-            html += `<div style="margin-top:8px;"><b>Number of Transactions:</b> <span style='color:#888'>N/A (not tracked)</span></div>`;
 
             statsDiv.innerHTML = html;
         }
@@ -2397,3 +2416,30 @@ function renderDeckInfoPanel() {
 
     content.innerHTML = html;
 }
+
+// Function to handle quantity button clicks
+function handleQuantityButtonClick(input, increment) {
+    const currentValue = parseInt(input.value) || 0;
+    const step = parseInt(input.step) || 1000;
+    const min = parseInt(input.min) || 0;
+    const newValue = increment ? currentValue + step : Math.max(min, currentValue - step);
+    input.value = newValue;
+    input.dispatchEvent(new Event('input')); // Trigger input event to update any dependent displays
+}
+
+// Add event listeners for quantity buttons
+document.addEventListener('DOMContentLoaded', () => {
+    // Find all quantity input containers
+    const quantityContainers = document.querySelectorAll('.quantity-input-container');
+    
+    quantityContainers.forEach(container => {
+        const input = container.querySelector('input[type="number"]');
+        const incrementBtn = container.querySelector('.quantity-btn.increment');
+        const decrementBtn = container.querySelector('.quantity-btn.decrement');
+        
+        if (input && incrementBtn && decrementBtn) {
+            incrementBtn.addEventListener('click', () => handleQuantityButtonClick(input, true));
+            decrementBtn.addEventListener('click', () => handleQuantityButtonClick(input, false));
+        }
+    });
+});

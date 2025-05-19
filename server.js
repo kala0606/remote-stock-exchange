@@ -175,6 +175,7 @@ function initGame(game, initialAdminPlayerId) {
   game.gameStarted = true;
   console.log(`[initGame] Game started flag set to true. Emitting initial game state...`);
   recordHistoricalWorth(game, 0); // NEW: Record initial worth for all players at period 0
+  logActivity(game, null, 'GAME_STARTED', `Game started. Period ${game.period}, Round ${game.state.roundNumberInPeriod}.`);
   emitGameState(game);
 }
 
@@ -1021,6 +1022,19 @@ io.on('connection', socket => {
         const actualSharesToGrant = Math.floor(desiredRightsShares / 1000) * 1000;
         if (actualSharesToGrant <= 0) return socket.emit('error', { message: `Request for ${desiredRightsShares.toLocaleString()} rights results in 0 shares after 1000s rule.` });
 
+        // Add share limit check
+        const currentOwnedShares = player.portfolio[targetCompany] || 0;
+        if (currentOwnedShares + actualSharesToGrant > MAX_SHARES_PER_COMPANY) {
+            const canBuy = MAX_SHARES_PER_COMPANY - currentOwnedShares;
+            let message = `Cannot exercise rights for ${actualSharesToGrant.toLocaleString()} shares. This would exceed the ${MAX_SHARES_PER_COMPANY.toLocaleString()} share limit for ${getCompanyName(targetCompany, game)}.`;
+            if (canBuy > 0) {
+                message += ` You can exercise rights for up to ${canBuy.toLocaleString()} more shares.`;
+            } else {
+                message += ` You already own the maximum allowed.`;
+            }
+            return socket.emit('error', { message });
+        }
+
         const rightsPricePerShare = Math.ceil(initialPrice / 2);
         const totalCost = actualSharesToGrant * rightsPricePerShare;
         if (player.cash < totalCost) return socket.emit('error', { message: `Insufficient cash for your Rights. Need ₹${totalCost.toLocaleString()}, have ₹${player.cash.toLocaleString()}.` });
@@ -1290,6 +1304,19 @@ io.on('connection', socket => {
     const actualSharesToGrant = Math.floor(desiredRightsShares / 1000) * 1000;
     if (actualSharesToGrant <= 0) {
         return socket.emit('error', { message: `Your request for ${desiredRightsShares.toLocaleString()} rights shares would result in 0 actual shares due to the 1000 multiple rule.` });
+    }
+
+    // Add share limit check
+    const currentOwnedShares = player.portfolio[targetCompany] || 0;
+    if (currentOwnedShares + actualSharesToGrant > MAX_SHARES_PER_COMPANY) {
+        const canBuy = MAX_SHARES_PER_COMPANY - currentOwnedShares;
+        let message = `Cannot exercise rights for ${actualSharesToGrant.toLocaleString()} shares. This would exceed the ${MAX_SHARES_PER_COMPANY.toLocaleString()} share limit for ${getCompanyName(targetCompany, game)}.`;
+        if (canBuy > 0) {
+            message += ` You can exercise rights for up to ${canBuy.toLocaleString()} more shares.`;
+        } else {
+            message += ` You already own the maximum allowed.`;
+        }
+        return socket.emit('error', { message });
     }
 
     // Calculate cost (using rightsPricePerShare from the offer)
