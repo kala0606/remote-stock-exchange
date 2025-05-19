@@ -241,7 +241,11 @@ function emitGameState(game, context = 'normal') {
 
 function calculateAndApplyPriceChanges(game) {
   if (!game || !game.state || !game.players) return;
-  console.log(`[calculateAndApplyPriceChanges] Calculating price changes for Period ${game.period}, Room ${Object.keys(games).find(key => games[key] === game)}`);
+  console.log('\n=== CARD NEGATION CHECK ===');
+
+  // Log current chairman and president status
+  console.log('Chairmen:', JSON.stringify(game.state.chairmen));
+  console.log('Presidents:', JSON.stringify(game.state.presidents));
 
   const allPriceCardEffects = [];
   game.players.forEach(player => {
@@ -253,51 +257,79 @@ function calculateAndApplyPriceChanges(game) {
           companyId: card.company,
           change: card.change,
           status: 'active',
-          originalCardRef: card
+          originalCardRef: card,
+          isFromHand: true
         });
       }
     });
   });
 
-  // --- NEW: Only ONE negative card can be negated per period, chairman supersedes president ---
-  let mostNegativeEffect = null;
-  allPriceCardEffects.forEach(effect => {
-    if (effect.status === 'active' && effect.change < 0) {
-      if (!mostNegativeEffect || effect.change < mostNegativeEffect.change) {
-        mostNegativeEffect = effect;
+  // Find all negative effects
+  const negativeEffects = allPriceCardEffects.filter(effect => effect.status === 'active' && effect.change < 0);
+  console.log(`Found ${negativeEffects.length} negative effects`);
+  
+  if (negativeEffects.length > 0) {
+    // Group negative effects by company
+    const negativeEffectsByCompany = {};
+    negativeEffects.forEach(effect => {
+      if (!negativeEffectsByCompany[effect.companyId]) {
+        negativeEffectsByCompany[effect.companyId] = [];
+      }
+      negativeEffectsByCompany[effect.companyId].push(effect);
+    });
+
+    // For each company, find its most negative effect
+    for (const companyId in negativeEffectsByCompany) {
+      const companyEffects = negativeEffectsByCompany[companyId];
+      companyEffects.sort((a, b) => a.change - b.change);
+      const mostNegativeEffect = companyEffects[0];
+      
+      console.log(`\nChecking company ${getCompanyName(companyId, game)}'s most negative effect: ${mostNegativeEffect.change} by ${mostNegativeEffect.playerName}`);
+
+      // Check for chairman first
+      const chairmen = game.state.chairmen[companyId];
+      if (chairmen && chairmen.length > 0) {
+        mostNegativeEffect.status = 'negated_by_chairman';
+        const chairmanNames = chairmen.map(pid => game.players.find(p => p.id === pid)?.name || 'A chairman').join(', ');
+        console.log(`CHAIRMAN NEGATION: ${chairmanNames} negated ${mostNegativeEffect.change} effect for ${getCompanyName(companyId, game)}`);
+        logActivity(game, null, 'CHAIRMAN_POWER', 
+          `Chairman power for ${getCompanyName(companyId, game)} (by ${chairmanNames}) negated a ${mostNegativeEffect.change} price card effect (player: ${mostNegativeEffect.playerName}).`
+        );
+        continue; // Move to next company
+      }
+
+      // If no chairman, check for president
+      const presidents = game.state.presidents[companyId];
+      if (presidents && presidents.length > 0) {
+        // Find if any president has this negative effect in their hand
+        for (const presidentId of presidents) {
+          const president = game.players.find(p => p.id === presidentId);
+          if (president && mostNegativeEffect.playerId === presidentId) {
+            mostNegativeEffect.status = 'negated_by_president';
+            console.log(`PRESIDENT NEGATION: ${president.name} negated their own ${mostNegativeEffect.change} effect for ${getCompanyName(companyId, game)}`);
+            logActivity(game, president.name, 'PRESIDENT_POWER', 
+              `President power for ${getCompanyName(companyId, game)} negated their own ${mostNegativeEffect.change} price card effect from their hand.`
+            );
+            break;
+          }
+        }
       }
     }
-  });
-
-  if (mostNegativeEffect) {
-    const companyId = mostNegativeEffect.companyId;
-    const playerId = mostNegativeEffect.playerId;
-    let negatedBy = null;
-    // Check for chairman first
-    if (game.state.chairmen && game.state.chairmen[companyId] && game.state.chairmen[companyId].length > 0) {
-      mostNegativeEffect.status = 'negated_by_chairman';
-      negatedBy = 'chairman';
-      const chairmanNames = game.state.chairmen[companyId].map(pid => game.players.find(p=>p.id === pid)?.name || 'A chairman').join(', ');
-      logActivity(game, null, 'CHAIRMAN_POWER', 
-        `Chairman power for ${getCompanyName(companyId, game)} (by ${chairmanNames}) negated a ${mostNegativeEffect.change} price card effect (player: ${mostNegativeEffect.playerName}).`
-      );
-    } else if (game.state.presidents && game.state.presidents[companyId] && game.state.presidents[companyId].includes(playerId)) {
-      mostNegativeEffect.status = 'negated_by_president';
-      negatedBy = 'president';
-      const player = game.players.find(p => p.id === playerId);
-      logActivity(game, player.name, 'PRESIDENT_POWER', 
-        `President power for ${getCompanyName(companyId, game)} negated their own ${mostNegativeEffect.change} price card effect.`
-      );
-    }
-    // If neither, do not negate
   }
-  // --- END NEW LOGIC ---
 
   let deltas = {};
   COMPANIES.forEach(company => { deltas[company.id] = 0; });
   allPriceCardEffects.forEach(effect => {
     if (effect.status === 'active') {
       deltas[effect.companyId] += effect.change;
+    }
+  });
+
+  // Log final price changes
+  console.log('\nFINAL PRICE CHANGES:');
+  Object.keys(deltas).forEach(company => {
+    if (deltas[company] !== 0) {
+      console.log(`  - ${getCompanyName(company, game)}: ${deltas[company]}`);
     }
   });
 
