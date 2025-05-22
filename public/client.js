@@ -1874,20 +1874,30 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
     // Clear existing content
     handContainer.innerHTML = '<h4>Your Hand</h4>';
 
-    // Create a scrollable container for cards
+    // Create a grid container for cards
     const cardsWrapper = document.createElement('div');
     cardsWrapper.className = 'cards-wrapper';
+    
+    // Set card size based on screen width
+    const screenWidth = window.innerWidth;
+    let cardWidth;
+    if (screenWidth <= 700) { // Mobile
+        cardWidth = 'calc(50% - 8px)'; // 2 cards per row on mobile, considering gap
+    } else if (screenWidth <= 1024) { // iPad
+        cardWidth = '110px';
+    } else { // Desktop
+        cardWidth = '130px';
+    }
+    
     cardsWrapper.style.cssText = `
-        display: flex;
-        overflow-x: auto;
-        gap: 10px;
-        padding: 10px;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(${cardWidth}, 1fr));
+        gap: 16px;
+        padding: 16px;
+        width: 100%;
+        box-sizing: border-box;
+        justify-content: center;
     `;
-    cardsWrapper.style.webkitScrollbar = 'none';
 
     // Add cards to the wrapper
     playerHandArray.forEach((card, index) => {
@@ -1906,10 +1916,8 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         }
 
         cardElement.style.cssText = `
-            flex: 0 0 auto;
-            width: 120px;
-            height: 180px;
-            scroll-snap-align: start;
+            width: 100%; /* Fill the grid column */
+            aspect-ratio: 2/3;
             position: relative;
             background: ${cardColor};
             border-radius: 8px;
@@ -1920,6 +1928,7 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            box-sizing: border-box;
         `;
 
         if (card.played) {
@@ -1931,17 +1940,17 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
             const company = companiesStaticData.find(c => c.id === card.company);
             const changeColor = card.change > 0 ? '#4CAF50' : card.change < 0 ? '#f44336' : '#ffffff';
             cardContent = `
-                <div style="padding: 10px; text-align: center;">
-                    <div style="font-weight: bold; margin-bottom: 5px;">${company ? company.name : card.company}</div>
+                <div style="padding: 8px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-weight: bold; margin-bottom: 4px; font-size: 1em;">${company ? company.name : card.company}</div>
                 </div>
-                <div style="padding: 10px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px;">
+                <div style="padding: 8px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px;">
                     <div style="font-size: 1.2em;">${card.change > 0 ? '+' : ''}${card.change}</div>
                 </div>
             `;
         } else if (card.type === 'windfall') {
             cardContent = `
-                <div style="padding: 10px; text-align: center;">
-                    <div style="font-weight: bold; color: #4a90e2;">${card.sub}</div>
+                <div style="padding: 8px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-weight: bold; color: #4a90e2; font-size: 1em;">${card.sub}</div>
                 </div>
             `;
         }
