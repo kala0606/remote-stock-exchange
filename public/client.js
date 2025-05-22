@@ -1661,7 +1661,7 @@ function updateShortSellInfoDiv() {
     let reason = "";
     if (quantity <= 0 || quantity % 1000 !== 0) {
         canShort = false;
-        reason = "Qty must be positive multiple of 1000.";
+        reason = ""; // Removed the quantity validation message
     } else if (player.transactionsRemaining <= 0) {
         canShort = false;
         reason = "No transactions left.";
@@ -1670,7 +1670,7 @@ function updateShortSellInfoDiv() {
         reason = `Insufficient cash for collateral. Need ₹${(quantity * currentPrice).toLocaleString()}.`;
     }
 
-    if (!canShort) {
+    if (!canShort && reason) { // Only show message if there's a reason
         infoText += `<span style="color: red;">Cannot short: ${reason}</span>`;
     }
     shortSellInfoDiv.innerHTML = infoText;
