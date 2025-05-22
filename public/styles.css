@@ -2342,3 +2342,96 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
         scroll-behavior: smooth;
     }
 }
+
+#portfolio-panel {
+    margin: 10px 0;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#portfolio-panel h4 {
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+    color: #333;
+}
+
+#portfolio-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+#portfolio-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 10px;
+    background: rgba(240, 240, 240, 0.5);
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#portfolio-summary div {
+    text-align: center;
+    font-size: 0.9em;
+}
+
+#portfolio-summary span {
+    font-weight: bold;
+    display: block;
+    margin-top: 4px;
+}
+
+#portfolio-holdings {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.holding-item {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.holding-item:last-child {
+    border-bottom: none;
+}
+
+.holding-item .company-name {
+    font-weight: bold;
+}
+
+.holding-item .shares {
+    text-align: right;
+}
+
+.holding-item .value {
+    text-align: right;
+}
+
+@media (max-width: 700px) {
+    #portfolio-summary {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+
+    .holding-item {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .holding-item .shares,
+    .holding-item .value {
+        text-align: left;
+    }
+}
