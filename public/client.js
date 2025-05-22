@@ -531,15 +531,12 @@ function updatePlayerList(players, currentTurnPlayerId) {
         return;
     }
 
-    playerListDiv.style.display = 'block'; // Or its default display if not block
+    playerListDiv.style.display = 'block';
 
-    // const currentPlayer = players.find(p => p.id === socket.id);
-    // isAdmin = currentPlayer?.isAdmin || false; // Previous global isAdmin update
-
-    const currentPlayerForControls = players.find(p => p.id === socket.id); // Find the current viewing player
-    const localIsAdminForControls = currentPlayerForControls ? currentPlayerForControls.isAdmin : false; // Determine if they are admin for showing controls
+    const currentPlayerForControls = players.find(p => p.id === socket.id);
+    const localIsAdminForControls = currentPlayerForControls ? currentPlayerForControls.isAdmin : false;
     
-    playerListDiv.innerHTML = '<h2>Players</h2>' + 
+    playerListDiv.innerHTML = '<h2>Players</h2>' +
         players.map((p, idx, arr) => {
             const isCurrent = p.id === currentTurnPlayerId;
             const currentTurnGameIndex = arr.findIndex(player => player.id === currentTurnPlayerId);
@@ -552,7 +549,7 @@ function updatePlayerList(players, currentTurnPlayerId) {
             return `
             <div class="player-row ${isCurrent ? 'current-turn' : ''}">
                 <div class="player-info">
-                    <span class="turn-indicator ${isCurrent ? 'active' : ''}"></span>
+                    <span class="turn-indicator ${isCurrent ? 'active' : ''}">${isCurrent ? '★' : ''}</span>
                     <span>${p.name}</span>
                     ${isNext ? '<span style="font-style: italic; color: #007bff; margin-left: 5px;">(Next)</span>' : ''}
                     ${currentGameState && currentGameState.state && currentGameState.state.gameStarted ? `<span style="font-size: 0.85em; color: #555555; margin-left: 8px;">(Turns left: ${p.transactionsRemaining})</span>` : ''}
@@ -566,7 +563,6 @@ function updatePlayerList(players, currentTurnPlayerId) {
                 ` : ''}
             </div>
         `;}).join('');
-    
 }
 
 function kickPlayer(playerName) {
@@ -598,7 +594,11 @@ socket.on('gameState', state => {
         isRejoining = false;
     }
     
-    console.log('Game state updated:', JSON.parse(JSON.stringify(state)));
+    console.log('[gameState] Received state:', JSON.parse(JSON.stringify(state)));
+    console.log('[gameState] Current turn player ID:', state.state?.currentTurnPlayerId);
+    console.log('[gameState] Is your turn:', state.isYourTurn);
+    console.log('[gameState] Current player ID:', socket.id);
+    
     currentGameState = state; // Central update
     
     initialPrices = state.state?.init || {}; // Still needed for the "Initial" row and first comparison
@@ -708,6 +708,11 @@ function updateBackgroundGradient(sentiment) {
 // Modify the updateUI function to include sentiment calculation and background update
 function updateUI(state) {
     console.log("[updateUI] Received game state:", state);
+    console.log("[updateUI] Current turn player ID:", state.state?.currentTurnPlayerId);
+    console.log("[updateUI] Is your turn:", state.isYourTurn);
+    console.log("[updateUI] Current player ID:", socket.id);
+    console.log("[updateUI] Player transactions remaining:", state.players?.find(p => p.id === socket.id)?.transactionsRemaining);
+    
     currentGameState = state;
 
     if (!state || !state.players || !state.state) {
@@ -742,7 +747,10 @@ function updateUI(state) {
     const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-text">Your Turn</span>' : '';
     const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
 
-    if (periodSpan) periodSpan.innerHTML = `Period ${state.state.period} | Round ${state.state.roundNumberInPeriod} | Player: ${highlightedPlayerName}${yourTurnText}`;
+    if (periodSpan) {
+        periodSpan.innerHTML = `Period ${state.state.period} | Round ${state.state.roundNumberInPeriod} | Player: ${highlightedPlayerName}${yourTurnText}`;
+        console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
+    }
 
     renderMarketBoard(currentMarketPrices, companiesStaticData, currentInitialPrices); 
     renderPlayerHand(playerHandToRender, companiesStaticData); 
@@ -750,24 +758,24 @@ function updateUI(state) {
     updatePlayerList(state.players, state.state.currentTurnPlayerId); 
     updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
     updatePriceLogTable(); 
-    renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted); // NEW: Call to render turn order table
-    renderDeckInfoPanel(); // Add this line
+    renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
+    renderDeckInfoPanel();
 
-    // NEW: Calculate hand deltas and update the summary display
-    calculateHandDeltas(playerHandToRender, companiesStaticData); // Pass companiesStaticData for getCompanyName
-    updateHandSummaryDisplay(); // Call the function to update the display
+    // Calculate hand deltas and update the summary display
+    calculateHandDeltas(playerHandToRender, companiesStaticData);
+    updateHandSummaryDisplay();
 
     if (lobbyScreen && gameScreen) {
         if (state.state && state.state.gameStarted) {
             lobbyScreen.style.display = 'none';
             gameScreen.style.display = 'block';
         } else {
-            lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
+            lobbyScreen.style.display = 'block';
             gameScreen.style.display = 'none';
         }
     }
 
-    // --- NEW: Admin Decision Panel Logic ---
+    // Admin Decision Panel Logic
     if (!adminDecisionPanel) { 
         const gameControlsDiv = document.querySelector('.game-controls') || document.getElementById('game-screen') || document.body; 
         adminDecisionPanel = document.createElement('div');
@@ -804,9 +812,11 @@ function updateUI(state) {
         }
     }
 
-    const normalActionButtons = [buyBtn, sellBtn, shortSellBtn, /*passBtn,*/ endTurnBtn];
+    const normalActionButtons = [buyBtn, sellBtn, shortSellBtn, endTurnBtn];
     const canPerformTransaction = isYourTurn && me && me.transactionsRemaining > 0 && !state.state.awaitingAdminDecision;
     const canPassOrEnd = isYourTurn && !state.state.awaitingAdminDecision;
+
+    console.log(`[updateUI] Action button states - canPerformTransaction: ${canPerformTransaction}, canPassOrEnd: ${canPassOrEnd}`);
 
     if (state.state.awaitingAdminDecision) {
         adminDecisionPanel.style.display = 'block';
@@ -1111,21 +1121,39 @@ function showRightsIssueModal() {
 
 function updateRightsIssueInfo() {
     if (!rightsCompanySelect || !rightsCostInfoDiv) return;
-    const selectedCompany = rightsCompanySelect.value;
-    const player = currentGameState?.players.find(p => p.id === socket.id);
 
-    if (!selectedCompany || !player || Object.keys(initialPrices).length === 0) {
+    const selectedCompany = rightsCompanySelect.value;
+    if (!selectedCompany) {
         rightsCostInfoDiv.innerHTML = 'Please select a company.';
         return;
     }
+
+    const player = currentGameState?.players.find(p => p.id === socket.id);
+    if (!player) {
+        rightsCostInfoDiv.innerHTML = 'Player data not available.';
+        return;
+    }
+
     const ownedShares = player.portfolio[selectedCompany] || 0;
     const initialPrice = initialPrices[selectedCompany];
+    if (initialPrice === undefined) {
+        rightsCostInfoDiv.innerHTML = 'Initial price data not available.';
+        return;
+    }
+
     const rightsPricePerShare = Math.ceil(initialPrice / 2);
     const maxEligibleRaw = Math.floor(ownedShares / 2);
     const maxEligibleInLots = Math.floor(maxEligibleRaw / 1000) * 1000;
-    let infoHtml = `You own ${ownedShares.toLocaleString()} of ${getCompanyName(selectedCompany)}, eligible for up to <strong>${maxEligibleInLots.toLocaleString()}</strong> rights shares (in lots of 1000).<br>`;
     const desiredSharesStr = desiredRightsSharesInput?.value || '0';
     const desiredSharesNum = parseInt(desiredSharesStr) || 0;
+
+    let infoHtml = `Owned: ${ownedShares.toLocaleString()} shares.<br>`;
+    infoHtml += `Eligible for: ${maxEligibleRaw.toLocaleString()} rights (${maxEligibleInLots.toLocaleString()} in 1000s lots).<br>`;
+    infoHtml += `Rights price: ₹${rightsPricePerShare.toLocaleString()}/share.<br>`;
+
+    // Calculate affordable quantity based on player's cash
+    const maxAffordableQuantity = Math.floor(player.cash / rightsPricePerShare / 1000) * 1000;
+    infoHtml += `You can afford up to ${maxAffordableQuantity.toLocaleString()} shares (₹${player.cash.toLocaleString()} cash).<br>`;
 
     if (desiredSharesNum > 0) {
         if (desiredSharesNum > maxEligibleRaw) {
@@ -1583,7 +1611,6 @@ function updateShortSellInfoDiv() {
         if (confirmShortSellBtn) confirmShortSellBtn.disabled = true;
         return;
     }
-    console.log('[updateShortSellInfoDiv] currentGameState:', JSON.parse(JSON.stringify(currentGameState)));
 
     const player = currentGameState.players.find(p => p.id === socket.id);
     const companySymbol = shortCompanySelect.value; 
@@ -1603,14 +1630,8 @@ function updateShortSellInfoDiv() {
         return;
     }
 
-    console.log(`[updateShortSellInfoDiv] Selected company ID (from select): ${companySymbol}`);
-    console.log('[updateShortSellInfoDiv] currentGameState.state.prices:', JSON.parse(JSON.stringify(currentGameState.state.prices)));
-    console.log('[updateShortSellInfoDiv] currentGameState.state.companyList:', JSON.parse(JSON.stringify(currentGameState.state.companyList)));
-
     const currentPrice = currentGameState.state.prices ? currentGameState.state.prices[companySymbol] : undefined;
     const companyDetails = currentGameState.state.companyList ? currentGameState.state.companyList.find(c => c.id === companySymbol) : null;
-    
-    console.log(`[updateShortSellInfoDiv] For company ID ${companySymbol} - currentPrice: ${currentPrice}, companyDetails:`, companyDetails ? JSON.parse(JSON.stringify(companyDetails)) : null);
 
     if (currentPrice === undefined || !companyDetails) {
         shortSellInfoDiv.textContent = 'Market data not yet available or company details missing.';
@@ -1620,6 +1641,11 @@ function updateShortSellInfoDiv() {
     }
     
     let infoText = `Selected: ${getCompanyName(companySymbol)}. Price: ₹${currentPrice.toLocaleString()}.<br>`;
+    
+    // Calculate affordable quantity based on player's cash
+    const maxAffordableQuantity = Math.floor(player.cash / currentPrice / 1000) * 1000;
+    infoText += `You can afford up to ${maxAffordableQuantity.toLocaleString()} shares (₹${player.cash.toLocaleString()} cash).<br>`;
+    
     const existingShort = player.shortPositions && player.shortPositions[companySymbol];
     if (existingShort) {
         infoText += `Currently short ${existingShort.quantity.toLocaleString()} @ avg ₹${existingShort.priceOpened.toLocaleString()}.<br>`;
@@ -1631,7 +1657,6 @@ function updateShortSellInfoDiv() {
         shortSellTransactionsRemaining.textContent = player.transactionsRemaining;
     }
 
-
     let canShort = true;
     let reason = "";
     if (quantity <= 0 || quantity % 1000 !== 0) {
@@ -1640,6 +1665,9 @@ function updateShortSellInfoDiv() {
     } else if (player.transactionsRemaining <= 0) {
         canShort = false;
         reason = "No transactions left.";
+    } else if (quantity > maxAffordableQuantity) {
+        canShort = false;
+        reason = `Insufficient cash for collateral. Need ₹${(quantity * currentPrice).toLocaleString()}.`;
     }
 
     if (!canShort) {
@@ -2283,20 +2311,16 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
     const tableBody = playerTurnOrderTableElement.querySelector('tbody');
     
     if (!tableBody) return; // Should not happen if table created correctly, but good guard
-    tableBody.innerHTML = ''; // Ensure this is called to clear previous rows
+    tableBody.innerHTML = ''; // Clear previous rows
 
-    // Determine the starting player index for the current period
-    // (period - 1) because period is 1-indexed.
-    // Add players.length before modulo to ensure positive result if (period - 1) is 0
-    const periodStartingPlayerIndex = ((period - 1) % players.length + players.length) % players.length;
+    // Get the period starter from the game state
+    const periodStarterId = currentGameState?.state?.periodStarter;
+    const periodStartingPlayerIndex = players.findIndex(p => p.id === periodStarterId);
 
     players.forEach((player, idx) => {
         const tr = document.createElement('tr');
         const isCurrentTurn = player.id === currentTurnPlayerId;
-        const isPeriodStarter = idx === periodStartingPlayerIndex;
-
-        // DEBUG LOG ADDED HERE
-        console.log(`[renderPlayerTurnOrderTable DEBUG] Rendering dots for ${player.name}. transactionsRemaining: ${player.transactionsRemaining}, isCurrentTurn: ${isCurrentTurn}`);
+        const isPeriodStarter = player.id === periodStarterId;
 
         if (isCurrentTurn) {
             tr.classList.add('current-turn-highlight-table');
@@ -2307,10 +2331,9 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
         
         let nameHTML = '';
         if (isPeriodStarter) {
-            nameHTML += '<span class="round-starter-star">★</span> ';
+            nameHTML += '<span class="round-starter-star" style="color: #FFD700;">★</span> ';
         }
         nameHTML += player.name;
-        // No (Next) or (Turns left) here as per simplification, player list handles those.
         
         tdName.innerHTML = nameHTML;
         tr.appendChild(tdName);
@@ -2321,20 +2344,23 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
         
         const totalAllowedTransactions = 3; // Assuming max 3 transactions per round for display
         const turnsRemaining = player.transactionsRemaining;
+        const turnsUsed = totalAllowedTransactions - turnsRemaining;
 
+        // Create dots for remaining turns (green) and used turns (grey)
         for (let i = 0; i < totalAllowedTransactions; i++) {
             const dot = document.createElement('span');
             dot.classList.add('turn-dot-indicator');
-            // If dot index is less than the number of REMAINING turns, it's green.
-            if (i < turnsRemaining) {
-                dot.classList.add('turn-dot-green');
-            } else {
+            // If dot index is less than the number of USED turns, it's grey
+            if (i < turnsUsed) {
                 dot.classList.add('turn-dot-grey');
+            } else {
+                dot.classList.add('turn-dot-green');
             }
             tdTurns.appendChild(dot);
         }
         tr.appendChild(tdTurns);
 
+        // Append the row to the table body
         tableBody.appendChild(tr);
     });
 }

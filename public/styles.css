@@ -343,16 +343,20 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   transition: background-color 0.3s ease;
   display: inline-block;
   border: 1px solid #000000; /* Black border for indicator */
+  text-align: center;
+  line-height: 12px;
+  font-size: 12px;
 }
 
 .turn-indicator.active {
-  background-color: #4CAF50 !important; /* Keep green for active turn, or make black? */
+  background-color: #FFD700 !important; /* Gold background for active turn */
   box-shadow: none; /* Remove shadow */
   border: 1px solid #000000;
+  color: #000000;
 }
 
 .player-row.current-turn {
-  background-color: #e8f5e9 !important; /* Light green highlight, or just bold? */
+  background-color: #fff8e1 !important; /* Light gold highlight */
   /* For pure B&W, might remove background color and use font-weight or border */
 }
 
