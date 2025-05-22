@@ -1868,90 +1868,99 @@ function renderMarketBoard(marketPrices, companiesStaticData, currentInitialPric
 
 // Function to render the player's hand (HTML cards)
 function renderPlayerHand(playerHandArray, companiesStaticData) {
-    const playerHandContainer = document.getElementById('player-hand-container');
-    if (!playerHandContainer) {
-        console.error("Player hand container not found!");
-        return;
-    }
+    const handContainer = document.getElementById('player-hand-container');
+    if (!handContainer) return;
 
-    let cardsContentDiv = playerHandContainer.querySelector('#player-hand-cards-content');
-    if (!cardsContentDiv) {
-        const titleElement = playerHandContainer.querySelector('h4');
-        playerHandContainer.innerHTML = ''; 
-        if (titleElement) playerHandContainer.appendChild(titleElement); 
-        cardsContentDiv = document.createElement('div');
-        cardsContentDiv.id = 'player-hand-cards-content';
-        cardsContentDiv.className = 'player-hand-cards-flex-container';
-        playerHandContainer.appendChild(cardsContentDiv);
-    } else {
-        cardsContentDiv.innerHTML = ''; 
-    }
+    // Clear existing content
+    handContainer.innerHTML = '<h4>Your Hand</h4>';
 
-    let handHTML = '';
-    if (playerHandArray && playerHandArray.length > 0) {
-        playerHandArray.forEach((card, index) => {
-            let cardStyle = '';
-            let cardClasses = 'card-html';
-            if (card.played) { // NEW: Check if card is marked as played
-                cardClasses += ' played-card';
-            }
+    // Create a scrollable container for cards
+    const cardsWrapper = document.createElement('div');
+    cardsWrapper.className = 'cards-wrapper';
+    cardsWrapper.style.cssText = `
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding: 10px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    `;
+    cardsWrapper.style.webkitScrollbar = 'none';
 
-            if (card.type === 'price') { 
-                cardClasses += ' price-card-html'; 
-                const companyColor = companyColors[card.company];
-                if (companyColor) {
-                    const lightBackgroundColor = lightenColor(companyColor, 0.85); // 85% towards white for a very light tint
-                    cardStyle = `style="background-color: ${lightBackgroundColor};"`;
-                }
-                const companyName = getCompanyName(card.company, companiesStaticData);
-                handHTML += `<div class="${cardClasses}" data-card-index="${index}" ${cardStyle}>
-                           <div class="card-title">${companyName}</div>
-                           <div class="card-value ${card.change > 0 ? 'positive' : 'negative'}"> 
-                             ${card.change > 0 ? '+' : ''}${card.change} 
-                           </div>
-                           <div class="card-subtitle">Price Change</div>`;
-            } else if (card.type === 'windfall') { 
-                cardClasses += ' windfall-card-html'; // This class defines black background
-                handHTML += `<div class="${cardClasses}" data-card-index="${index}" ${cardStyle}>
-                           <div class="card-title">Windfall</div>
-                           <div class="card-value windfall-subtype">${card.sub}</div>`;
-                if (card.sub === 'LOAN') { 
-                    handHTML += '<div class="card-icon">⚪</div>'; 
-                } else if (card.sub === 'DEBENTURE') { 
-                    handHTML += '<div class="card-icon">▭▭</div>'; 
-                } else if (card.sub === 'RIGHTS') { 
-                    handHTML += '<div class="card-icon">△</div>'; 
-                }             
-            } else if (card.type === 'CURRENCY_MOVEMENT') { // This type is not in buildDeck on server
-                 handHTML += `<div class="card-title">Currency</div>
-                           <div class="card-value ${card.change > 0 ? 'positive' : 'negative'}">
-                             ${card.change > 0 ? '+' : ''}${card.change}%
-                           </div>
-                           <div class="card-subtitle">Movement</div>`;
+    // Add cards to the wrapper
+    playerHandArray.forEach((card, index) => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card';
+        
+        // Get company color if it's a price card
+        let cardColor = 'rgba(255, 255, 255, 0.9)'; // Default white for windfall cards
+        if (card.type === 'price') {
+            const companyIndex = companiesStaticData.findIndex(c => c.id === card.company);
+            if (companyIndex !== -1) {
+                const baseColor = COMPANY_COLOR_PALETTE[companyIndex % COMPANY_COLOR_PALETTE.length];
+                // Convert hex to rgba with transparency
+                cardColor = hexToRGBA(baseColor, 0.9);
             }
-            handHTML += '</div>';
-        });
-    } else {
-        handHTML = '<p>Your hand is empty.</p>';
-    }
-    cardsContentDiv.innerHTML = handHTML;
+        }
 
-    // Add event listeners to new HTML cards
-    document.querySelectorAll('.card-html').forEach(cardElement => {
-        cardElement.addEventListener('click', (event) => {
-            const cardIndex = parseInt(event.currentTarget.dataset.cardIndex);
-            // MODIFIED: Check for awaitingAdminDecision before handling click
-            if (currentGameState && currentGameState.state && currentGameState.state.awaitingAdminDecision) {
-                alert('Admin decision pending. Card actions are temporarily disabled.');
-                return;
-            }
-            if (playerHandArray && playerHandArray[cardIndex]) {
-                 handleCardClick(playerHandArray[cardIndex], cardIndex);
-            } else {
-                console.error("Could not find card data for click event"); 
-            }
-        });
+        cardElement.style.cssText = `
+            flex: 0 0 auto;
+            width: 120px;
+            height: 180px;
+            scroll-snap-align: start;
+            position: relative;
+            background: ${cardColor};
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+            color: ${card.type === 'price' ? '#ffffff' : '#000000'};
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        `;
+
+        if (card.played) {
+            cardElement.style.opacity = '0.5';
+        }
+
+        let cardContent = '';
+        if (card.type === 'price') {
+            const company = companiesStaticData.find(c => c.id === card.company);
+            const changeColor = card.change > 0 ? '#4CAF50' : card.change < 0 ? '#f44336' : '#ffffff';
+            cardContent = `
+                <div style="padding: 10px; text-align: center;">
+                    <div style="font-weight: bold; margin-bottom: 5px;">${company ? company.name : card.company}</div>
+                </div>
+                <div style="padding: 10px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px;">
+                    <div style="font-size: 1.2em;">${card.change > 0 ? '+' : ''}${card.change}</div>
+                </div>
+            `;
+        } else if (card.type === 'windfall') {
+            cardContent = `
+                <div style="padding: 10px; text-align: center;">
+                    <div style="font-weight: bold; color: #4a90e2;">${card.sub}</div>
+                </div>
+            `;
+        }
+
+        cardElement.innerHTML = cardContent;
+        cardElement.onclick = () => handleCardClick(card, index);
+        cardsWrapper.appendChild(cardElement);
     });
+
+    // Add the wrapper to the container
+    handContainer.appendChild(cardsWrapper);
+}
+
+// Helper function to convert hex to rgba
+function hexToRGBA(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 // --- END NEW HTML RENDERING FUNCTIONS --- 
@@ -2346,7 +2355,7 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
         const turnsRemaining = player.transactionsRemaining;
         const turnsUsed = totalAllowedTransactions - turnsRemaining;
 
-        // Create dots for remaining turns (green) and used turns (grey)
+        // Create dots for all turns (grey for used, green for remaining)
         for (let i = 0; i < totalAllowedTransactions; i++) {
             const dot = document.createElement('span');
             dot.classList.add('turn-dot-indicator');

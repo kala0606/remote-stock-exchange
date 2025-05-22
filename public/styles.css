@@ -2255,3 +2255,90 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   box-shadow: none;
   background-color: #f0f0f0;
 }
+
+#player-hand {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    position: relative;
+    background: #f5f5f5;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.cards-wrapper {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding: 10px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.cards-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+.card {
+    flex: 0 0 auto;
+    width: 120px;
+    height: 180px;
+    scroll-snap-align: start;
+    position: relative;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.card:active {
+    transform: scale(0.95);
+}
+
+.scroll-fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.3s;
+}
+
+.scroll-fade.left {
+    left: 0;
+    background: linear-gradient(to right, rgba(255,255,255,1), rgba(255,255,255,0));
+}
+
+.scroll-fade.right {
+    right: 0;
+    background: linear-gradient(to left, rgba(255,255,255,1), rgba(255,255,255,0));
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+    #player-hand {
+        margin: 5px 0;
+    }
+
+    .card {
+        width: 100px;
+        height: 150px;
+    }
+
+    .cards-wrapper {
+        padding: 8px;
+        gap: 8px;
+    }
+}
+
+/* Add touch-friendly scrolling */
+@media (hover: none) {
+    .cards-wrapper {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+}
