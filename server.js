@@ -590,15 +590,26 @@ io.on('connection', socket => {
       // Update player's socket ID in the game state
       player.id = socket.id;
 
-      // Update game.admin if this player was the initial admin
-      // We use isAdminInitial stored with the token for robustness
-      if (isAdminInitial && game.admin === oldSocketId) {
-          console.log(`[rejoinWithToken] Updating game admin from ${game.admin} to ${socket.id}`);
-          game.admin = socket.id;
-      } else if (isAdminInitial && game.admin !== oldSocketId) {
-          // This might happen if admin was transferred, we should respect the current game.admin
-          console.warn(`[rejoinWithToken] Rejoining player ${playerName} was initial admin, but current game admin (${game.admin}) is different. Not changing game admin.`);
+      // === ADDED LOGIC to update periodStarter and currentTurnPlayerId ===
+      if (game.state) { // Ensure game.state exists
+        if (game.state.periodStarter === oldSocketId) {
+          game.state.periodStarter = socket.id; // New socket ID
+          console.log(`[rejoinWithToken] Updated game.state.periodStarter from ${oldSocketId} to ${socket.id}`);
+        }
+        if (game.state.currentTurnPlayerId === oldSocketId) {
+          game.state.currentTurnPlayerId = socket.id; // New socket ID
+          console.log(`[rejoinWithToken] Updated game.state.currentTurnPlayerId from ${oldSocketId} to ${socket.id}`);
+        }
       }
+      // === END ADDED LOGIC ===
+
+      // Update game.admin if the rejoining player was the current admin
+      if (game.admin === oldSocketId) {
+          console.log(`[rejoinWithToken] Updating game.admin from ${oldSocketId} to ${socket.id} as rejoining player was current admin.`);
+          game.admin = socket.id;
+      }
+      // The isAdminInitial flag on the token is more for tracking who *started* as admin,
+      // but the live game.admin is the source of truth for current admin status.
 
       // Update token store with new socket ID and timestamp
       sessionData.socketId = socket.id;
