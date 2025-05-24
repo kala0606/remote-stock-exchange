@@ -817,6 +817,8 @@ function updateUI(state) {
     const canPassOrEnd = isYourTurn && !state.state.awaitingAdminDecision;
 
     console.log(`[updateUI] Action button states - canPerformTransaction: ${canPerformTransaction}, canPassOrEnd: ${canPassOrEnd}`);
+    // ADD CONSOLE LOG BEFORE ADMIN DECISION CHECK
+    console.log(`[updateUI - Admin Panel Check] Period: ${state.state.period}, Round: ${state.state.roundNumberInPeriod}, awaitingAdminDecision: ${state.state.awaitingAdminDecision}, pricesResolvedThisCycle: ${state.state.pricesResolvedThisCycle}, isAdmin: ${isAdmin}`);
 
     if (state.state.awaitingAdminDecision) {
         adminDecisionPanel.style.display = 'block';
@@ -2333,6 +2335,7 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
 
     // Get the period starter from the game state
     const periodStarterId = currentGameState?.state?.periodStarter;
+    console.log(`[renderPlayerTurnOrderTable - Period Starter Check] Period: ${currentGameState?.state?.period}, Round: ${currentGameState?.state?.roundNumberInPeriod}, periodStarterId from state: ${periodStarterId}`); // DEBUG LOG ADDED
     const periodStartingPlayerIndex = players.findIndex(p => p.id === periodStarterId);
 
     players.forEach((player, idx) => {
@@ -2553,162 +2556,4 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
             portfolioHoldings.innerHTML = '<div class="no-shares">No positions</div>';
         }
     }
-}
-
-// Modify the updateUI function to include portfolio updates
-function updateUI(state) {
-    console.log("[updateUI] Received game state:", state);
-    console.log("[updateUI] Current turn player ID:", state.state?.currentTurnPlayerId);
-    console.log("[updateUI] Is your turn:", state.isYourTurn);
-    console.log("[updateUI] Current player ID:", socket.id);
-    console.log("[updateUI] Player transactions remaining:", state.players?.find(p => p.id === socket.id)?.transactionsRemaining);
-    
-    currentGameState = state;
-
-    if (!state || !state.players || !state.state) {
-        console.error("[updateUI] Invalid or incomplete game state received (missing players or state.state).");
-        if (lobbyScreen) lobbyScreen.style.display = 'flex';
-        if (gameScreen) gameScreen.style.display = 'none';
-        return;
-    }
-
-    const companiesStaticData = state.state.companyList || [];
-    const currentMarketPrices = state.state.prices || {};
-    const currentInitialPrices = state.state.init || {};
-
-    // Calculate and update market sentiment
-    const sentiment = calculateMarketSentiment(currentMarketPrices, currentInitialPrices);
-    updateBackgroundGradient(sentiment);
-
-    const me = state.players.find(p => p.id === socket.id || p.name === currentPlayerName);
-    const playerHandToRender = state.hand || []; 
-
-    if (me) {
-        updateGeneralRightsOffers(me); 
-        updateOpenShortsPanel(me, currentMarketPrices, companiesStaticData);
-        updatePortfolioPanel(me, currentMarketPrices, companiesStaticData);
-    } else {
-        updateGeneralRightsOffers(null);
-        updateOpenShortsPanel(null, currentMarketPrices, companiesStaticData);
-        updatePortfolioPanel(null, currentMarketPrices, companiesStaticData);
-    }
-
-    const currentPlayerNameForBar = state.players.find(p => p.id === state.state.currentTurnPlayerId)?.name || 'N/A';
-    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-text">Your Turn</span>' : '';
-    const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
-
-    if (periodSpan) {
-        periodSpan.innerHTML = `Period ${state.state.period} | Round ${state.state.roundNumberInPeriod} | Player: ${highlightedPlayerName}${yourTurnText}`;
-        console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
-    }
-
-    renderMarketBoard(currentMarketPrices, companiesStaticData, currentInitialPrices); 
-    renderPlayerHand(playerHandToRender, companiesStaticData); 
-
-    updatePlayerList(state.players, state.state.currentTurnPlayerId); 
-    updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
-    updatePriceLogTable(); 
-    renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
-    renderDeckInfoPanel();
-
-    // Calculate hand deltas and update the summary display
-    calculateHandDeltas(playerHandToRender, companiesStaticData);
-    updateHandSummaryDisplay();
-
-    if (lobbyScreen && gameScreen) {
-        if (state.state && state.state.gameStarted) {
-            lobbyScreen.style.display = 'none';
-            gameScreen.style.display = 'block';
-        } else {
-            lobbyScreen.style.display = 'block';
-            gameScreen.style.display = 'none';
-        }
-    }
-
-    // Admin Decision Panel Logic
-    if (!adminDecisionPanel) { 
-        const gameControlsDiv = document.querySelector('.game-controls') || document.getElementById('game-screen') || document.body; 
-        adminDecisionPanel = document.createElement('div');
-        adminDecisionPanel.id = 'admin-decision-panel';
-        adminDecisionPanel.className = 'panel admin-decision-panel';
-        adminDecisionPanel.style.textAlign = 'center';
-
-        const title = document.createElement('h4');
-        title.textContent = 'Admin Action Required';
-        adminDecisionPanel.appendChild(title);
-
-        adminDecisionMessage = document.createElement('p');
-        adminDecisionMessage.id = 'adminDecisionMessage';
-        adminDecisionPanel.appendChild(adminDecisionMessage);
-
-        adminResolvePricesBtn = document.createElement('button');
-        adminResolvePricesBtn.id = 'adminResolvePricesBtn';
-        adminResolvePricesBtn.textContent = 'End Period & Resolve Prices';
-        adminResolvePricesBtn.className = 'game-button';
-        adminDecisionPanel.appendChild(adminResolvePricesBtn);
-
-        adminAdvanceNewPeriodBtn = document.createElement('button');
-        adminAdvanceNewPeriodBtn.id = 'adminAdvanceNewPeriodBtn';
-        adminAdvanceNewPeriodBtn.textContent = 'Advance to New Period & Deal Cards';
-        adminAdvanceNewPeriodBtn.className = 'game-button';
-        adminAdvanceNewPeriodBtn.style.marginLeft = '10px';
-        adminDecisionPanel.appendChild(adminAdvanceNewPeriodBtn);
-        
-        const actionButtonsDiv = document.querySelector('.action-buttons');
-        if (actionButtonsDiv) {
-            actionButtonsDiv.parentNode.insertBefore(adminDecisionPanel, actionButtonsDiv);
-        } else {
-            gameControlsDiv.appendChild(adminDecisionPanel);
-        }
-    }
-
-    const normalActionButtons = [buyBtn, sellBtn, shortSellBtn, endTurnBtn];
-    const canPerformTransaction = isYourTurn && me && me.transactionsRemaining > 0 && !state.state.awaitingAdminDecision;
-    const canPassOrEnd = isYourTurn && !state.state.awaitingAdminDecision;
-
-    console.log(`[updateUI] Action button states - canPerformTransaction: ${canPerformTransaction}, canPassOrEnd: ${canPassOrEnd}`);
-
-    if (state.state.awaitingAdminDecision) {
-        adminDecisionPanel.style.display = 'block';
-        normalActionButtons.forEach(btn => { if (btn) btn.disabled = true; });
-        // ADD CONSOLE LOG HERE
-        console.log(`[updateUI] Admin Decision Logic: awaitingAdminDecision=${state.state.awaitingAdminDecision}, pricesResolvedThisCycle=${state.state.pricesResolvedThisCycle}, isAdmin=${isAdmin}`);
-
-        if (isAdmin) {
-            adminDecisionMessage.textContent = 'The 3-round mark has been reached. Please choose an action.';
-            adminResolvePricesBtn.style.display = 'inline-block';
-            adminAdvanceNewPeriodBtn.style.display = 'inline-block';
-
-            if (state.state.pricesResolvedThisCycle === false) {
-                adminResolvePricesBtn.disabled = false;
-                adminAdvanceNewPeriodBtn.disabled = true;
-                adminResolvePricesBtn.onclick = () => {
-                    // ADD CONSOLE LOG HERE
-                    console.log(`[Admin Action] Emitting 'adminResolvePeriodAndDeal' for room ${currentRoom}. Client's current pricesResolvedThisCycle: ${currentGameState?.state?.pricesResolvedThisCycle}`);
-                    socket.emit('adminResolvePeriodAndDeal', { roomID: currentRoom }); 
-                };
-            } else {
-                adminResolvePricesBtn.disabled = true;
-                adminAdvanceNewPeriodBtn.disabled = false;
-                adminAdvanceNewPeriodBtn.onclick = () => socket.emit('adminAdvanceToNewPeriod_DealCards', { roomID: currentRoom });
-            }
-        } else {
-            adminDecisionMessage.textContent = 'Waiting for the admin to decide on period progression...';
-            adminResolvePricesBtn.style.display = 'none';
-            adminAdvanceNewPeriodBtn.style.display = 'none';
-        }
-        // if(advancePeriodBtn) advancePeriodBtn.style.display = 'none'; // Already handled by general hide below
-
-    } else {
-        adminDecisionPanel.style.display = 'none';
-        if (buyBtn) buyBtn.disabled = !canPerformTransaction;
-        if (sellBtn) sellBtn.disabled = !canPerformTransaction;
-        if (shortSellBtn) shortSellBtn.disabled = !canPerformTransaction;
-        if (endTurnBtn) endTurnBtn.disabled = !canPassOrEnd;
-        // if(advancePeriodBtn && isAdmin) advancePeriodBtn.style.display = 'inline-block'; // Removed
-    }
-    
-    if(advancePeriodBtn) advancePeriodBtn.style.display = 'none'; // Always hide the old button
-    if(startGameBtn) startGameBtn.style.display = isAdmin && state.state && !state.state.gameStarted ? 'block' : 'none';
-    if(adminEndGameBtn) adminEndGameBtn.style.display = isAdmin && state.state && state.state.gameStarted ? 'inline-block' : 'none'; // NEW: Show/hide End Game button
 }
