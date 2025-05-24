@@ -165,7 +165,7 @@ function initGame(game, initialAdminPlayerId) {
   }
 
   console.log(`[initGame] Initial currentTurn set to index: ${game.state.currentTurn} for Period ${game.period}`);
-  console.log(`[initGame] First player will be: ${game.players[game.state.currentTurn]?.name}`);
+  console.log(`[initGame] First player will be: ${(game.players[game.state.currentTurn] && game.players[game.state.currentTurn].name) ? game.players[game.state.currentTurn].name : 'N/A'}`);
 
   // Deal 10 cards to each player and set initial transactions
   game.players.forEach((player, index) => {

@@ -245,7 +245,7 @@ socket.on('connect', () => {
 
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('session');
-    currentSessionToken = tokenFromUrl || localStorage.getItem('satnaSessionToken');
+    currentSessionToken = tokenFromUrl || localStorage.getItem('remoteStockExchangeSessionToken');
 
     if (currentSessionToken) {
         console.log('[connect] Found session token, attempting to rejoin:', currentSessionToken);
@@ -254,7 +254,7 @@ socket.on('connect', () => {
             console.log('[rejoinWithToken callback] Response:', response);
             if (response.error) {
                 alert('Failed to rejoin session: ' + response.error);
-                localStorage.removeItem('satnaSessionToken');
+                localStorage.removeItem('remoteStockExchangeSessionToken');
                 history.replaceState(null, '', window.location.pathname);
                 currentSessionToken = null;
                 isRejoining = false;
@@ -264,7 +264,7 @@ socket.on('connect', () => {
             }
             currentRoom = response.roomID;
             currentPlayerName = response.playerName;
-            localStorage.setItem('satnaSessionToken', currentSessionToken);
+            localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
             console.log('[rejoinWithToken callback] Rejoin successful. Room:', currentRoom, 'Player:', currentPlayerName);
         });
     } else {
@@ -308,7 +308,7 @@ if (createRoomBtn) {
                     }
                     if (response.sessionToken) {
                         currentSessionToken = response.sessionToken;
-                        localStorage.setItem('satnaSessionToken', currentSessionToken);
+                        localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
                         const url = new URL(window.location.href);
                         url.searchParams.set('room', roomID);
                         url.searchParams.set('session', currentSessionToken);
@@ -356,7 +356,7 @@ if (joinRoomBtn) {
             }
             if (response.sessionToken) {
                 currentSessionToken = response.sessionToken;
-                localStorage.setItem('satnaSessionToken', currentSessionToken);
+                localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
                 const url = new URL(window.location.href);
                 url.searchParams.set('room', roomID);
                 url.searchParams.set('session', currentSessionToken);
