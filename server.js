@@ -80,35 +80,35 @@ function buildDeck(game) { // Added game parameter
   let deck = [];
 
   const numPlayers = game && game.players && game.players.length > 0 ? game.players.length : 1;
-  const minRemainingCards = 50; // Desired minimum cards left in deck after dealing
-
-  // Calculate N, the scaling factor for deck units. Ensure N is at least 1.
-  // A single deck unit (78 cards) is based on 3 copies of each price card variant and 2 of each windfall.
-  const cardsInOneDeckUnit = (COMPANIES.length * COMPANIES[0].moves.length * 3) + (WINDFALLS.length * 2);
   
-  const cardsNeededForDealingAndBuffer = (numPlayers * 10) + minRemainingCards;
-  const N = Math.max(1, Math.ceil(cardsNeededForDealingAndBuffer / cardsInOneDeckUnit));
+  let N = 0; // Number of deck units
+  if (numPlayers <= 3) {
+      N = 2; // 54 cards
+  } else if (numPlayers <= 6) {
+      N = 3; // 81 cards
+  } else if (numPlayers <= 9) {
+      N = 5; // 135 cards
+  } else { // 10-12 players
+      N = 6; // 162 cards
+  }
 
-  const effectivePriceCardCopies = 3 * N;
-  const effectiveWindfallCardCopies = 2 * N;
+  console.log(`[buildDeck] Building deck for ${numPlayers} players. Using N=${N} deck units.`);
 
-  console.log(`[buildDeck] Building deck for ${numPlayers} players. Min remaining desired: ${minRemainingCards}. Scaling factor N=${N}. PriceCardCopies=${effectivePriceCardCopies}, WindfallCardCopies=${effectiveWindfallCardCopies}.`);
-
-  // Add price movement cards
-  COMPANIES.forEach(company => {
-    company.moves.forEach(change => {
-      for (let i = 0; i < effectivePriceCardCopies; i++) {
+  // A base deck unit has 1 copy of each unique card.
+  // We will loop N times to add N units to the deck.
+  for (let i = 0; i < N; i++) {
+    // Add price movement cards
+    COMPANIES.forEach(company => {
+      company.moves.forEach(change => {
         deck.push({ type: 'price', company: company.id, change });
-      }
+      });
     });
-  });
 
-  // Add windfall cards
-  WINDFALLS.forEach(windfall => {
-    for (let i = 0; i < effectiveWindfallCardCopies; i++) {
+    // Add windfall cards
+    WINDFALLS.forEach(windfall => {
       deck.push({ type: 'windfall', sub: windfall });
-    }
-  });
+    });
+  }
 
   // Shuffle deck
   for (let i = deck.length - 1; i > 0; i--) {
@@ -248,88 +248,17 @@ function emitGameState(game, context = 'normal') {
 
 function calculateAndApplyPriceChanges(game) {
   if (!game || !game.state || !game.players) return;
-  console.log('\n=== CARD NEGATION CHECK ===');
-
-  // Log current chairman and president status
-  console.log('Chairmen:', JSON.stringify(game.state.chairmen));
-  console.log('Presidents:', JSON.stringify(game.state.presidents));
-
-  const allPriceCardEffects = [];
-  game.players.forEach(player => {
-    (player.hand || []).forEach(card => {
-      if (card.type === 'price' && !card.played) {
-        allPriceCardEffects.push({
-          playerId: player.id,
-          playerName: player.name,
-          companyId: card.company,
-          change: card.change,
-          status: 'active',
-          originalCardRef: card,
-          isFromHand: true
-        });
-      }
-    });
-  });
-
-  // Find all negative effects
-  const negativeEffects = allPriceCardEffects.filter(effect => effect.status === 'active' && effect.change < 0);
-  console.log(`Found ${negativeEffects.length} negative effects`);
-  
-  if (negativeEffects.length > 0) {
-    // Group negative effects by company
-    const negativeEffectsByCompany = {};
-    negativeEffects.forEach(effect => {
-      if (!negativeEffectsByCompany[effect.companyId]) {
-        negativeEffectsByCompany[effect.companyId] = [];
-      }
-      negativeEffectsByCompany[effect.companyId].push(effect);
-    });
-
-    // For each company, find its most negative effect
-    for (const companyId in negativeEffectsByCompany) {
-      const companyEffects = negativeEffectsByCompany[companyId];
-      companyEffects.sort((a, b) => a.change - b.change);
-      const mostNegativeEffect = companyEffects[0];
-      
-      console.log(`\nChecking company ${getCompanyName(companyId, game)}'s most negative effect: ${mostNegativeEffect.change} by ${mostNegativeEffect.playerName}`);
-
-      // Check for chairman first
-      const chairmen = game.state.chairmen[companyId];
-      if (chairmen && chairmen.length > 0) {
-        mostNegativeEffect.status = 'negated_by_chairman';
-        const chairmanNames = chairmen.map(pid => game.players.find(p => p.id === pid)?.name || 'A chairman').join(', ');
-        console.log(`CHAIRMAN NEGATION: ${chairmanNames} negated ${mostNegativeEffect.change} effect for ${getCompanyName(companyId, game)}`);
-        logActivity(game, null, 'CHAIRMAN_POWER', 
-          `Chairman power for ${getCompanyName(companyId, game)} (by ${chairmanNames}) negated a ${mostNegativeEffect.change} price card effect (player: ${mostNegativeEffect.playerName}).`
-        );
-        continue; // Move to next company
-      }
-
-      // If no chairman, check for president
-      const presidents = game.state.presidents[companyId];
-      if (presidents && presidents.length > 0) {
-        // Find if any president has this negative effect in their hand
-        for (const presidentId of presidents) {
-          const president = game.players.find(p => p.id === presidentId);
-          if (president && mostNegativeEffect.playerId === presidentId) {
-            mostNegativeEffect.status = 'negated_by_president';
-            console.log(`PRESIDENT NEGATION: ${president.name} negated their own ${mostNegativeEffect.change} effect for ${getCompanyName(companyId, game)}`);
-            logActivity(game, president.name, 'PRESIDENT_POWER', 
-              `President power for ${getCompanyName(companyId, game)} negated their own ${mostNegativeEffect.change} price card effect from their hand.`
-            );
-            break;
-          }
-        }
-      }
-    }
-  }
+  console.log('\n=== CALCULATING PRICE CHANGES ===');
 
   let deltas = {};
   COMPANIES.forEach(company => { deltas[company.id] = 0; });
-  allPriceCardEffects.forEach(effect => {
-    if (effect.status === 'active') {
-      deltas[effect.companyId] += effect.change;
-    }
+
+  game.players.forEach(player => {
+    (player.hand || []).forEach(card => {
+      if (card.type === 'price' && !card.played) {
+        deltas[card.company] += card.change;
+      }
+    });
   });
 
   // Log final price changes
@@ -1050,10 +979,10 @@ io.on('connection', socket => {
     console.log(`[Windfall] Player ${player.name} attempting to play card:`, actualCardInHand, `Target: ${targetCompany}, DesiredRights: ${desiredRightsShares}`);
 
     if (card.sub === 'LOAN') {
-        player.cash += 200000;
+        player.cash += 100000;
         actualCardInHand.played = true;
         // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // LOAN usually doesn't count as transaction
-        logActivity(game, player.name, 'PLAY_CARD', `Played LOAN card, received ₹200,000.`);
+        logActivity(game, player.name, 'PLAY_CARD', `Played LOAN card, received ₹100,000.`);
         emitGameState(game);
     } else if (card.sub === 'DEBENTURE') {
         let debentureValue = 0;

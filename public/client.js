@@ -759,7 +759,7 @@ function updateUI(state) {
     updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
     updatePriceLogTable(); 
     renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
-    renderDeckInfoPanel();
+    renderDeckInfoPanel(state.players.length);
 
     // Calculate hand deltas and update the summary display
     calculateHandDeltas(playerHandToRender, companiesStaticData);
@@ -2386,24 +2386,42 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
     });
 }
 
-function renderDeckInfoPanel() {
-    const leaderboard = document.querySelector('.leaderboard');
-    if (!leaderboard) return;
+function renderDeckInfoPanel(numPlayers) {
+    let panel = document.getElementById('deck-info-panel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'deck-info-panel';
+        panel.className = 'panel deck-info-panel'; // Re-add old classes for styling
+        panel.style.marginTop = '20px';
 
-    let deckInfoPanel = document.getElementById('deck-info-panel');
-    if (!deckInfoPanel) {
-        deckInfoPanel = document.createElement('div');
-        deckInfoPanel.id = 'deck-info-panel';
-        deckInfoPanel.className = 'panel deck-info-panel';
-        deckInfoPanel.style.marginTop = '20px';
-        
-        const header = document.createElement('div');
-        header.className = 'deck-info-header';
-        header.innerHTML = '<h4>Deck Info <span class="expand-icon">▼</span></h4>';
-        header.style.cursor = 'pointer';
-        header.onclick = () => {
-            const content = deckInfoPanel.querySelector('.deck-info-content');
-            const icon = header.querySelector('.expand-icon');
+        const leaderboard = document.querySelector('.leaderboard');
+        if (leaderboard) {
+            leaderboard.insertAdjacentElement('afterend', panel);
+        } else {
+            const gameRight = document.querySelector('.game-right');
+            gameRight?.appendChild(panel);
+        }
+    }
+
+    const playerCount = typeof numPlayers === 'number' ? numPlayers : 0;
+
+    let N = 0; // Number of deck units
+    if (playerCount > 0 && playerCount <= 3) {
+        N = 2;
+    } else if (playerCount <= 6) {
+        N = 3;
+    } else if (playerCount <= 9) {
+        N = 5;
+    } else if (playerCount >= 10) {
+        N = 6;
+    }
+
+    const totalCards = N * 27;
+
+    let content = `
+        <div class="deck-info-header" style="cursor: pointer;" onclick="
+            const content = this.nextElementSibling;
+            const icon = this.querySelector('.expand-icon');
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 icon.textContent = '▼';
@@ -2411,57 +2429,41 @@ function renderDeckInfoPanel() {
                 content.style.display = 'none';
                 icon.textContent = '▶';
             }
-        };
-        
-        const content = document.createElement('div');
-        content.className = 'deck-info-content';
-        content.style.display = 'none';
-        
-        deckInfoPanel.appendChild(header);
-        deckInfoPanel.appendChild(content);
-        leaderboard.parentNode.insertBefore(deckInfoPanel, leaderboard.nextSibling);
-    }
-
-    const content = deckInfoPanel.querySelector('.deck-info-content');
-    if (!content) return;
-
-    const numPlayers = currentGameState?.players?.length || 0;
-    const cardsInOneDeckUnit = (6 * 4 * 3) + (3 * 2); // 6 companies * 4 moves * 3 copies + 3 windfalls * 2 copies
-    const cardsNeededForDealingAndBuffer = (numPlayers * 10) + 50; // 10 cards per player + 50 buffer
-    const N = Math.max(1, Math.ceil(cardsNeededForDealingAndBuffer / cardsInOneDeckUnit));
-    const totalCards = cardsInOneDeckUnit * N;
-
-    let html = `
-        <div class="deck-info-summary">
-            <p>Total Cards in Deck: ${totalCards}</p>
-            <p>Cards per Player: 10</p>
-            <p>Minimum Cards Remaining: 50</p>
+        ">
+            <h4>Deck Info (${playerCount} Players) <span class="expand-icon">▶</span></h4>
         </div>
-        <div class="deck-info-details">
-            <h5>Price Cards</h5>
-            <table class="deck-info-table" style="margin-bottom: 16px; width: 100%; border-collapse: collapse;">
-              <thead><tr><th style='text-align:left;'>Company</th><th style='text-align:left;'>Moves</th><th style='text-align:right;'>Copies</th></tr></thead>
-              <tbody>
+        <div class="deck-info-content" style="display: none;">
+            <div class="deck-info-summary">
+                <p><strong>Total Cards:</strong> ${totalCards} (from <strong>${N}</strong> deck units)</p>
+                <p>Each unique card below has <strong>${N}</strong> copies in the deck.</p>
+            </div>
+            <div class="deck-info-details">
+                <h5>Price Cards</h5>
+                <table class="deck-info-table" style="margin-bottom: 16px; width: 100%; border-collapse: collapse;">
+                    <thead><tr><th style='text-align:left;'>Company</th><th style='text-align:left;'>Moves</th><th style='text-align:right;'>Copies</th></tr></thead>
+                    <tbody>
     `;
-    // Add price cards info as table rows
+
     COMPANIES.forEach(company => {
-        html += `<tr><td><strong>${company.name} (${company.id})</strong></td><td>${company.moves.map(move => `${move > 0 ? '+' : ''}${move}`).join(', ')}</td><td style='text-align:right;'>${3 * N}</td></tr>`;
+        content += `<tr><td><strong>${company.name} (${company.id})</strong></td><td>${company.moves.map(move => `${move > 0 ? '+' : ''}${move}`).join(', ')}</td><td style='text-align:right;'>${N}</td></tr>`;
     });
-    html += `</tbody></table>`;
-    html += `
-            <h5>Windfall Cards</h5>
-            <table class="deck-info-table" style="width: 100%; border-collapse: collapse;">
-              <thead><tr><th style='text-align:left;'>Type</th><th style='text-align:right;'>Copies</th></tr></thead>
-              <tbody>
-                <tr><td>LOAN</td><td style='text-align:right;'>${2 * N}</td></tr>
-                <tr><td>DEBENTURE</td><td style='text-align:right;'>${2 * N}</td></tr>
-                <tr><td>RIGHTS</td><td style='text-align:right;'>${2 * N}</td></tr>
-              </tbody>
-            </table>
+
+    content += `</tbody></table>`;
+    content += `
+                <h5>Windfall Cards</h5>
+                <table class="deck-info-table" style="width: 100%; border-collapse: collapse;">
+                    <thead><tr><th style='text-align:left;'>Type</th><th style='text-align:right;'>Copies</th></tr></thead>
+                    <tbody>
+                        <tr><td>LOAN</td><td style='text-align:right;'>${N}</td></tr>
+                        <tr><td>DEBENTURE</td><td style='text-align:right;'>${N}</td></tr>
+                        <tr><td>RIGHTS</td><td style='text-align:right;'>${N}</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
 
-    content.innerHTML = html;
+    panel.innerHTML = content;
 }
 
 // Function to handle quantity button clicks
