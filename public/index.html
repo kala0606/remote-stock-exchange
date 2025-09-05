@@ -11,6 +11,7 @@
   <div id="title-bar">
     <img src="/logo.svg" alt="Logo" class="app-logo-titlebar" style="height:18px; margin-right:8px; vertical-align:middle;" />
     <span id="game-title-text">Remote Stock Exchange</span>
+    <button id="helpButton" style="position:absolute; right:10px; top:6px; padding:6px 10px; font-size:12px; border-radius:6px;">Help</button>
   </div>
 
   <div id="main-content-wrapper">
@@ -220,6 +221,77 @@
               <div class="button-group">
                   <button id="confirmShortSellBtn">Confirm Short</button>
                   <button id="cancelShortSellBtn">Cancel</button>
+              </div>
+          </div>
+      </div>
+
+      <!-- Help Modal -->
+      <div id="help-modal" class="modal">
+          <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+              <h2>How to Play</h2>
+              <div class="help-content" style="line-height:1.5;">
+                  <h3>Objective</h3>
+                  <p>Grow your total worth (Cash + Portfolio Value) to top the leaderboard by game end.</p>
+                  <h3>Setup</h3>
+                  <ul>
+                    <li>Starting cash: ₹600,000</li>
+                    <li>Companies: 6 listed stocks with distinct profiles</li>
+                    <li>Your hand: 10 cards (Price and Windfall)</li>
+                    <li>Transactions per period: 3</li>
+                    <li>Trade in 1000-share lots</li>
+                  </ul>
+                  <h3>Game Flow</h3>
+                  <ol>
+                    <li>Create or join a room; first player is Admin.</li>
+                    <li>Admin starts the game; a random player goes first.</li>
+                    <li>Players take turns within a Round; up to 3 Rounds per Period.</li>
+                    <li>At checkpoints, Admin resolves prices and advances to the next Period.</li>
+                    <li>Admin ends the game; highest total worth wins.</li>
+                  </ol>
+                  <h3>Your Turn</h3>
+                  <ul>
+                    <li>Buy, Sell, Short Sell</li>
+                    <li>Exercise eligible General Rights (when available)</li>
+                    <li>Play a card (card rules apply)</li>
+                    <li>Pass or End Turn</li>
+                  </ul>
+                  <h3>Actions</h3>
+                  <p><strong>Buy</strong>: Choose a company, enter quantity in 1000s. Pay Current Price × Quantity. Respect share caps.</p>
+                  <p><strong>Sell</strong>: Choose a company you hold, enter quantity in 1000s. Receive Current Price × Quantity.</p>
+                  <p><strong>Short Sell</strong>: Borrow and sell now; buy back later. Collateral equal to Current Price × Quantity is held. Profit/Loss ≈ (Open − Cover) × Quantity. Shorts auto-cover at period end if not covered.</p>
+                  <p><strong>Rights Issue (Personal)</strong>: Playing a RIGHTS card lets you buy at half initial price, 1 right per 2 owned, in 1000s.</p>
+                  <p><strong>General Rights Offer</strong>: When any player triggers RIGHTS, a round-limited offer appears. Same rules as above.</p>
+                  <h3>Turns, Rounds, Periods</h3>
+                  <p>Each Period has up to 3 Rounds. Turn order loops all players. When it returns to the starter, the Round advances. Admin resolves prices at checkpoints and then advances the Period.</p>
+                  <h3>Price Resolution</h3>
+                  <p>Unplayed Price cards in hands contribute to net company price changes when Admin resolves. See the Price Log for snapshots.</p>
+                  <h3>Leadership Roles</h3>
+                  <ul>
+                    <li>President: Own ≥ 50,000 shares in a company</li>
+                    <li>Chairman: Own ≥ 100,000 shares in a company</li>
+                  </ul>
+                  <h3>UI Guide</h3>
+                  <ul>
+                    <li>Info Bar: Period/Round, turn indicator, transactions</li>
+                    <li>Actions: Buy, Sell, Short, End Turn</li>
+                    <li>Portfolio: Cash, Portfolio Value, Total Worth, Holdings</li>
+                    <li>Hand: Your cards (click to read/play)</li>
+                    <li>Price Log & Activity Log</li>
+                    <li>Rights Panel and Open Shorts</li>
+                  </ul>
+                  <h3>Winning</h3>
+                  <p>When Admin ends the game, final standings and worth history are shown. Highest Total Worth wins.</p>
+                  <h3>Strategy Tips</h3>
+                  <ul>
+                    <li>Build positions early in promising companies.</li>
+                    <li>Keep cash for rights and shorts.</li>
+                    <li>Use shorts with a clear bearish view.</li>
+                    <li>Watch 50k/100k share thresholds.</li>
+                    <li>Plan turns to conserve transactions.</li>
+                  </ul>
+                  <div class="button-group">
+                      <button id="closeHelpBtn">Close</button>
+                  </div>
               </div>
           </div>
       </div>

@@ -168,6 +168,10 @@ const gameOverScreen = document.getElementById('game-over-screen'); // NEW: Game
 const playerWorthChartCanvas = document.getElementById('playerWorthChart'); // NEW: Chart Canvas
 const winnerAnnouncementElement = document.getElementById('winner-announcement'); // NEW: Winner announcement
 const wisdomQuoteElement = document.getElementById('wisdom-quote'); // NEW: Wisdom quote
+// Help Modal Elements
+const helpButton = document.getElementById('helpButton');
+const helpModal = document.getElementById('help-modal');
+const closeHelpBtn = document.getElementById('closeHelpBtn');
 
 // --- NEW: Wisdom Quotes ---
 const wisdomQuotes = [
@@ -209,6 +213,7 @@ if (transactionModal) transactionModal.style.display = 'none';
 if (rightsIssueModal) rightsIssueModal.style.display = 'none';
 if (generalRightsIssueModal) generalRightsIssueModal.style.display = 'none';
 if (shortSellModal) shortSellModal.style.display = 'none';
+if (helpModal) helpModal.style.display = 'none';
 
 
 // Transaction state
@@ -292,6 +297,24 @@ socket.on('disconnect', () => {
     if (createRoomBtn) createRoomBtn.disabled = true;
     if (joinRoomBtn) joinRoomBtn.disabled = true;
 });
+
+// Help modal open/close
+if (helpButton && helpModal) {
+    helpButton.addEventListener('click', () => {
+        helpModal.style.display = 'flex';
+    });
+}
+if (closeHelpBtn && helpModal) {
+    closeHelpBtn.addEventListener('click', () => {
+        helpModal.style.display = 'none';
+    });
+}
+// Close help modal on outside click
+if (helpModal) {
+    helpModal.addEventListener('click', (e) => {
+        if (e.target === helpModal) helpModal.style.display = 'none';
+    });
+}
 
 if (createRoomBtn) {
     createRoomBtn.onclick = () => {
@@ -1944,7 +1967,7 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         
         cardElement.style.cssText = `
             width: 100%; /* Fill the grid column */
-            aspect-ratio: 3/4; /* Slightly taller to fit witty text */
+            aspect-ratio: 2/3; /* Taller to allow longer, funnier copy */
             position: relative;
             border-radius: 15px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -1964,11 +1987,20 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         if (card.type === 'price') {
             const company = companiesStaticData.find(c => c.id === card.company);
             const changeColor = card.change > 0 ? '#4CAF50' : card.change < 0 ? '#f44336' : '#ffffff';
-            
-            // Get witty message and make it fit nicely
-            const wittyMessage = card.message || `${company ? company.name : card.company} ${card.change > 0 ? 'rises' : 'falls'} by ₹${Math.abs(card.change)}`;
-            // Smart truncation - keep it readable but fit in card
-            const smartTruncated = wittyMessage.length > 60 ? wittyMessage.substring(0, 57) + '...' : wittyMessage;
+
+            // Longer, funnier fallback copy for price cards
+            const baseCompanyName = company ? company.name : card.company;
+            let generatedMessage = '';
+            if (card.change > 0) {
+                generatedMessage = `${baseCompanyName} catches a tailwind — price nudges up by ₹${Math.abs(card.change)}. Bulls grin; bears check their calendars.`;
+            } else if (card.change < 0) {
+                generatedMessage = `${baseCompanyName} trips on the rumor mill — down ₹${Math.abs(card.change)}. Bulls hydrate; bears rehearse victory speeches.`;
+            } else {
+                generatedMessage = `${baseCompanyName} goes gloriously sideways — unchanged. Everyone pretends that was the plan.`;
+            }
+            const wittyMessage = card.message || generatedMessage;
+            // Looser truncation to allow higher letter count
+            const smartTruncated = wittyMessage.length > 120 ? wittyMessage.substring(0, 117) + '...' : wittyMessage;
             
             // Determine text color based on company - ONGC (yellow cards) should have black text
             const isONGC = card.company === 'ONG';
@@ -1976,22 +2008,36 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
             
             cardContent = `
                 <div style="padding: 4px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0;">
-                    <div style="font-weight: bold; font-size: 0.8em; margin-bottom: 2px;">${company ? company.name : card.company}</div>
-                    <div style="font-size: 0.7em; line-height: 1.1; opacity: 0.95; padding: 2px; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; hyphens: auto; color: ${wittyTextColor};">${smartTruncated}</div>
+                    <div style="font-weight: bold; font-size: 0.78em; margin-bottom: 2px;">${company ? company.name : card.company}</div>
+                    <div style="font-size: 0.72em; line-height: 1.25; opacity: 0.95; padding: 2px; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; hyphens: auto; color: ${wittyTextColor};">${smartTruncated}</div>
                 </div>
-                <div style="padding: 4px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px; flex-shrink: 0;">
-                    <div style="font-size: 1em; font-weight: bold; color: white;">${card.change > 0 ? '+' : ''}₹${card.change}</div>
+                <div style="padding: 3px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px; flex-shrink: 0;">
+                    <div style="font-size: 0.95em; font-weight: bold; color: white;">${card.change > 0 ? '+' : ''}₹${card.change}</div>
                 </div>
             `;
         } else if (card.type === 'windfall') {
             // Witty message for windfall cards
-            const wittyMessage = card.message || `${card.sub} card activated`;
-            const smartTruncated = wittyMessage.length > 80 ? wittyMessage.substring(0, 77) + '...' : wittyMessage;
+            let generatedWindfall = '';
+            switch (card.sub) {
+                case 'RIGHTS':
+                    generatedWindfall = 'Rights bonanza! For every 2 you own, snag 1 more at half price — because bargains taste better in 1000-lot bites.';
+                    break;
+                case 'LOAN':
+                    generatedWindfall = 'Cheap credit hour: the bank slides you a loan, spreadsheets get brave, and leverage whispers sweet nothings.';
+                    break;
+                case 'DEBENTURE':
+                    generatedWindfall = 'Steady Eddy: issue debentures and collect calm, fixed returns while the market argues about vibes.';
+                    break;
+                default:
+                    generatedWindfall = `${card.sub} arrives with jazz hands. Side effects may include grins and strategic pivoting.`;
+            }
+            const wittyMessage = card.message || generatedWindfall;
+            const smartTruncated = wittyMessage.length > 140 ? wittyMessage.substring(0, 137) + '...' : wittyMessage;
             
             cardContent = `
                 <div style="padding: 6px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
                     <div style="font-weight: bold; color: #4a90e2; font-size: 1em; margin-bottom: 4px;">${card.sub}</div>
-                    <div style="font-size: 0.7em; line-height: 1.2; color: #555; font-style: italic; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; padding: 2px;">${smartTruncated}</div>
+                    <div style="font-size: 0.72em; line-height: 1.25; color: #555; font-style: italic; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; padding: 2px;">${smartTruncated}</div>
                 </div>
             `;
         }
