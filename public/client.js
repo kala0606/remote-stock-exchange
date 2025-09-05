@@ -30,20 +30,32 @@ let isYourTurn = false;
 // window.companyNames = {}; // Will be part of gameState or passed directly
 let priceLog = [];
 
-// NEW: Company Colors
-const COMPANY_COLOR_PALETTE = [
-    '#FF6347', // Tomato
-    '#4682B4', // SteelBlue
-    '#32CD32', // LimeGreen
-    '#FFD700', // Gold
-    '#6A5ACD', // SlateBlue
-    '#FF69B4', // HotPink
-    '#00CED1', // DarkTurquoise
-    '#FFA500', // Orange
-    '#8A2BE2', // BlueViolet
-    '#D2691E'  // Chocolate
+// NEW: Company Gradient Color System
+const COMPANY_GRADIENT_CLASSES = [
+    'company-color-0', // Tomato gradient
+    'company-color-1', // SteelBlue gradient
+    'company-color-2', // LimeGreen gradient
+    'company-color-3', // Gold gradient
+    'company-color-4', // SlateBlue gradient
+    'company-color-5', // HotPink gradient
+    'company-color-6', // DarkTurquoise gradient
+    'company-color-7', // Orange gradient
+    'company-color-8', // BlueViolet gradient
+    'company-color-9'  // Chocolate gradient
 ];
-let companyColors = {}; // To be populated with { companyId: color }
+
+const COMPANY_BAR_CLASSES = [
+    'company-bar-0', 'company-bar-1', 'company-bar-2', 'company-bar-3', 'company-bar-4',
+    'company-bar-5', 'company-bar-6', 'company-bar-7', 'company-bar-8', 'company-bar-9'
+];
+
+const COMPANY_TEXT_CLASSES = [
+    'company-text-0', 'company-text-1', 'company-text-2', 'company-text-3', 'company-text-4',
+    'company-text-5', 'company-text-6', 'company-text-7', 'company-text-8', 'company-text-9'
+];
+
+let companyColors = {}; // To be populated with { companyId: colorIndex }
+let companyGradientClasses = {}; // Maps companyId to gradient class
 
 // Helper function to lighten a hex color
 function lightenColor(hex, percent) {
@@ -614,10 +626,13 @@ socket.on('gameState', state => {
         // Populate companyColors if not already done or if companyList changed significantly (simple check here)
         if (Object.keys(companyColors).length === 0 || Object.keys(companyColors).length !== state.state.companyList.length) {
             companyColors = {}; // Reset if needed
+            companyGradientClasses = {}; // Reset gradient classes too
             state.state.companyList.forEach((company, index) => {
-                companyColors[company.id] = COMPANY_COLOR_PALETTE[index % COMPANY_COLOR_PALETTE.length];
+                const colorIndex = index % COMPANY_GRADIENT_CLASSES.length;
+                companyColors[company.id] = colorIndex;
+                companyGradientClasses[company.id] = COMPANY_GRADIENT_CLASSES[colorIndex];
             });
-            console.log('Company colors assigned:', companyColors);
+            console.log('Company gradient classes assigned:', companyGradientClasses);
         }
     }
     
@@ -759,6 +774,9 @@ function updateUI(state) {
     updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
     updatePriceLogTable(); 
     renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
+    
+    // Update background based on market sentiment
+    updateMarketSentimentBackground(state.state.marketSentiment || 'neutral');
     renderDeckInfoPanel(state.players.length);
 
     // Calculate hand deltas and update the summary display
@@ -886,12 +904,13 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                     const value = shares * currentPrice;
                     portfolioValue += value;
                     const companyName = getCompanyName(companyId, companiesStaticData);
-                    const color = companyColors[companyId] || '#000000';
+                    const colorIndex = companyColors[companyId] || 0;
+                    const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
                     portfolioDetails.push({
                         name: companyName,
                         shares: shares.toLocaleString(),
                         value: value.toLocaleString(),
-                        color: color,
+                        textClass: textClass,
                         type: 'long'
                     });
                 }
@@ -905,13 +924,14 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                 const value = shortPosition.quantity * currentPrice;
                 portfolioValue -= value; // Subtract short position value from portfolio
                 const companyName = getCompanyName(companyId, companiesStaticData);
-                const color = companyColors[companyId] || '#000000';
+                const colorIndex = companyColors[companyId] || 0;
+                const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
                 const unrealizedPnl = (shortPosition.priceOpened - currentPrice) * shortPosition.quantity;
                 portfolioDetails.push({
                     name: companyName,
                     shares: `-${shortPosition.quantity.toLocaleString()}`,
                     value: value.toLocaleString(),
-                    color: color,
+                    textClass: textClass,
                     type: 'short',
                     priceOpened: shortPosition.priceOpened,
                     unrealizedPnl: unrealizedPnl
@@ -967,10 +987,10 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
             leaderboardHTML += '<ul class="leaderboard-portfolio-details">';
             player.portfolioDetails.forEach(item => {
                 if (item.type === 'long') {
-                    leaderboardHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
+                    leaderboardHTML += `<li><span class=\"${item.textClass}\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
                 } else {
                     const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
-                    leaderboardHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></li>`;
+                    leaderboardHTML += `<li><span class=\"${item.textClass}\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></li>`;
                 }
             });
             leaderboardHTML += '</ul>';
@@ -996,10 +1016,10 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                 mobileHTML += '<ul class="leaderboard-portfolio-details">';
                 player.portfolioDetails.forEach(item => {
                     if (item.type === 'long') {
-                        mobileHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value})</span></li>`;
+                        mobileHTML += `<li><span class=\"${item.textClass}\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value})</span></li>`;
                     } else {
                         const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
-                        mobileHTML += `<li><span style=\"color:${item.color}; font-weight:bold;\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></span></li>`;
+                        mobileHTML += `<li><span class=\"${item.textClass}\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></span></li>`;
                     }
                 });
                 mobileHTML += '</ul>';
@@ -1404,10 +1424,10 @@ function updatePriceLogTable() {
     }
     companiesToDisplay.forEach(company => {
         const th = document.createElement('th');
-        const companyColor = companyColors[company.id] || '#000000';
+        const colorIndex = companyColors[company.id] || 0;
+        const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
         th.textContent = company.name;
-        th.style.color = companyColor;
-        th.style.fontWeight = 'bold';
+        th.className = textClass;
         priceLogTableHeader.appendChild(th);
     });
 
@@ -1843,10 +1863,11 @@ function renderMarketBoard(marketPrices, companiesStaticData, currentInitialPric
             }
 
             const barWidth = Math.min((currentPrice / maxPriceForScaling) * 100, 105); 
-            const companyColor = companyColors[company.id] || '#777777'; // Default to grey if color not found
+            const colorIndex = companyColors[company.id] || 0;
+            const barClass = COMPANY_BAR_CLASSES[colorIndex] || 'company-bar-0';
             
             let barGraphHTML = `<div class="price-level-bar-container">`;
-            barGraphHTML += `<div class="price-level-bar" style="width: ${barWidth}%; background-color: ${companyColor};"></div>`;
+            barGraphHTML += `<div class="price-level-bar ${barClass}" style="width: ${barWidth}%;"></div>`;
             barGraphHTML += `</div>`;
 
             // Optionally, color the company name text too
@@ -1906,27 +1927,29 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         const cardElement = document.createElement('div');
         cardElement.className = 'card';
         
-        // Get company color if it's a price card
-        let cardColor = 'rgba(255, 255, 255, 0.9)'; // Default white for windfall cards
+        // Get company gradient class if it's a price card
+        let cardClass = ''; // Default for windfall cards
         if (card.type === 'price') {
             const companyIndex = companiesStaticData.findIndex(c => c.id === card.company);
             if (companyIndex !== -1) {
-                const baseColor = COMPANY_COLOR_PALETTE[companyIndex % COMPANY_COLOR_PALETTE.length];
-                // Convert hex to rgba with transparency
-                cardColor = hexToRGBA(baseColor, 0.9);
+                const colorIndex = companyIndex % COMPANY_GRADIENT_CLASSES.length;
+                cardClass = COMPANY_GRADIENT_CLASSES[colorIndex];
             }
         }
 
+        // Apply gradient class if it's a price card
+        if (cardClass) {
+            cardElement.classList.add(cardClass);
+        }
+        
         cardElement.style.cssText = `
             width: 100%; /* Fill the grid column */
-            aspect-ratio: 2/3;
+            aspect-ratio: 3/4; /* Slightly taller to fit witty text */
             position: relative;
-            background: ${cardColor};
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             cursor: pointer;
-            transition: transform 0.2s;
-            color: ${card.type === 'price' ? '#ffffff' : '#000000'};
+            transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -1941,18 +1964,34 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         if (card.type === 'price') {
             const company = companiesStaticData.find(c => c.id === card.company);
             const changeColor = card.change > 0 ? '#4CAF50' : card.change < 0 ? '#f44336' : '#ffffff';
+            
+            // Get witty message and make it fit nicely
+            const wittyMessage = card.message || `${company ? company.name : card.company} ${card.change > 0 ? 'rises' : 'falls'} by ₹${Math.abs(card.change)}`;
+            // Smart truncation - keep it readable but fit in card
+            const smartTruncated = wittyMessage.length > 60 ? wittyMessage.substring(0, 57) + '...' : wittyMessage;
+            
+            // Determine text color based on company - ONGC (yellow cards) should have black text
+            const isONGC = card.company === 'ONG';
+            const wittyTextColor = isONGC ? '#000000' : 'inherit';
+            
             cardContent = `
-                <div style="padding: 8px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
-                    <div style="font-weight: bold; margin-bottom: 4px; font-size: 1em;">${company ? company.name : card.company}</div>
+                <div style="padding: 4px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0;">
+                    <div style="font-weight: bold; font-size: 0.8em; margin-bottom: 2px;">${company ? company.name : card.company}</div>
+                    <div style="font-size: 0.7em; line-height: 1.1; opacity: 0.95; padding: 2px; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; hyphens: auto; color: ${wittyTextColor};">${smartTruncated}</div>
                 </div>
-                <div style="padding: 8px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px;">
-                    <div style="font-size: 1.2em;">${card.change > 0 ? '+' : ''}${card.change}</div>
+                <div style="padding: 4px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px; flex-shrink: 0;">
+                    <div style="font-size: 1em; font-weight: bold; color: white;">${card.change > 0 ? '+' : ''}₹${card.change}</div>
                 </div>
             `;
         } else if (card.type === 'windfall') {
+            // Witty message for windfall cards
+            const wittyMessage = card.message || `${card.sub} card activated`;
+            const smartTruncated = wittyMessage.length > 80 ? wittyMessage.substring(0, 77) + '...' : wittyMessage;
+            
             cardContent = `
-                <div style="padding: 8px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
-                    <div style="font-weight: bold; color: #4a90e2; font-size: 1em;">${card.sub}</div>
+                <div style="padding: 6px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div style="font-weight: bold; color: #4a90e2; font-size: 1em; margin-bottom: 4px;">${card.sub}</div>
+                    <div style="font-size: 0.7em; line-height: 1.2; color: #555; font-style: italic; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; padding: 2px;">${smartTruncated}</div>
                 </div>
             `;
         }
@@ -1972,6 +2011,41 @@ function hexToRGBA(hex, alpha) {
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Function to update background gradient based on market sentiment
+function updateMarketSentimentBackground(sentiment) {
+    const body = document.body;
+    
+    let gradient;
+    switch (sentiment) {
+        case 'bullish':
+            // Strong green with grey
+            gradient = 'linear-gradient(135deg, #f0f0f0 0%, #e8f5e8 20%, #d4f4d4 40%, #f5f5f5 60%, #f0f0f0 100%)';
+            break;
+        case 'positive':
+            // Light green with grey
+            gradient = 'linear-gradient(135deg, #f0f0f0 0%, #f0f8f0 30%, #f5f5f5 70%, #f0f0f0 100%)';
+            break;
+        case 'bearish':
+            // Strong red with grey
+            gradient = 'linear-gradient(135deg, #f0f0f0 0%, #fae8e8 20%, #f4d4d4 40%, #f5f5f5 60%, #f0f0f0 100%)';
+            break;
+        case 'negative':
+            // Light red with grey
+            gradient = 'linear-gradient(135deg, #f0f0f0 0%, #f8f0f0 30%, #f5f5f5 70%, #f0f0f0 100%)';
+            break;
+        case 'neutral':
+        default:
+            // Pure grey gradient
+            gradient = 'linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%, #f8f8f8 100%)';
+            break;
+    }
+    
+    body.style.background = gradient;
+    body.style.backgroundAttachment = 'fixed';
+    
+    console.log(`[Market Sentiment Background] Applied ${sentiment} gradient`);
 }
 
 // --- END NEW HTML RENDERING FUNCTIONS --- 
@@ -2236,8 +2310,11 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
             console.warn(`[renderPlayerWorthChart] Player ${player.name} (UUID: ${player.uuid}) has no valid data points for any period. Line will be missing. Raw playerData:`, JSON.parse(JSON.stringify(playerData)), "Historical data for player:", JSON.parse(JSON.stringify(historicalData.filter(d => d.playerId === player.uuid))));
         }
 
-        // Corrected player color assignment to use the player's index
-        const playerColor = COMPANY_COLOR_PALETTE[index % COMPANY_COLOR_PALETTE.length] || '#808080'; // Fallback to grey if palette is exhausted
+        // Use gradient color system for player chart colors
+        const colorIndex = index % COMPANY_GRADIENT_CLASSES.length;
+        // Extract the main color from our gradient system for chart display
+        const chartColors = ['#FF6347', '#4682B4', '#32CD32', '#FFD700', '#6A5ACD', '#FF69B4', '#00CED1', '#FFA500', '#8A2BE2', '#D2691E'];
+        const playerColor = chartColors[colorIndex] || '#808080';
 
         console.log(`[renderPlayerWorthChart] For player ${player.name} (UUID: ${player.uuid}): Data points:`, playerData, `Assigned Color: ${playerColor}`);
 
@@ -2478,6 +2555,9 @@ function handleQuantityButtonClick(input, increment) {
 
 // Add event listeners for quantity buttons
 document.addEventListener('DOMContentLoaded', () => {
+    // Set initial neutral background
+    updateMarketSentimentBackground('neutral');
+    
     // Find all quantity input containers
     const quantityContainers = document.querySelectorAll('.quantity-input-container');
     
@@ -2516,10 +2596,11 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
                 const value = shares * currentPrice;
                 totalPortfolioValue += value;
                 const companyName = getCompanyName(companyId, companiesStaticData);
-                const color = companyColors[companyId] || '#000000';
+                const colorIndex = companyColors[companyId] || 0;
+                const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
                 holdingsHTML += `
                     <div class="holding-item">
-                        <div class="company-name" style="color: ${color}">${companyName}</div>
+                        <div class="company-name ${textClass}">${companyName}</div>
                         <div class="shares">${shares.toLocaleString()} shares</div>
                         <div class="value">₹${value.toLocaleString()}</div>
                     </div>
@@ -2536,12 +2617,13 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
             const value = position.quantity * currentPrice;
             totalPortfolioValue -= value; // Subtract short position value
             const companyName = getCompanyName(companyId, companiesStaticData);
-            const color = companyColors[companyId] || '#000000';
+            const colorIndex = companyColors[companyId] || 0;
+            const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
             const unrealizedPnl = (position.priceOpened - currentPrice) * position.quantity;
             const pnlClass = unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
             holdingsHTML += `
                 <div class="holding-item">
-                    <div class="company-name" style="color: ${color}">${companyName} (Short)</div>
+                    <div class="company-name ${textClass}">${companyName} (Short)</div>
                     <div class="shares">-${position.quantity.toLocaleString()} shares</div>
                     <div class="value">₹${value.toLocaleString()} <span class="${pnlClass}">P&L: ₹${unrealizedPnl.toLocaleString()}</span></div>
                 </div>

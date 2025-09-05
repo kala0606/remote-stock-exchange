@@ -16,7 +16,195 @@ const COMPANIES = [
   { id:'REL', name: 'Reliance Industries', initial:75, moves:[30,25,-15,-40] }, // Sum: 0
   { id:'INF', name: 'Infosys Ltd', initial:80, moves:[30,20,-10,-40] } // Sum: 0
 ];
+
+// Witty and brutal Indian context messages for price changes
+const CARD_MESSAGES = {
+  'WCK': {
+    10: [
+      "CEO does yoga with Baba Ramdev! 🧘‍♂️",
+      "Discovers cure for Monday blues!",
+      "Blessed medicines by local pandit!",
+      "Akshay Kumar endorses = instant success!"
+    ],
+    5: [
+      "Launches 'Gau Mutra Plus' edition!",
+      "Free homeopathy with every pill!",
+      "CEO distributes free meds at station!",
+      "Now available at every pan shop!"
+    ],
+    '-5': [
+      "Expired meds labeled 'vintage collection'!",
+      "CEO caught using competitor's syrup! 😬",
+      "Quality team busy watching IPL!",
+      "Medicine bottles used for pickles!"
+    ],
+    '-10': [
+      "'Instant cure' takes 6 months!",
+      "Customers feeling TOO healthy!",
+      "CEO googles symptoms before prescribing!",
+      "Factory makes energy drinks by mistake!"
+    ]
+  },
+  'HDF': {
+    15: [
+      "0% loans for Ambani/Adani only!",
+      "Aadhaar data prints money now!",
+      "AI approves loans in nanoseconds!",
+      "Bank branch in every mall!"
+    ],
+    10: [
+      "Emoji banking: React 💰 for loans!",
+      "Free relationship counseling included!",
+      "ATMs dispense motivational quotes!",
+      "Loan approval by Instagram followers!"
+    ],
+    '-5': [
+      "₹50 to check your own balance!",
+      "Quick loan slower than monsoon!",
+      "Hold time longer than Bollywood movie!",
+      "Festival surge pricing introduced!"
+    ],
+    '-20': [
+      "Server crashes during IPL final! 💸",
+      "Salary sent to everyone's ex!",
+      "Security answer: 'None of your business!'",
+      "Manager uses calculator for 2+2!"
+    ]
+  },
+  'TIS': {
+    20: [
+      "Now making vibranium for Marvel!",
+      "Ratan Tata delivers steel on bicycle!",
+      "Steel used for unbreakable political promises!",
+      "Withstands earthquakes AND mother-in-law!"
+    ],
+    10: [
+      "Premium 'artisanal hand-forged' steel!",
+      "Broken dreams → strong beams program!",
+      "Workers get free gym membership!",
+      "Unbreakable cricket bats - Dhoni approved!"
+    ],
+    '-10': [
+      "Workers demand steel-free workplace!",
+      "Rust-proof steel rusts during elections!",
+      "Steel used for employee BBQ parties!",
+      "Bend like Beckham, break like our steel!"
+    ],
+    '-20': [
+      "Elon tweets 'Iron Man overrated'! 🤦‍♂️",
+      "Bridge collapses during inauguration!",
+      "Factory makes chocolate by mistake!",
+      "Quality control by coin-flipping monkeys!"
+    ]
+  },
+  'ONG': {
+    25: [
+      "Oil struck in Sharma ji's backyard!",
+      "Partnership with NASA for Mars drilling! 🚀",
+      "Jasmine-scented premium fuel discovered!",
+      "Oil found under every cricket stadium!"
+    ],
+    15: [
+      "Drilling guided by local aunties!",
+      "Oil comes with free cooking tips!",
+      "Workers strike gold instead of oil!",
+      "Organic oil label = instant success!"
+    ],
+    '-10': [
+      "Mistakes sewage pipe for oil pipeline!",
+      "Exploration guided by astrology!",
+      "Smart AI keeps hitting water!",
+      "Oil reserves are just coconut oil!"
+    ],
+    '-30': [
+      "Hits water pipe, solves Delhi crisis!",
+      "CEO admits selling cooking oil as crude!",
+      "Exploration budget spent on team building!",
+      "Oil only works on Tuesdays!"
+    ]
+  },
+  'REL': {
+    30: [
+      "Ambani buys floor for pet goldfish!",
+      "Free internet for life (24 hours)!",
+      "Jio Satellite promises 5G on Moon! 🚀",
+      "Morning jog powers entire Mumbai!"
+    ],
+    25: [
+      "Selling bottled air to premium customers!",
+      "Jio Brain thinks faster than counting money!",
+      "Buying the alphabet - vowels cost extra!",
+      "Grocery delivery by helicopter!"
+    ],
+    '-15': [
+      "Network down during Bigg Boss finale!",
+      "Selling 'organic' plastic bags!",
+      "WiFi password leaked: 'Jio123'!",
+      "AI gives life advice instead of support!"
+    ],
+    '-40': [
+      "WiFi password was 'password123'!",
+      "Vegetables at ₹1000/kg - too much!",
+      "Network replaced with carrier pigeons!",
+      "Quarterly report in Comic Sans font!"
+    ]
+  },
+  'INF': {
+    30: [
+      "AI attends boring meetings for you!",
+      "Narayana Murthy coding at 3 AM!",
+      "Software debugs itself - becomes sentient!",
+      "AI complains about work-life balance!"
+    ],
+    20: [
+      "Code Yoga: Meditation while programming!",
+      "AI writes code faster than coffee breaks!",
+      "Free therapy for coding trauma!",
+      "Must code in 5 languages + make chai!"
+    ],
+    '-10': [
+      "Code review longer than development!",
+      "Agile slower than government bureaucracy!",
+      "AI demands work-from-home policy!",
+      "Meetings about meetings > actual coding!"
+    ],
+    '-40': [
+      "Code accidentally sent to competitor!",
+      "Work from Home = Work from Himalayas!",
+      "Software update deletes itself!",
+      "AI charges for emotional labor!"
+    ]
+  }
+};
 const WINDFALLS = ['LOAN','DEBENTURE','RIGHTS'];
+
+// Witty messages for windfall cards (shorter for card display)
+const WINDFALL_MESSAGES = {
+  'LOAN': [
+    "Rich uncle finally delivers! 💰",
+    "Found money in old jeans!",
+    "Crypto mining pays off!",
+    "Bank gives 0% loan (soul required)",
+    "Won Bollywood birthday lottery!",
+    "Government free money scheme!"
+  ],
+  'DEBENTURE': [
+    "Junk stocks → actual money!",
+    "Insurance claim approved!",
+    "Tax refund after 5 years!",
+    "Bankruptcy = opportunity!",
+    "Government buyback program!",
+    "Stock market therapy fund!"
+  ],
+  'RIGHTS': [
+    "Buy more pain at discount!",
+    "CEO's guilt = cheap shares!",
+    "Double shares, double stress!",
+    "Loyalty rewards: more losses!",
+    "Company apology shares!",
+    "Half price, full regret!"
+  ]
+};
 
 const TRANSACTIONS_PER_PERIOD = 3;
 const MAX_ROUNDS_PER_PERIOD = 3; // Define max rounds
@@ -100,13 +288,34 @@ function buildDeck(game) { // Added game parameter
     // Add price movement cards
     COMPANIES.forEach(company => {
       company.moves.forEach(change => {
-        deck.push({ type: 'price', company: company.id, change });
+        // Get random witty message for this company and price change
+        const messages = CARD_MESSAGES[company.id] && CARD_MESSAGES[company.id][change.toString()];
+        const randomMessage = messages && messages.length > 0 
+          ? messages[Math.floor(Math.random() * messages.length)]
+          : `${company.name} stock ${change > 0 ? 'rises' : 'falls'} by ₹${Math.abs(change)}`;
+        
+        deck.push({ 
+          type: 'price', 
+          company: company.id, 
+          change,
+          message: randomMessage
+        });
       });
     });
 
     // Add windfall cards
     WINDFALLS.forEach(windfall => {
-      deck.push({ type: 'windfall', sub: windfall });
+      // Get random witty message for this windfall card
+      const messages = WINDFALL_MESSAGES[windfall];
+      const randomMessage = messages && messages.length > 0 
+        ? messages[Math.floor(Math.random() * messages.length)]
+        : `${windfall} card activated`;
+      
+      deck.push({ 
+        type: 'windfall', 
+        sub: windfall,
+        message: randomMessage
+      });
     });
   }
 
@@ -233,7 +442,8 @@ function emitGameState(game, context = 'normal') {
         gameStarted: game.gameStarted,
         awaitingAdminDecision: game.state.awaitingAdminDecision,
         pricesResolvedThisCycle: game.state.pricesResolvedThisCycle,
-        periodStarter: game.state.periodStarter
+        periodStarter: game.state.periodStarter,
+        marketSentiment: game.state.marketSentiment || 'neutral'
       },
       hand: player.hand, 
       isAdmin: isAdmin, 
@@ -251,27 +461,70 @@ function calculateAndApplyPriceChanges(game) {
   console.log('\n=== CALCULATING PRICE CHANGES ===');
 
   let deltas = {};
-  COMPANIES.forEach(company => { deltas[company.id] = 0; });
+  let priceChangeMessages = {}; // Store witty messages for each company
+  COMPANIES.forEach(company => { 
+    deltas[company.id] = 0; 
+    priceChangeMessages[company.id] = [];
+  });
 
   game.players.forEach(player => {
     (player.hand || []).forEach(card => {
       if (card.type === 'price' && !card.played) {
         deltas[card.company] += card.change;
+        // Collect witty messages for price changes
+        if (card.message) {
+          priceChangeMessages[card.company].push(card.message);
+        }
       }
     });
   });
 
-  // Log final price changes
+  // Log final price changes with witty messages
   console.log('\nFINAL PRICE CHANGES:');
   Object.keys(deltas).forEach(company => {
     if (deltas[company] !== 0) {
       console.log(`  - ${getCompanyName(company, game)}: ${deltas[company]}`);
+      // Log witty messages for this company
+      if (priceChangeMessages[company].length > 0) {
+        console.log(`    Messages: ${priceChangeMessages[company].join(' | ')}`);
+      }
     }
   });
 
   Object.keys(game.state.prices).forEach(company => {
     game.state.prices[company] = Math.max(0, game.state.prices[company] + deltas[company]);
   });
+
+  // Calculate market sentiment based on price changes
+  let totalPriceChange = 0;
+  let companiesAffected = 0;
+  Object.keys(deltas).forEach(company => {
+    if (deltas[company] !== 0) {
+      totalPriceChange += deltas[company];
+      companiesAffected++;
+    }
+  });
+  
+  // Determine market sentiment: positive, negative, or neutral
+  let marketSentiment = 'neutral';
+  if (companiesAffected > 0) {
+    const averageChange = totalPriceChange / companiesAffected;
+    if (averageChange > 5) {
+      marketSentiment = 'bullish';
+    } else if (averageChange < -5) {
+      marketSentiment = 'bearish';
+    } else if (averageChange > 0) {
+      marketSentiment = 'positive';
+    } else if (averageChange < 0) {
+      marketSentiment = 'negative';
+    }
+  }
+  
+  // Store market sentiment in game state
+  game.state.marketSentiment = marketSentiment;
+  console.log(`[Market Sentiment] ${marketSentiment.toUpperCase()} - Total change: ${totalPriceChange}, Companies affected: ${companiesAffected}`);
+
+  // Simple price update message without witty messages
   logActivity(game, null, 'PRICES_RESOLVED', `Market prices updated based on card effects for Period ${game.period}.`);
   
   // --- NEW: Automatic Short Position Covering at End of Period ---
@@ -982,7 +1235,8 @@ io.on('connection', socket => {
         player.cash += 100000;
         actualCardInHand.played = true;
         // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // LOAN usually doesn't count as transaction
-        logActivity(game, player.name, 'PLAY_CARD', `Played LOAN card, received ₹100,000.`);
+        const wittyMessage = actualCardInHand.message || `Played LOAN card, received ₹100,000.`;
+        logActivity(game, player.name, 'PLAY_CARD', `LOAN: ${wittyMessage}`);
         emitGameState(game);
     } else if (card.sub === 'DEBENTURE') {
         let debentureValue = 0;
@@ -995,9 +1249,11 @@ io.on('connection', socket => {
         if (debentureValue > 0) player.cash += debentureValue;
         actualCardInHand.played = true;
         // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // DEBENTURE usually doesn't count
-        const message = debentureValue > 0 ? `Debenture card yielded ₹${debentureValue.toLocaleString()}` : 'Debenture card played, no eligible stocks.';
-        socket.emit('info', { message });
-        logActivity(game, player.name, 'PLAY_CARD', message);
+        const baseMessage = debentureValue > 0 ? `Debenture card yielded ₹${debentureValue.toLocaleString()}` : 'Debenture card played, no eligible stocks.';
+        const wittyMessage = actualCardInHand.message || baseMessage;
+        const fullMessage = `DEBENTURE: ${wittyMessage} (Received: ₹${debentureValue.toLocaleString()})`;
+        socket.emit('info', { message: fullMessage });
+        logActivity(game, player.name, 'PLAY_CARD', fullMessage);
         emitGameState(game);
     } else if (card.sub === 'RIGHTS') {
         if (!targetCompany || !COMPANIES.find(c => c.id === targetCompany)) return socket.emit('error', { message: 'Invalid target company for Rights Issue.' });
@@ -1034,10 +1290,12 @@ io.on('connection', socket => {
         player.portfolio[targetCompany] = (player.portfolio[targetCompany] || 0) + actualSharesToGrant;
         actualCardInHand.played = true;
         // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // DECIDE IF PERSONAL RIGHTS ISSUE IS A TRANSACTION
-        const rightsMessage = `Your Rights Issue: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} for ₹${totalCost.toLocaleString()}.`;
+        const baseRightsMessage = `Your Rights Issue: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} for ₹${totalCost.toLocaleString()}.`;
+        const wittyMessage = actualCardInHand.message || baseRightsMessage;
+        const fullRightsMessage = `RIGHTS: ${wittyMessage} (Acquired: ${actualSharesToGrant.toLocaleString()} shares for ₹${totalCost.toLocaleString()})`;
         console.log(`[Windfall RIGHTS Personal] Player ${player.name} got ${actualSharesToGrant} of ${targetCompany}. Cash: ${player.cash}`);
-        socket.emit('info', { message: rightsMessage });
-        logActivity(game, player.name, 'PLAY_CARD_RIGHTS', rightsMessage);
+        socket.emit('info', { message: fullRightsMessage });
+        logActivity(game, player.name, 'PLAY_CARD_RIGHTS', fullRightsMessage);
 
         // Announce general rights offer if not already active for this company in this round
         if (!game.state.activeRightsOffers[targetCompany] || game.state.activeRightsOffers[targetCompany].roundAnnounced !== game.state.roundNumberInPeriod) {
