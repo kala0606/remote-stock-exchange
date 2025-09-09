@@ -353,7 +353,9 @@ function initGame(game, initialAdminPlayerId) {
     presidents: {}, // { companyId: [playerId1, playerId2, ...] }
     awaitingAdminDecision: false, // ADDED: Flag for admin choice
     pricesResolvedThisCycle: false, // ADDED: Flag to track if prices have been resolved in the current admin decision cycle
-    periodStarter: game.players[randomFirstPlayerIndex].id // NEW: Store the period starter's ID
+    periodStarter: game.players[randomFirstPlayerIndex].id, // NEW: Store the period starter's ID
+    turnTimeData: [], // NEW: Initialize turn time tracking array
+    currentTurnStartTime: null // NEW: Track when current turn started
   };
   game.period = 1;
   game.deck = buildDeck(game); // Pass game object
@@ -396,6 +398,14 @@ function emitGameState(game, context = 'normal') {
   }
   console.log(`[emitGameState] Emitting game state. Context: ${context}`);
   console.log(`[emitGameState] Current turn index: ${game.state.currentTurn}, Current turn player ID: ${game.state.currentTurnPlayerId}`);
+  
+  // Track turn time - record when turn changes
+  const currentTurnPlayer = game.players[game.state.currentTurn];
+  if (currentTurnPlayer && game.state.currentTurnStartTime === null) {
+    // New turn starting - record start time
+    game.state.currentTurnStartTime = Date.now();
+    console.log(`[emitGameState] Turn started for ${currentTurnPlayer.name} at ${new Date().toISOString()}`);
+  }
   
   game.players.forEach(player => {
     const currentAdminId = game.admin;
@@ -981,7 +991,8 @@ io.on('connection', socket => {
             finalCash: p.cash,
             finalPortfolioValue: calculatePlayerTotalWorth(p, game.state.prices) - p.cash // Recalculate for safety
         })),
-        historicalWorthData: game.state.historicalWorthData || []
+        historicalWorthData: game.state.historicalWorthData || [],
+        turnTimeData: game.state.turnTimeData || [] // NEW: Include turn time data
     };
 
     io.to(roomID).emit('gameSummaryReceived', summaryData);
@@ -1326,6 +1337,21 @@ io.on('connection', socket => {
     }
 
     const roundAtActionTime = game.state.roundNumberInPeriod;
+    
+    // Record turn time before passing
+    if (game.state.currentTurnStartTime) {
+        const turnDuration = Date.now() - game.state.currentTurnStartTime;
+        const turnData = {
+            playerName: player.name,
+            period: game.period,
+            round: roundAtActionTime,
+            turnDuration: turnDuration,
+            timestamp: new Date().toISOString()
+        };
+        game.state.turnTimeData.push(turnData);
+        console.log(`[pass] Recorded turn time for ${player.name}: ${turnDuration}ms`);
+    }
+    
     console.log(`[pass] Player ${player.name} (Socket: ${socket.id}, Round: ${roundAtActionTime}) is passing.`);
 
     if (player.transactionsRemaining > 0) {
@@ -1379,6 +1405,9 @@ io.on('connection', socket => {
         game.state.currentTurn = nextTurnPlayerIndex;
         game.state.currentTurnPlayerId = game.players[nextTurnPlayerIndex].id;
         
+        // Reset turn start time for new turn
+        game.state.currentTurnStartTime = null;
+        
         const nextPlayer = game.players[nextTurnPlayerIndex];
         if (nextPlayer) {
             // Only reset transactions for the next player if the round did NOT advance
@@ -1412,6 +1441,20 @@ io.on('connection', socket => {
     }
 
     const roundAtActionTime = game.state.roundNumberInPeriod;
+
+    // Record turn time before ending turn
+    if (game.state.currentTurnStartTime) {
+        const turnDuration = Date.now() - game.state.currentTurnStartTime;
+        const turnData = {
+            playerName: player.name,
+            period: game.period,
+            round: roundAtActionTime,
+            turnDuration: turnDuration,
+            timestamp: new Date().toISOString()
+        };
+        game.state.turnTimeData.push(turnData);
+        console.log(`[endTurn] Recorded turn time for ${player.name}: ${turnDuration}ms`);
+    }
 
     console.log(`[endTurn] Player ${player.name} (Current Turn Index: ${game.state.currentTurn}, Socket: ${socket.id}, Round: ${roundAtActionTime}) is ending turn.`);
 
@@ -1465,6 +1508,9 @@ io.on('connection', socket => {
         // Set current turn to the next player - ensure both are updated together
         game.state.currentTurn = nextTurnPlayerIndex;
         game.state.currentTurnPlayerId = nextPlayerObject.id;
+        
+        // Reset turn start time for new turn
+        game.state.currentTurnStartTime = null;
         
         console.log(`[endTurn] Turn advanced to player ${nextPlayerObject.name} (index: ${nextTurnPlayerIndex}, id: ${nextPlayerObject.id})`);
         

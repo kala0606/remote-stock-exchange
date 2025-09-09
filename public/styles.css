@@ -654,10 +654,18 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 #price-log-table th {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.9) !important;
     font-weight: bold;
     position: sticky;
     top: 0;
+    z-index: 10;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure company name headers in price log have proper background */
+#price-log-table thead th {
+    background: rgba(255, 255, 255, 0.9) !important;
+    z-index: 10;
 }
 
 #price-log-table tbody tr:nth-child(even) {
@@ -943,6 +951,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     padding: 20px;
     max-height: 90vh;
     overflow-y: auto;
+    background: #ffffff !important;
   }
   .modal-content h2 {
     font-size: 1.3em;
@@ -1060,6 +1069,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   .modal-content {
     width: 95%;
     padding: 15px;
+    background: #ffffff !important;
   }
   .modal-content h2 {
     font-size: 1.2em;
@@ -1318,6 +1328,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     padding: 15px; /* Reduce padding */
     margin-top: 20px; /* Reduce top margin */
   }
+  
+  #game-over-screen .game-over-content {
+    width: 95vw;
+    max-width: 95vw;
+    box-sizing: border-box;
+  }
 
   #winner-announcement {
     font-size: 1.3em; /* Reduce font size */
@@ -1333,6 +1349,13 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 @media (max-width: 480px) {
   #game-over-screen {
     padding: 10px; /* Further reduce padding */
+  }
+  
+  #game-over-screen .game-over-content {
+    width: 98vw;
+    max-width: 98vw;
+    padding: 12px 2vw;
+    box-sizing: border-box;
   }
 
   #winner-announcement {
@@ -1854,8 +1877,16 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   justify-content: center;
 }
 
+#game-over-screen {
+  background: rgba(0,0,0,0.9) !important; /* Ensure dark overlay */
+}
+
+#game-over-screen.panel {
+  background: transparent !important; /* Override panel transparency */
+}
+
 #game-over-screen .game-over-content {
-  background: rgba(255, 255, 255, 0.4);
+  background: #ffffff !important; /* Solid opaque white background */
   border-radius: 8px;
   padding: 32px 24px;
   max-width: 600px;
@@ -1863,7 +1894,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   margin: 0 auto;
   text-align: center;
-  border: none;
+  border: 1px solid #cccccc;
 }
 
 #game-over-screen h2 {
@@ -2157,7 +2188,10 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 @media (max-width: 600px) {
   #game-over-screen .game-over-content {
     padding: 16px 4vw;
-    max-width: 98vw;
+    max-width: 95vw;
+    width: 95vw;
+    margin: 0 auto;
+    box-sizing: border-box;
   }
 }
 
@@ -2444,12 +2478,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .modal-content {
-  background: #ffffff; /* Opaque white modal background */
+  background: #ffffff !important; /* Solid opaque white modal background */
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   margin: 0;
   padding: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid #cccccc;
   width: 80%;
   max-width: 500px;
   border-radius: 20px;
@@ -2520,6 +2554,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   transition: all 0.3s ease;
 }
@@ -2527,6 +2562,50 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 #info-bar > span {
   margin: 0;
   white-space: nowrap;
+}
+
+/* Timer styles - positioned in info bar */
+#turn-timer {
+  display: none;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: #4CAF50;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+#timer-label {
+  color: #7f8c8d;
+  font-weight: normal;
+}
+
+#timer-display {
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 1.1em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.your-turn-indicator-dot {
+  color: #27ae60;
+  font-size: 1.2em;
+  margin-left: 8px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+#game-over-screen h3 {
+  color: #2c3e50;
+  margin: 20px 0 10px 0;
+  font-size: 1.3em;
+  font-weight: bold;
 }
 
 /* Restore action buttons styles */

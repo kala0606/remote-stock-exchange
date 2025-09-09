@@ -117,6 +117,68 @@ function clearSession() {
     localStorage.removeItem('gameSession');
 }
 
+// Timer functions
+function startTurnTimer() {
+    if (isTimerRunning) {
+        return; // Timer already running
+    }
+    
+    turnStartTime = Date.now();
+    isTimerRunning = true;
+    
+    // Show timer element
+    const timerElement = document.getElementById('turn-timer');
+    if (timerElement) {
+        timerElement.style.display = 'inline';
+    }
+    
+    // Start the timer interval
+    turnTimer = setInterval(updateTimerDisplay, 1000);
+    console.log('[Timer] Started turn timer');
+}
+
+function stopTurnTimer() {
+    if (!isTimerRunning) {
+        return; // Timer not running
+    }
+    
+    isTimerRunning = false;
+    
+    // Clear the timer interval
+    if (turnTimer) {
+        clearInterval(turnTimer);
+        turnTimer = null;
+    }
+    
+    // Hide timer element
+    const timerElement = document.getElementById('turn-timer');
+    if (timerElement) {
+        timerElement.style.display = 'none';
+    }
+    
+    console.log('[Timer] Stopped turn timer');
+}
+
+function updateTimerDisplay() {
+    if (!isTimerRunning || !turnStartTime) {
+        return;
+    }
+    
+    const elapsed = Date.now() - turnStartTime;
+    const minutes = Math.floor(elapsed / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    
+    const timerDisplay = document.getElementById('timer-display');
+    if (timerDisplay) {
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+}
+
+function resetTurnTimer() {
+    stopTurnTimer();
+    turnStartTime = null;
+}
+
 // DOM Elements - Declared ONCE
 const lobbyScreen = document.getElementById('lobby');
 const gameScreen = document.getElementById('game');
@@ -229,8 +291,16 @@ let isRejoining = false;
 let currentPlayerName = null;
 let currentSessionToken = null;
 let currentGameState = null; // Central game state holder
+let lastHandSignature = ''; // Track hand changes to avoid unnecessary gradient updates
+let lastGradientSentiment = 0; // For smoothing gradient changes
 let activityLogEntries = []; // MODIFIED: Added to store activity log entries
 let handDeltas = {}; // NEW: To store net impact of hand cards
+
+// Timer functionality
+let turnTimer = null;
+let turnStartTime = null;
+let isTimerRunning = false;
+
 
 let playerTurnOrderTableElement = null; // NEW: Renamed to reflect it IS the table element
 
@@ -418,8 +488,14 @@ if (startGameBtn) {
 
 if (buyBtn) buyBtn.addEventListener('click', () => showTransactionModal('buy'));
 if (sellBtn) sellBtn.addEventListener('click', () => showTransactionModal('sell'));
-if (passBtn) passBtn.addEventListener('click', () => socket.emit('pass', { roomID: currentRoom })); // Corrected event name
-if (endTurnBtn) endTurnBtn.addEventListener('click', () => socket.emit('endTurn', { roomID: currentRoom })); // Corrected event name
+if (passBtn) passBtn.addEventListener('click', () => {
+    stopTurnTimer(); // Stop timer when passing turn
+    socket.emit('pass', { roomID: currentRoom });
+}); // Corrected event name
+if (endTurnBtn) endTurnBtn.addEventListener('click', () => {
+    stopTurnTimer(); // Stop timer when ending turn
+    socket.emit('endTurn', { roomID: currentRoom });
+}); // Corrected event name
 
 function showTransactionModal(action) {
     console.log('[showTransactionModal] Opening modal for action:', action);
@@ -662,6 +738,19 @@ socket.on('gameState', state => {
     isAdmin = state.isAdmin; 
     isYourTurn = state.isYourTurn;
     
+    // Handle timer based on turn changes
+    if (isYourTurn && state.state?.currentTurnPlayerId === socket.id) {
+        // It's my turn - start timer if not already running
+        if (!isTimerRunning) {
+            startTurnTimer();
+        }
+    } else {
+        // It's not my turn - stop timer if running
+        if (isTimerRunning) {
+            stopTurnTimer();
+        }
+    }
+    
     if (lobbyScreen && gameScreen && lobbyScreen.style.display !== 'none') {
         lobbyScreen.style.display = 'none';
         gameScreen.style.display = 'block';
@@ -707,39 +796,218 @@ function calculateMarketSentiment(marketPrices, initialPrices) {
     return sentiment;
 }
 
-// Function to update background gradient based on market sentiment
-function updateBackgroundGradient(sentiment) {
-    // Normalize sentiment to range between -1 and 1
-    const normalizedSentiment = Math.max(-1, Math.min(1, sentiment / 100));
+// Function to calculate future market sentiment based on current cards in all players' hands
+function calculateFutureMarketSentiment(allPlayersData, playerHandArray, companiesStaticData, currentPrices) {
+    if (!allPlayersData || !playerHandArray || !companiesStaticData || !currentPrices) {
+        console.log('Missing data for future sentiment calculation:', { 
+            allPlayersData: !!allPlayersData, 
+            playerHandArray: !!playerHandArray, 
+            companiesStaticData: !!companiesStaticData,
+            currentPrices: !!currentPrices
+        });
+        return 0;
+    }
     
-    // Calculate pastel color intensities based on sentiment
-    // Using very light base colors for a more pastel effect
-    const redIntensity = normalizedSentiment < 0 ? 255 : Math.floor(220 + (35 * (1 - normalizedSentiment)));
-    const greenIntensity = normalizedSentiment > 0 ? 255 : Math.floor(220 + (35 * (1 + normalizedSentiment)));
+    let totalFutureChange = 0;
+    let totalPriceCards = 0;
     
-    // Create pastel RGB colors with higher blue component for softer look
-    const redColor = `rgb(${redIntensity}, 220, 220)`;
-    const greenColor = `rgb(220, ${greenIntensity}, 220)`;
-    
-    // Calculate animation speed based on sentiment
-    // More volatile market (higher absolute sentiment) = faster animation
-    const baseSpeed = 15; // Base animation duration in seconds
-    const speedMultiplier = 1 + Math.abs(normalizedSentiment); // 1 to 2 range
-    const animationDuration = baseSpeed / speedMultiplier;
-    
-    console.log('Gradient Update:', {
-        rawSentiment: sentiment.toFixed(2),
-        normalizedSentiment: normalizedSentiment.toFixed(2),
-        redIntensity,
-        greenIntensity,
-        redColor,
-        greenColor,
-        animationDuration: animationDuration.toFixed(2)
+    // Aggregate all price cards from all players (using percentage changes)
+    const futureDeltas = {};
+    companiesStaticData.forEach(company => {
+        futureDeltas[company.id] = 0;
     });
     
-    // Update the body background with the new gradient and animation speed
-    document.body.style.background = `linear-gradient(45deg, ${redColor}, ${greenColor})`;
-    document.body.style.backgroundSize = '400% 400%';
+    // Add current player's hand cards (convert to percentage changes)
+    playerHandArray.forEach(card => {
+        if (card.type === 'price' && !card.played) {
+            const currentPrice = currentPrices[card.company];
+            if (currentPrice && currentPrice > 0) {
+                // Convert absolute change to percentage change
+                const percentageChange = (card.change / currentPrice) * 100;
+                futureDeltas[card.company] += percentageChange;
+                totalPriceCards++;
+            }
+        }
+    });
+    
+    // For single player games, also estimate what other cards might be in the deck
+    // This gives a more realistic market sentiment
+    if (allPlayersData.length === 1) {
+        // Estimate remaining deck cards based on typical distribution
+        const estimatedRemainingCards = 44; // 54 total - 10 in hand
+        const cardTypesPerCompany = companiesStaticData.reduce((acc, company) => {
+            acc[company.id] = company.moves.length;
+            return acc;
+        }, {});
+        
+        const totalCardTypes = Object.values(cardTypesPerCompany).reduce((sum, count) => sum + count, 0);
+        
+        companiesStaticData.forEach(company => {
+            const currentPrice = currentPrices[company.id];
+            if (currentPrice && currentPrice > 0) {
+                const companyCardProportion = cardTypesPerCompany[company.id] / totalCardTypes;
+                const estimatedCompanyCards = estimatedRemainingCards * companyCardProportion;
+                
+                // Calculate weighted average change for this company (convert to percentage)
+                const totalMoveValue = company.moves.reduce((sum, move) => sum + Math.abs(move), 0);
+                const weightedAvgChange = company.moves.reduce((sum, move) => {
+                    const weight = Math.abs(move) / totalMoveValue;
+                    return sum + (move * weight);
+                }, 0);
+                
+                // Convert to percentage and add estimated impact from remaining deck
+                const percentageChange = (weightedAvgChange / currentPrice) * 100;
+                futureDeltas[company.id] += percentageChange * estimatedCompanyCards * 0.2; // Lower weight for deck cards
+            }
+        });
+    }
+    
+    // Estimate cards in other players' hands based on statistical likelihood
+    // This gives a hint without revealing exact information
+    const otherPlayersCount = allPlayersData.length - 1; // Exclude current player
+    if (otherPlayersCount > 0) {
+        // Create a more nuanced estimate based on card distribution
+        const totalCardsInOtherHands = otherPlayersCount * 10; // Assume 10 cards per player
+        const cardTypesPerCompany = companiesStaticData.reduce((acc, company) => {
+            acc[company.id] = company.moves.length;
+            return acc;
+        }, {});
+        
+        const totalCardTypes = Object.values(cardTypesPerCompany).reduce((sum, count) => sum + count, 0);
+        
+        companiesStaticData.forEach(company => {
+            const currentPrice = currentPrices[company.id];
+            if (currentPrice && currentPrice > 0) {
+                // Estimate cards for this company based on proportional distribution
+                const companyCardProportion = cardTypesPerCompany[company.id] / totalCardTypes;
+                const estimatedCompanyCards = totalCardsInOtherHands * companyCardProportion;
+                
+                // Calculate weighted average change for this company (convert to percentage)
+                const totalMoveValue = company.moves.reduce((sum, move) => sum + Math.abs(move), 0);
+                const weightedAvgChange = company.moves.reduce((sum, move) => {
+                    const weight = Math.abs(move) / totalMoveValue;
+                    return sum + (move * weight);
+                }, 0);
+                
+                // Convert to percentage and apply the estimated impact with uncertainty dampening
+                const percentageChange = (weightedAvgChange / currentPrice) * 100;
+                const uncertaintyFactor = 0.4; // Reduced certainty for other players' cards
+                futureDeltas[company.id] += percentageChange * estimatedCompanyCards * uncertaintyFactor;
+            }
+        });
+    }
+    
+    // Calculate sentiment based on aggregated future changes
+    let companiesWithChanges = 0;
+    let totalAbsoluteChange = 0;
+    
+    for (const companyId in futureDeltas) {
+        if (futureDeltas[companyId] !== 0) {
+            totalFutureChange += futureDeltas[companyId];
+            totalAbsoluteChange += Math.abs(futureDeltas[companyId]);
+            companiesWithChanges++;
+        }
+    }
+    
+    // If no companies have changes, try to calculate a baseline sentiment from the deck
+    let futureSentiment = 0;
+    if (companiesWithChanges > 0) {
+        futureSentiment = totalFutureChange / companiesWithChanges;
+    } else {
+        // Fallback: calculate average sentiment from all possible cards in the deck (using percentages)
+        let deckSentiment = 0;
+        let totalDeckCards = 0;
+        
+        companiesStaticData.forEach(company => {
+            const currentPrice = currentPrices[company.id];
+            if (currentPrice && currentPrice > 0) {
+                company.moves.forEach(move => {
+                    const percentageChange = (move / currentPrice) * 100;
+                    deckSentiment += percentageChange;
+                    totalDeckCards++;
+                });
+            }
+        });
+        
+        if (totalDeckCards > 0) {
+            futureSentiment = deckSentiment / totalDeckCards;
+        }
+    }
+    
+    // Ensure we have a meaningful sentiment value
+    if (Math.abs(futureSentiment) < 1 && totalPriceCards > 0) {
+        // If sentiment is too small but we have price cards, amplify it
+        futureSentiment = futureSentiment * 2;
+    }
+    
+    console.log('Future Market Sentiment Calculation:', {
+        totalFutureChange: totalFutureChange.toFixed(2),
+        totalAbsoluteChange: totalAbsoluteChange.toFixed(2),
+        companiesWithChanges,
+        futureSentiment: futureSentiment.toFixed(2),
+        totalPriceCards,
+        otherPlayersCount,
+        playerHandCards: playerHandArray.filter(card => card.type === 'price' && !card.played).length,
+        futureDeltas: Object.fromEntries(
+            Object.entries(futureDeltas).map(([key, value]) => [key, value.toFixed(2)])
+        )
+    });
+    
+    return futureSentiment;
+}
+
+// Helper function to refresh gradient based on current game state
+function refreshBackgroundGradient() {
+    if (!currentGameState) return;
+    
+    const companiesStaticData = currentGameState.state?.companyList || [];
+    const playerHandToRender = currentGameState.hand || [];
+    const allPlayers = currentGameState.players || [];
+    
+    const currentPrices = currentGameState.state?.prices || {};
+    const futureSentiment = calculateFutureMarketSentiment(allPlayers, playerHandToRender, companiesStaticData, currentPrices);
+    updateBackgroundGradient(futureSentiment);
+}
+
+// Function to update background gradient based on market sentiment
+function updateBackgroundGradient(sentiment) {
+    // Base very light grey color
+    const baseGrey = 240; // Very light grey (240, 240, 240)
+    
+    let finalColor;
+    
+    // Clamp sentiment to prevent extreme values
+    const clampedSentiment = Math.max(-50, Math.min(50, sentiment));
+    
+    if (clampedSentiment > 0) {
+        // Bullish: Green tint based on sentiment strength
+        const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6); // Much lighter tint
+        const greenTint = Math.floor(baseGrey - intensity); // Subtle green tint
+        finalColor = `rgb(${greenTint}, ${baseGrey}, ${greenTint})`; // Green tint
+    } else if (clampedSentiment < 0) {
+        // Bearish: Red tint based on sentiment strength
+        const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6); // Much lighter tint
+        const redTint = Math.floor(baseGrey - intensity); // Subtle red tint
+        finalColor = `rgb(${baseGrey}, ${redTint}, ${redTint})`; // Red tint
+    } else {
+        // Neutral: Very light grey
+        finalColor = `rgb(${baseGrey}, ${baseGrey}, ${baseGrey})`;
+    }
+    
+    // Calculate animation speed based on sentiment volatility
+    const animationDuration = Math.max(8, 15 - Math.abs(clampedSentiment) * 0.1);
+    
+    console.log('Gradient Update (Future Sentiment):', {
+        rawSentiment: sentiment.toFixed(2),
+        clampedSentiment: clampedSentiment.toFixed(2),
+        finalColor,
+        animationDuration: animationDuration.toFixed(2),
+        gradientCSS: `linear-gradient(45deg, ${finalColor}, ${finalColor})`
+    });
+    
+    // Update the body background with a single color gradient
+    document.body.style.background = `linear-gradient(45deg, ${finalColor}, ${finalColor})`;
+    document.body.style.backgroundSize = '200% 200%';
     document.body.style.animation = `gradientAnimation ${animationDuration}s ease-in-out infinite`;
 }
 
@@ -750,6 +1018,19 @@ function updateUI(state) {
     console.log("[updateUI] Is your turn:", state.isYourTurn);
     console.log("[updateUI] Current player ID:", socket.id);
     console.log("[updateUI] Player transactions remaining:", state.players?.find(p => p.id === socket.id)?.transactionsRemaining);
+    
+    // Check if this is a new period (cards were just dealt) BEFORE updating currentGameState
+    const isNewPeriod = state.state?.period && currentGameState?.state?.period && 
+                        state.state.period !== currentGameState.state.period;
+    
+    console.log('Period Detection:', {
+        currentPeriod: state.state?.period,
+        previousPeriod: currentGameState?.state?.period,
+        isNewPeriod,
+        currentGameStateExists: !!currentGameState,
+        handLength: state.hand?.length || 0,
+        priceCards: state.hand?.filter(card => card.type === 'price' && !card.played).length || 0
+    });
     
     currentGameState = state;
 
@@ -764,12 +1045,62 @@ function updateUI(state) {
     const currentMarketPrices = state.state.prices || {};
     const currentInitialPrices = state.state.init || {};
 
-    // Calculate and update market sentiment
-    const sentiment = calculateMarketSentiment(currentMarketPrices, currentInitialPrices);
-    updateBackgroundGradient(sentiment);
-
     const me = state.players.find(p => p.id === socket.id || p.name === currentPlayerName);
     const playerHandToRender = state.hand || []; 
+
+    // Calculate future market sentiment based on current cards and update gradient
+    // Only update gradient when cards actually change, not on every state update
+    const currentHandSignature = JSON.stringify(playerHandToRender.map(card => ({ type: card.type, company: card.company, change: card.change })));
+    
+    console.log('Gradient Update Check:', {
+        lastHandSignature: lastHandSignature.substring(0, 50) + '...',
+        currentHandSignature: currentHandSignature.substring(0, 50) + '...',
+        signaturesMatch: lastHandSignature === currentHandSignature,
+        handLength: playerHandToRender.length,
+        priceCards: playerHandToRender.filter(card => card.type === 'price' && !card.played).length
+    });
+    
+    
+    // Force update gradient if we have a fresh hand (new period) or if hand actually changed
+    const isNewHand = playerHandToRender.length > 0 && lastHandSignature === '';
+    const handChanged = lastHandSignature !== currentHandSignature;
+    
+    // Reset signature if new period to force gradient update
+    if (isNewPeriod) {
+        console.log('New period detected, resetting hand signature');
+        lastHandSignature = '';
+    }
+    
+    // Also check if we have a significant number of price cards (indicating new cards were dealt)
+    const hasSignificantPriceCards = playerHandToRender.filter(card => card.type === 'price' && !card.played).length >= 5;
+    const shouldForceUpdate = hasSignificantPriceCards && lastHandSignature !== '';
+    
+    if (isNewHand || handChanged || isNewPeriod || shouldForceUpdate) {
+        console.log('Hand changed, new hand, new period, or significant price cards - updating gradient...', { 
+            isNewHand, 
+            handChanged, 
+            isNewPeriod,
+            shouldForceUpdate,
+            priceCards: playerHandToRender.filter(card => card.type === 'price' && !card.played).length,
+            period: state.state?.period,
+            previousPeriod: currentGameState?.state?.period
+        });
+        const futureSentiment = calculateFutureMarketSentiment(state.players, playerHandToRender, companiesStaticData, currentMarketPrices);
+        
+        // Reset smoothing when new cards are dealt (new period or significant price cards)
+        if (isNewPeriod || shouldForceUpdate) {
+            console.log('New period or significant price cards - resetting gradient smoothing');
+            lastGradientSentiment = 0; // Reset to prevent accumulation
+        }
+        
+        // Use less aggressive smoothing to prevent gradual darkening
+        const smoothedSentiment = (lastGradientSentiment * 0.3) + (futureSentiment * 0.7);
+        updateBackgroundGradient(smoothedSentiment);
+        lastHandSignature = currentHandSignature;
+        lastGradientSentiment = smoothedSentiment;
+    } else {
+        console.log('Hand unchanged, skipping gradient update');
+    } 
 
     if (me) {
         updateGeneralRightsOffers(me); 
@@ -782,13 +1113,13 @@ function updateUI(state) {
     }
 
     const currentPlayerNameForBar = state.players.find(p => p.id === state.state.currentTurnPlayerId)?.name || 'N/A';
-    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-text">Your Turn</span>' : '';
+    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-dot">●</span>' : '';
     const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
 
-    if (periodSpan) {
-        periodSpan.innerHTML = `Period ${state.state.period} | Round ${state.state.roundNumberInPeriod} | Player: ${highlightedPlayerName}${yourTurnText}`;
-        console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
-    }
+      if (periodSpan) {
+          periodSpan.innerHTML = `${state.state.period} | ${state.state.roundNumberInPeriod} | ${highlightedPlayerName}${yourTurnText}`;
+          console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
+      }
 
     renderMarketBoard(currentMarketPrices, companiesStaticData, currentInitialPrices); 
     renderPlayerHand(playerHandToRender, companiesStaticData); 
@@ -798,8 +1129,8 @@ function updateUI(state) {
     updatePriceLogTable(); 
     renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
     
-    // Update background based on market sentiment
-    updateMarketSentimentBackground(state.state.marketSentiment || 'neutral');
+    // Background is now updated by our future sentiment calculation above
+    // updateMarketSentimentBackground(state.state.marketSentiment || 'neutral');
     renderDeckInfoPanel(state.players.length);
 
     // Calculate hand deltas and update the summary display
@@ -883,7 +1214,12 @@ function updateUI(state) {
             } else {
                 adminResolvePricesBtn.disabled = true;
                 adminAdvanceNewPeriodBtn.disabled = false;
-                adminAdvanceNewPeriodBtn.onclick = () => socket.emit('adminAdvanceToNewPeriod_DealCards', { roomID: currentRoom });
+                adminAdvanceNewPeriodBtn.onclick = () => {
+                    console.log('Admin clicked Advance to New Period - will force gradient update on next game state');
+                    // Reset hand signature to force gradient update when new cards arrive
+                    lastHandSignature = '';
+                    socket.emit('adminAdvanceToNewPeriod_DealCards', { roomID: currentRoom });
+                };
             }
         } else {
             adminDecisionMessage.textContent = 'Waiting for the admin to decide on period progression...';
@@ -2274,14 +2610,48 @@ socket.on('gameSummaryReceived', (summaryData) => {
             summaryData.players.forEach(p => { playerMap[p.uuid] = p; });
             // Sort by net worth descending
             const ranked = [...finalPeriodData].sort((a, b) => b.totalWorth - a.totalWorth);
+            // Calculate average turn times for each player
+            const playerTurnTimes = {};
+            if (summaryData.turnTimeData && summaryData.turnTimeData.length > 0) {
+                summaryData.turnTimeData.forEach(turn => {
+                    if (!playerTurnTimes[turn.playerName]) {
+                        playerTurnTimes[turn.playerName] = [];
+                    }
+                    playerTurnTimes[turn.playerName].push(turn.turnDuration);
+                });
+            }
+
+            // Find the slowest player
+            let slowestPlayer = null;
+            let slowestAvgTime = 0;
+            Object.keys(playerTurnTimes).forEach(playerName => {
+                const turnTimes = playerTurnTimes[playerName];
+                if (turnTimes.length > 0) {
+                    const avgTime = turnTimes.reduce((sum, time) => sum + time, 0) / turnTimes.length;
+                    if (avgTime > slowestAvgTime) {
+                        slowestAvgTime = avgTime;
+                        slowestPlayer = playerName;
+                    }
+                }
+            });
+
             let html = '<h3>Final Standings</h3>';
-            html += '<table style="margin: 0 auto; border-collapse: collapse; min-width: 320px;">';
-            html += '<tr><th style="padding:4px 8px;">Rank</th><th style="padding:4px 8px;">Player</th><th style="padding:4px 8px;">Net Worth</th><th style="padding:4px 8px;">Cash</th><th style="padding:4px 8px;">Portfolio</th></tr>';
+            html += '<div style="overflow-x: auto; width: 100%;">';
+            html += '<table style="margin: 0 auto; border-collapse: collapse; min-width: 400px; width: 100%;">';
+            html += '<tr><th style="padding:4px 8px;">Rank</th><th style="padding:4px 8px;">Player</th><th style="padding:4px 8px;">Net Worth</th><th style="padding:4px 8px;">Cash</th><th style="padding:4px 8px;">Portfolio</th><th style="padding:4px 8px;">Avg Turn Time</th></tr>';
             ranked.forEach((d, i) => {
                 const p = playerMap[d.playerId];
-                html += `<tr><td style="padding:4px 8px;">${i+1}</td><td style="padding:4px 8px; font-weight:bold;">${p ? p.name : d.playerId}</td><td style="padding:4px 8px;">₹${d.totalWorth.toLocaleString()}</td><td style="padding:4px 8px;">₹${p ? (p.finalCash || 0).toLocaleString() : 'N/A'}</td><td style="padding:4px 8px;">₹${p ? (p.finalPortfolioValue || 0).toLocaleString() : 'N/A'}</td></tr>`;
+                const playerName = p ? p.name : d.playerId;
+                const turnTimes = playerTurnTimes[playerName] || [];
+                const avgTurnTime = turnTimes.length > 0 
+                    ? Math.round(turnTimes.reduce((sum, time) => sum + time, 0) / turnTimes.length / 1000) 
+                    : 0;
+                const avgTimeDisplay = avgTurnTime > 0 ? `${avgTurnTime}s` : 'N/A';
+                
+                html += `<tr><td style="padding:4px 8px;">${i+1}</td><td style="padding:4px 8px; font-weight:bold;">${playerName}</td><td style="padding:4px 8px;">₹${d.totalWorth.toLocaleString()}</td><td style="padding:4px 8px;">₹${p ? (p.finalCash || 0).toLocaleString() : 'N/A'}</td><td style="padding:4px 8px;">₹${p ? (p.finalPortfolioValue || 0).toLocaleString() : 'N/A'}</td><td style="padding:4px 8px;">${avgTimeDisplay}</td></tr>`;
             });
             html += '</table>';
+            html += '</div>';
 
             // Best single-period gain
             let bestGain = { player: null, value: -Infinity, period: null };
@@ -2304,19 +2674,15 @@ socket.on('gameSummaryReceived', (summaryData) => {
                 html += `<div style="margin-top:18px;"><b>Best Single-Period Gain:</b> ${p ? p.name : bestGain.player} (+₹${bestGain.value.toLocaleString()} in P${bestGain.period})</div>`;
             }
 
-            // Most valuable portfolio
-            let mostValuablePortfolio = { player: null, value: -Infinity };
-            summaryData.players.forEach(p => {
-                if ((p.finalPortfolioValue || 0) > mostValuablePortfolio.value) {
-                    mostValuablePortfolio = { player: p, value: p.finalPortfolioValue };
-                }
-            });
-            if (mostValuablePortfolio.player) {
-                html += `<div style="margin-top:8px;"><b>Most Valuable Portfolio:</b> ${mostValuablePortfolio.player.name} (₹${mostValuablePortfolio.value.toLocaleString()})</div>`;
+            // Slowest player
+            if (slowestPlayer) {
+                const slowestAvgTimeSeconds = Math.round(slowestAvgTime / 1000);
+                html += `<div style="margin-top:8px;"><b>Slowest Player:</b> ${slowestPlayer} (${slowestAvgTimeSeconds}s avg turn time)</div>`;
             }
 
             statsDiv.innerHTML = html;
         }
+
 
         // Display Random Wisdom Quote
         if (wisdomQuoteElement && wisdomQuotes.length > 0) {
@@ -2410,6 +2776,7 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
         }
     });
 }
+
 
 // NEW: Function to render Player Turn Order Table
 function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameStarted) {
@@ -2601,8 +2968,8 @@ function handleQuantityButtonClick(input, increment) {
 
 // Add event listeners for quantity buttons
 document.addEventListener('DOMContentLoaded', () => {
-    // Set initial neutral background
-    updateMarketSentimentBackground('neutral');
+    // Initial background will be set when game starts
+    // updateMarketSentimentBackground('neutral');
     
     // Find all quantity input containers
     const quantityContainers = document.querySelectorAll('.quantity-input-container');

@@ -11,7 +11,7 @@
   <div id="title-bar">
     <img src="/logo.svg" alt="Logo" class="app-logo-titlebar" style="height:18px; margin-right:8px; vertical-align:middle;" />
     <span id="game-title-text">Remote Stock Exchange</span>
-    <button id="helpButton" style="position:absolute; right:10px; top:6px; padding:6px 10px; font-size:12px; border-radius:6px;">Help</button>
+    <button id="helpButton" style="position:absolute; right:10px; top:6px; padding:6px 10px; font-size:12px; border-radius:6px; background-color:rgba(255,255,255,0.9); color:#000000; border:1px solid rgba(0,0,0,0.2);">Help</button>
   </div>
 
   <div id="main-content-wrapper">
@@ -45,6 +45,9 @@
         <div class="game-left">
           <div id="info-bar">
             <span id="period">Period 1</span>
+            <span id="turn-timer" style="display: none; font-weight: bold; color: #ffffff; background-color: #4CAF50; padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">
+              <span id="timer-display">00:00</span>
+            </span>
           </div>
           <div id="portfolio-panel" class="panel">
             <h4>Your Portfolio</h4>
