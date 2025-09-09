@@ -739,13 +739,13 @@ socket.on('gameState', state => {
     isYourTurn = state.isYourTurn;
     
     // Handle timer based on turn changes
-    if (isYourTurn && state.state?.currentTurnPlayerId === socket.id) {
-        // It's my turn - start timer if not already running
+    if (isYourTurn && state.state?.currentTurnPlayerId === socket.id && !state.state?.awaitingAdminDecision) {
+        // It's my turn and not awaiting admin decision - start timer if not already running
         if (!isTimerRunning) {
             startTurnTimer();
         }
     } else {
-        // It's not my turn - stop timer if running
+        // It's not my turn OR awaiting admin decision - stop timer if running
         if (isTimerRunning) {
             stopTurnTimer();
         }
@@ -797,11 +797,10 @@ function calculateMarketSentiment(marketPrices, initialPrices) {
 }
 
 // Function to calculate future market sentiment based on current cards in all players' hands
-function calculateFutureMarketSentiment(allPlayersData, playerHandArray, companiesStaticData, currentPrices) {
-    if (!allPlayersData || !playerHandArray || !companiesStaticData || !currentPrices) {
+function calculateFutureMarketSentiment(allPlayersData, companiesStaticData, currentPrices) {
+    if (!allPlayersData || !companiesStaticData || !currentPrices) {
         console.log('Missing data for future sentiment calculation:', { 
             allPlayersData: !!allPlayersData, 
-            playerHandArray: !!playerHandArray, 
             companiesStaticData: !!companiesStaticData,
             currentPrices: !!currentPrices
         });
@@ -811,91 +810,30 @@ function calculateFutureMarketSentiment(allPlayersData, playerHandArray, compani
     let totalFutureChange = 0;
     let totalPriceCards = 0;
     
-    // Aggregate all price cards from all players (using percentage changes)
+    // Aggregate all price cards from ALL players (using percentage changes)
     const futureDeltas = {};
     companiesStaticData.forEach(company => {
         futureDeltas[company.id] = 0;
     });
     
-    // Add current player's hand cards (convert to percentage changes)
-    playerHandArray.forEach(card => {
-        if (card.type === 'price' && !card.played) {
-            const currentPrice = currentPrices[card.company];
-            if (currentPrice && currentPrice > 0) {
-                // Convert absolute change to percentage change
-                const percentageChange = (card.change / currentPrice) * 100;
-                futureDeltas[card.company] += percentageChange;
-                totalPriceCards++;
-            }
+    // Add ALL players' hand cards (convert to percentage changes)
+    allPlayersData.forEach(player => {
+        if (player.hand && Array.isArray(player.hand)) {
+            player.hand.forEach(card => {
+                if (card.type === 'price' && !card.played) {
+                    const currentPrice = currentPrices[card.company];
+                    if (currentPrice && currentPrice > 0) {
+                        // Convert absolute change to percentage change
+                        const percentageChange = (card.change / currentPrice) * 100;
+                        futureDeltas[card.company] += percentageChange;
+                        totalPriceCards++;
+                    }
+                }
+            });
         }
     });
     
-    // For single player games, also estimate what other cards might be in the deck
-    // This gives a more realistic market sentiment
-    if (allPlayersData.length === 1) {
-        // Estimate remaining deck cards based on typical distribution
-        const estimatedRemainingCards = 44; // 54 total - 10 in hand
-        const cardTypesPerCompany = companiesStaticData.reduce((acc, company) => {
-            acc[company.id] = company.moves.length;
-            return acc;
-        }, {});
-        
-        const totalCardTypes = Object.values(cardTypesPerCompany).reduce((sum, count) => sum + count, 0);
-        
-        companiesStaticData.forEach(company => {
-            const currentPrice = currentPrices[company.id];
-            if (currentPrice && currentPrice > 0) {
-                const companyCardProportion = cardTypesPerCompany[company.id] / totalCardTypes;
-                const estimatedCompanyCards = estimatedRemainingCards * companyCardProportion;
-                
-                // Calculate weighted average change for this company (convert to percentage)
-                const totalMoveValue = company.moves.reduce((sum, move) => sum + Math.abs(move), 0);
-                const weightedAvgChange = company.moves.reduce((sum, move) => {
-                    const weight = Math.abs(move) / totalMoveValue;
-                    return sum + (move * weight);
-                }, 0);
-                
-                // Convert to percentage and add estimated impact from remaining deck
-                const percentageChange = (weightedAvgChange / currentPrice) * 100;
-                futureDeltas[company.id] += percentageChange * estimatedCompanyCards * 0.2; // Lower weight for deck cards
-            }
-        });
-    }
-    
-    // Estimate cards in other players' hands based on statistical likelihood
-    // This gives a hint without revealing exact information
-    const otherPlayersCount = allPlayersData.length - 1; // Exclude current player
-    if (otherPlayersCount > 0) {
-        // Create a more nuanced estimate based on card distribution
-        const totalCardsInOtherHands = otherPlayersCount * 10; // Assume 10 cards per player
-        const cardTypesPerCompany = companiesStaticData.reduce((acc, company) => {
-            acc[company.id] = company.moves.length;
-            return acc;
-        }, {});
-        
-        const totalCardTypes = Object.values(cardTypesPerCompany).reduce((sum, count) => sum + count, 0);
-        
-        companiesStaticData.forEach(company => {
-            const currentPrice = currentPrices[company.id];
-            if (currentPrice && currentPrice > 0) {
-                // Estimate cards for this company based on proportional distribution
-                const companyCardProportion = cardTypesPerCompany[company.id] / totalCardTypes;
-                const estimatedCompanyCards = totalCardsInOtherHands * companyCardProportion;
-                
-                // Calculate weighted average change for this company (convert to percentage)
-                const totalMoveValue = company.moves.reduce((sum, move) => sum + Math.abs(move), 0);
-                const weightedAvgChange = company.moves.reduce((sum, move) => {
-                    const weight = Math.abs(move) / totalMoveValue;
-                    return sum + (move * weight);
-                }, 0);
-                
-                // Convert to percentage and apply the estimated impact with uncertainty dampening
-                const percentageChange = (weightedAvgChange / currentPrice) * 100;
-                const uncertaintyFactor = 0.4; // Reduced certainty for other players' cards
-                futureDeltas[company.id] += percentageChange * estimatedCompanyCards * uncertaintyFactor;
-            }
-        });
-    }
+    // No need for deck estimation since we're using all players' actual hands
     
     // Calculate sentiment based on aggregated future changes
     let companiesWithChanges = 0;
@@ -940,14 +878,13 @@ function calculateFutureMarketSentiment(allPlayersData, playerHandArray, compani
         futureSentiment = futureSentiment * 2;
     }
     
-    console.log('Future Market Sentiment Calculation:', {
+    console.log('Cumulative Market Sentiment Calculation (All Players):', {
         totalFutureChange: totalFutureChange.toFixed(2),
         totalAbsoluteChange: totalAbsoluteChange.toFixed(2),
         companiesWithChanges,
         futureSentiment: futureSentiment.toFixed(2),
+        totalPlayers: allPlayersData.length,
         totalPriceCards,
-        otherPlayersCount,
-        playerHandCards: playerHandArray.filter(card => card.type === 'price' && !card.played).length,
         futureDeltas: Object.fromEntries(
             Object.entries(futureDeltas).map(([key, value]) => [key, value.toFixed(2)])
         )
@@ -965,7 +902,7 @@ function refreshBackgroundGradient() {
     const allPlayers = currentGameState.players || [];
     
     const currentPrices = currentGameState.state?.prices || {};
-    const futureSentiment = calculateFutureMarketSentiment(allPlayers, playerHandToRender, companiesStaticData, currentPrices);
+    const futureSentiment = calculateFutureMarketSentiment(allPlayers, companiesStaticData, currentPrices);
     updateBackgroundGradient(futureSentiment);
 }
 
@@ -1085,7 +1022,7 @@ function updateUI(state) {
             period: state.state?.period,
             previousPeriod: currentGameState?.state?.period
         });
-        const futureSentiment = calculateFutureMarketSentiment(state.players, playerHandToRender, companiesStaticData, currentMarketPrices);
+        const futureSentiment = calculateFutureMarketSentiment(state.players, companiesStaticData, currentMarketPrices);
         
         // Reset smoothing when new cards are dealt (new period or significant price cards)
         if (isNewPeriod || shouldForceUpdate) {
@@ -2690,6 +2627,12 @@ socket.on('gameSummaryReceived', (summaryData) => {
             wisdomQuoteElement.textContent = wisdomQuotes[randomIndex];
         }
     }
+});
+
+// Handle endturn_awaiting_admin event to stop timer immediately
+socket.on('endturn_awaiting_admin', () => {
+    console.log('[endturn_awaiting_admin] Received - stopping turn timer');
+    stopTurnTimer();
 });
 
 // NEW: Function to render the player worth chart

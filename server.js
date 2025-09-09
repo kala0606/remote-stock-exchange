@@ -433,6 +433,7 @@ function emitGameState(game, context = 'normal') {
         cash: p.cash,
         shortPositions: p.shortPositions || {},
         transactionsRemaining: p.transactionsRemaining,
+        hand: p.hand || [], // Include hand data for all players
         isAdmin: p.id === game.admin 
       })),
       state: { 
