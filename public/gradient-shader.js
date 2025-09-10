@@ -153,15 +153,15 @@ class FluidGradient {
             float intensity = abs(u_sentiment) / 50.0; // Normalize sentiment to 0-1
             intensity = clamp(intensity, 0.0, 1.0);
             
-            // Create more dramatic 50/50 split
+            // Create 40% white / 60% accent color split
             // Use the pattern to create distinct regions of color
-            float patternThreshold = 0.5;
+            float patternThreshold = 0.4; // Reduced from 0.5 to 0.4 for 40% white
             float colorMix = smoothstep(patternThreshold - 0.1, patternThreshold + 0.1, shade);
             
             // Create stronger contrast between base and accent colors
             vec3 finalColor;
             if (intensity > 0.1) {
-                // When there's sentiment, create visible 50/50 split with enhanced saturation
+                // When there's sentiment, create visible 40% white / 60% accent split with enhanced saturation
                 vec3 enhancedAccent = accentColor;
                 
                 // Boost saturation by increasing the difference from grey
@@ -263,7 +263,7 @@ class FluidGradient {
         this.gl.uniform1f(this.uniforms.u_sentiment, this.sentiment || 0);
         
         // Set colors based on sentiment
-        const baseColor = [240/255, 240/255, 240/255]; // Light grey base
+        const baseColor = [250/255, 250/255, 250/255]; // More white base (less grey)
         
         let accentColor;
         if (this.sentiment > 0) {
