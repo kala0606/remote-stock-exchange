@@ -49,13 +49,43 @@
               <span id="timer-display">00:00</span>
             </span>
           </div>
+          
+          <!-- Activity Log Panel -->
+          <div id="activity-log-panel" class="panel" style="margin-top: 15px;">
+              <div class="activity-log-header" style="cursor: pointer;" onclick="
+                  const logContent = this.nextElementSibling;
+                  const logIcon = this.querySelector('.expand-icon');
+                  if (logContent.style.display === 'none') {
+                      logContent.style.display = 'block';
+                      logIcon.textContent = '▼';
+                  } else {
+                      logContent.style.display = 'none';
+                      logIcon.textContent = '▶';
+                  }
+              ">
+                  <h4>Activity Log <span class="expand-icon">▼</span></h4>
+              </div>
+              <div class="activity-log-content" style="display: block; max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
+                  <!-- Log entries will be added here by client.js -->
+              </div>
+          </div>
+          
           <div id="portfolio-panel" class="panel">
             <h4>Your Portfolio</h4>
             <div id="portfolio-content">
               <div id="portfolio-summary">
-                <div>Cash: <span id="portfolio-cash">₹600,000</span></div>
-                <div>Portfolio Value: <span id="portfolio-value">₹0</span></div>
-                <div>Total Worth: <span id="portfolio-total">₹600,000</span></div>
+                <div class="portfolio-item">
+                  <span class="portfolio-label">Cash:</span>
+                  <span id="portfolio-cash" class="portfolio-value">₹600k</span>
+                </div>
+                <div class="portfolio-item">
+                  <span class="portfolio-label">Portfolio:</span>
+                  <span id="portfolio-value" class="portfolio-value">₹0</span>
+                </div>
+                <div class="portfolio-item">
+                  <span class="portfolio-label">Total:</span>
+                  <span id="portfolio-total" class="portfolio-value">₹600k</span>
+                </div>
               </div>
               <div id="portfolio-holdings">
                 <!-- Holdings will be populated by JavaScript -->
@@ -78,8 +108,22 @@
             </div>
           </div>
           <div id="player-hand-container" class="panel">
-              <h4>Your Hand</h4>
-              <!-- Player hand cards will be rendered here -->
+              <div class="hand-header" style="cursor: pointer;" onclick="
+                  const handContent = this.nextElementSibling;
+                  const handIcon = this.querySelector('.expand-icon');
+                  if (handContent.style.display === 'none') {
+                      handContent.style.display = 'block';
+                      handIcon.textContent = '▼';
+                  } else {
+                      handContent.style.display = 'none';
+                      handIcon.textContent = '▶';
+                  }
+              ">
+                  <h4>Your Hand <span class="expand-icon">▼</span></h4>
+              </div>
+              <div class="hand-content" style="display: block;">
+                  <!-- Player hand cards will be rendered here -->
+              </div>
           </div>
           <div id="hand-summary" class="panel" style="display: none;">
               <h4>Hand Price Impact</h4>
@@ -110,13 +154,6 @@
               </div>
           </div>
 
-          <!-- Activity Log Panel -->
-          <div id="activity-log-panel" class="panel" style="margin-top: 15px;">
-              <h4>Activity Log</h4>
-              <div id="activity-log-content" style="max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
-                  <!-- Log entries will be added here by client.js -->
-              </div>
-          </div>
 
           <!-- NEW: Open Short Positions Panel -->
           <div id="open-shorts-panel" class="panel" style="display: none; margin-top: 15px;">

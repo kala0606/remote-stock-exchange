@@ -1952,18 +1952,17 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .deck-info-header {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     padding: 5px 0;
     border-bottom: none;
-    text-align: center;
 }
 
 .deck-info-header h4 {
     margin: 0;
     font-size: 16px;
     color: #333;
-    width: 100%;
+    flex-grow: 1;
     text-align: center;
 }
 
@@ -2008,6 +2007,141 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .deck-info-details strong {
     color: #333;
+}
+
+/* Hand Panel Collapsible Styles */
+.hand-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: none;
+}
+
+.hand-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+    flex-grow: 1;
+    text-align: center;
+}
+
+.hand-content {
+    margin-top: 15px;
+}
+
+/* Activity Log Panel Collapsible Styles */
+.activity-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: none;
+}
+
+.activity-log-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+    flex-grow: 1;
+    text-align: center;
+}
+
+.activity-log-content {
+    margin-top: 15px;
+    padding: 10px;
+    text-align: left;
+    font-size: 0.85em;
+    color: #000000; /* Black text */
+}
+
+/* Portfolio Summary Styles */
+#portfolio-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.portfolio-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    text-align: center;
+}
+
+.portfolio-label {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.portfolio-value {
+    font-size: 0.9em;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Mobile responsive styles for portfolio */
+@media (max-width: 768px) {
+    #portfolio-summary {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 6px 0;
+        margin-bottom: 8px;
+    }
+    
+    .portfolio-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        flex: 1 !important;
+        text-align: center !important;
+        padding: 0 4px;
+    }
+    
+    .portfolio-label {
+        font-size: 0.75em;
+        margin-bottom: 1px;
+    }
+    
+    .portfolio-value {
+        font-size: 0.8em;
+    }
+}
+
+@media (max-width: 480px) {
+    #portfolio-summary {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 4px 0;
+        margin-bottom: 6px;
+    }
+    
+    .portfolio-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        flex: 1 !important;
+        text-align: center !important;
+        padding: 0 2px;
+    }
+    
+    .portfolio-label {
+        font-size: 0.7em;
+        margin-bottom: 1px;
+    }
+    
+    .portfolio-value {
+        font-size: 0.75em;
+    }
 }
 
 #player-hand-container.panel {
@@ -2831,27 +2965,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     width: 100%;
 }
 
-#portfolio-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 10px;
-    background: rgba(240, 240, 240, 0.4);
-    border-radius: 4px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-#portfolio-summary div {
-    text-align: center;
-    font-size: 0.9em;
-}
-
-#portfolio-summary span {
-    font-weight: bold;
-    display: block;
-    margin-top: 4px;
-}
+/* Removed conflicting grid styles - now using flexbox layout defined above */
 
 #portfolio-holdings {
     width: 100%;
@@ -2885,11 +2999,6 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 @media (max-width: 700px) {
-    #portfolio-summary {
-        grid-template-columns: 1fr;
-        gap: 5px;
-    }
-
     .holding-item {
         grid-template-columns: 1fr;
         gap: 4px;

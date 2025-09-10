@@ -1269,9 +1269,9 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
     rankedPlayers.forEach(player => {
         leaderboardHTML += `<tr>
             <td><strong>${player.name}</strong> ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</td>
-            <td>₹${player.overallWorth.toLocaleString()}${player.worthChangeText}</td>
-            <td>₹${player.cash.toLocaleString()}</td>
-            <td>₹${player.portfolioValue.toLocaleString()}</td>
+            <td>₹${formatIndianNumber(player.overallWorth)}${player.worthChangeText}</td>
+            <td>₹${formatIndianNumber(player.cash)}</td>
+            <td>₹${formatIndianNumber(player.portfolioValue)}</td>
         </tr>`;
         // Portfolio details as a second row
         leaderboardHTML += `<tr class="portfolio-details-row"><td colspan="4">`;
@@ -1282,7 +1282,7 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                     leaderboardHTML += `<li><span class=\"${item.textClass}\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
                 } else {
                     const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
-                    leaderboardHTML += `<li><span class=\"${item.textClass}\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></li>`;
+                    leaderboardHTML += `<li><span class=\"${item.textClass}\">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${formatIndianNumber(item.unrealizedPnl)}</span></li>`;
                 }
             });
             leaderboardHTML += '</ul>';
@@ -1300,9 +1300,9 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
         rankedPlayers.forEach(player => {
             mobileHTML += `<div class="leaderboard-card">
                 <div class="leaderboard-card-header"><strong>${player.name}</strong> ${player.isAdmin ? '(Admin)' : ''} ${player.id === socket.id ? '(You)' : ''}</div>
-                <div>Overall Worth: <span class="leaderboard-overall-worth">₹${player.overallWorth.toLocaleString()}</span>${player.worthChangeText}</div>
-                <div>Cash: ₹${player.cash.toLocaleString()}</div>
-                <div>Portfolio Value: ₹${player.portfolioValue.toLocaleString()}</div>
+                <div>Overall Worth: <span class="leaderboard-overall-worth">₹${formatIndianNumber(player.overallWorth)}</span>${player.worthChangeText}</div>
+                <div>Cash: ₹${formatIndianNumber(player.cash)}</div>
+                <div>Portfolio Value: ₹${formatIndianNumber(player.portfolioValue)}</div>
                 <div>Portfolio:`;
             if (player.portfolioDetails.length > 0) {
                 mobileHTML += '<ul class="leaderboard-portfolio-details">';
@@ -1311,7 +1311,7 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                         mobileHTML += `<li><span class=\"${item.textClass}\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value})</span></li>`;
                     } else {
                         const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
-                        mobileHTML += `<li><span class=\"${item.textClass}\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${item.unrealizedPnl.toLocaleString()}</span></span></li>`;
+                        mobileHTML += `<li><span class=\"${item.textClass}\">${item.name}</span><br><span>${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${formatIndianNumber(item.unrealizedPnl)}</span></span></li>`;
                     }
                 });
                 mobileHTML += '</ul>';
@@ -2186,8 +2186,33 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
     const handContainer = document.getElementById('player-hand-container');
     if (!handContainer) return;
 
-    // Clear existing content
-    handContainer.innerHTML = '<h4>Your Hand</h4>';
+    // Find the hand content div (where cards should be rendered)
+    let handContent = handContainer.querySelector('.hand-content');
+    if (!handContent) {
+        // If the collapsible structure doesn't exist yet, create it
+        handContainer.innerHTML = `
+            <div class="hand-header" style="cursor: pointer;" onclick="
+                const handContent = this.nextElementSibling;
+                const handIcon = this.querySelector('.expand-icon');
+                if (handContent.style.display === 'none') {
+                    handContent.style.display = 'block';
+                    handIcon.textContent = '▼';
+                } else {
+                    handContent.style.display = 'none';
+                    handIcon.textContent = '▶';
+                }
+            ">
+                <h4>Your Hand <span class="expand-icon">▼</span></h4>
+            </div>
+            <div class="hand-content" style="display: block;">
+                <!-- Player hand cards will be rendered here -->
+            </div>
+        `;
+        handContent = handContainer.querySelector('.hand-content');
+    }
+
+    // Clear existing cards from the content area
+    handContent.innerHTML = '';
 
     // Create a grid container for cards
     const cardsWrapper = document.createElement('div');
@@ -2316,8 +2341,8 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         cardsWrapper.appendChild(cardElement);
     });
 
-    // Add the wrapper to the container
-    handContainer.appendChild(cardsWrapper);
+    // Add the wrapper to the hand content area
+    handContent.appendChild(cardsWrapper);
 }
 
 // Helper function to convert hex to rgba
@@ -2418,7 +2443,7 @@ socket.on('activityLog', logEntry => {
 });
 
 function renderActivityLog() {
-    const activityLogContent = document.getElementById('activity-log-content');
+    const activityLogContent = document.querySelector('.activity-log-content');
     if (!activityLogContent) return;
 
     // Clear existing entries
@@ -2581,7 +2606,7 @@ socket.on('gameSummaryReceived', (summaryData) => {
                     : 0;
                 const avgTimeDisplay = avgTurnTime > 0 ? `${avgTurnTime}s` : 'N/A';
                 
-                html += `<tr><td style="padding:4px 8px;">${i+1}</td><td style="padding:4px 8px; font-weight:bold;">${playerName}</td><td style="padding:4px 8px;">₹${d.totalWorth.toLocaleString()}</td><td style="padding:4px 8px;">₹${p ? (p.finalCash || 0).toLocaleString() : 'N/A'}</td><td style="padding:4px 8px;">₹${p ? (p.finalPortfolioValue || 0).toLocaleString() : 'N/A'}</td><td style="padding:4px 8px;">${avgTimeDisplay}</td></tr>`;
+                html += `<tr><td style="padding:4px 8px;">${i+1}</td><td style="padding:4px 8px; font-weight:bold;">${playerName}</td><td style="padding:4px 8px;">₹${formatIndianNumber(d.totalWorth)}</td><td style="padding:4px 8px;">₹${p ? formatIndianNumber(p.finalCash || 0) : 'N/A'}</td><td style="padding:4px 8px;">₹${p ? formatIndianNumber(p.finalPortfolioValue || 0) : 'N/A'}</td><td style="padding:4px 8px;">${avgTimeDisplay}</td></tr>`;
             });
             html += '</table>';
             html += '</div>';
@@ -2604,7 +2629,7 @@ socket.on('gameSummaryReceived', (summaryData) => {
             });
             if (bestGain.player) {
                 const p = playerMap[bestGain.player];
-                html += `<div style="margin-top:18px;"><b>Best Single-Period Gain:</b> ${p ? p.name : bestGain.player} (+₹${bestGain.value.toLocaleString()} in P${bestGain.period})</div>`;
+                html += `<div style="margin-top:18px;"><b>Best Single-Period Gain:</b> ${p ? p.name : bestGain.player} (+₹${formatIndianNumber(bestGain.value)} in P${bestGain.period})</div>`;
             }
 
             // Slowest player
@@ -2933,6 +2958,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// Function to format numbers with Indian abbreviations
+function formatIndianNumber(num) {
+    if (num >= 10000000) { // 1 crore = 10 million
+        return (num / 10000000).toFixed(1) + 'cr';
+    } else if (num >= 100000) { // 1 lakh = 100 thousand
+        return (num / 100000).toFixed(1) + 'L';
+    } else if (num >= 1000) {
+        return (num / 1000).toFixed(0) + 'k';
+    } else {
+        return num.toString();
+    }
+}
+
 function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
     if (!player || !marketPrices || !companiesStaticData) return;
 
@@ -2942,7 +2980,7 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
     const portfolioTotal = document.getElementById('portfolio-total');
     const portfolioHoldings = document.getElementById('portfolio-holdings');
 
-    if (portfolioCash) portfolioCash.textContent = `₹${player.cash.toLocaleString()}`;
+    if (portfolioCash) portfolioCash.textContent = `₹${formatIndianNumber(player.cash)}`;
 
     let totalPortfolioValue = 0;
     let holdingsHTML = '';
@@ -2991,8 +3029,8 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
         }
     }
 
-    if (portfolioValue) portfolioValue.textContent = `₹${totalPortfolioValue.toLocaleString()}`;
-    if (portfolioTotal) portfolioTotal.textContent = `₹${(player.cash + totalPortfolioValue).toLocaleString()}`;
+    if (portfolioValue) portfolioValue.textContent = `₹${formatIndianNumber(totalPortfolioValue)}`;
+    if (portfolioTotal) portfolioTotal.textContent = `₹${formatIndianNumber(player.cash + totalPortfolioValue)}`;
     if (portfolioHoldings) {
         if (holdingsHTML) {
             portfolioHoldings.innerHTML = holdingsHTML;
