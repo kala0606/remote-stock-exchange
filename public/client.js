@@ -908,44 +908,40 @@ function refreshBackgroundGradient() {
 
 // Function to update background gradient based on market sentiment
 function updateBackgroundGradient(sentiment) {
-    // Base very light grey color
-    const baseGrey = 240; // Very light grey (240, 240, 240)
-    
-    let finalColor;
-    
     // Clamp sentiment to prevent extreme values
     const clampedSentiment = Math.max(-50, Math.min(50, sentiment));
     
-    if (clampedSentiment > 0) {
-        // Bullish: Green tint based on sentiment strength
-        const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6); // Much lighter tint
-        const greenTint = Math.floor(baseGrey - intensity); // Subtle green tint
-        finalColor = `rgb(${greenTint}, ${baseGrey}, ${greenTint})`; // Green tint
-    } else if (clampedSentiment < 0) {
-        // Bearish: Red tint based on sentiment strength
-        const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6); // Much lighter tint
-        const redTint = Math.floor(baseGrey - intensity); // Subtle red tint
-        finalColor = `rgb(${baseGrey}, ${redTint}, ${redTint})`; // Red tint
-    } else {
-        // Neutral: Very light grey
-        finalColor = `rgb(${baseGrey}, ${baseGrey}, ${baseGrey})`;
-    }
-    
-    // Calculate animation speed based on sentiment volatility
-    const animationDuration = Math.max(8, 15 - Math.abs(clampedSentiment) * 0.1);
-    
-    console.log('Gradient Update (Future Sentiment):', {
+    console.log('Fluid Gradient Update (Future Sentiment):', {
         rawSentiment: sentiment.toFixed(2),
         clampedSentiment: clampedSentiment.toFixed(2),
-        finalColor,
-        animationDuration: animationDuration.toFixed(2),
-        gradientCSS: `linear-gradient(45deg, ${finalColor}, ${finalColor})`
+        usingShader: 'WebGL Fluid Gradient'
     });
     
-    // Update the body background with a single color gradient
-    document.body.style.background = `linear-gradient(45deg, ${finalColor}, ${finalColor})`;
-    document.body.style.backgroundSize = '200% 200%';
-    document.body.style.animation = `gradientAnimation ${animationDuration}s ease-in-out infinite`;
+    // Use the fluid gradient shader instead of CSS
+    if (typeof updateFluidGradient === 'function') {
+        updateFluidGradient(clampedSentiment);
+    } else {
+        console.warn('Fluid gradient shader not available, falling back to CSS');
+        // Fallback to CSS gradient if shader not available
+        const baseGrey = 240;
+        let finalColor;
+        
+        if (clampedSentiment > 0) {
+            const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6);
+            const greenTint = Math.floor(baseGrey - intensity);
+            finalColor = `rgb(${greenTint}, ${baseGrey}, ${greenTint})`;
+        } else if (clampedSentiment < 0) {
+            const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6);
+            const redTint = Math.floor(baseGrey - intensity);
+            finalColor = `rgb(${baseGrey}, ${redTint}, ${redTint})`;
+        } else {
+            finalColor = `rgb(${baseGrey}, ${baseGrey}, ${baseGrey})`;
+        }
+        
+        document.body.style.background = `linear-gradient(45deg, ${finalColor}, ${finalColor})`;
+        document.body.style.backgroundSize = '200% 200%';
+        document.body.style.animation = `gradientAnimation 12s ease-in-out infinite`;
+    }
 }
 
 // Modify the updateUI function to include sentiment calculation and background update
@@ -2911,6 +2907,14 @@ function handleQuantityButtonClick(input, increment) {
 
 // Add event listeners for quantity buttons
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize fluid gradient shader
+    if (typeof initFluidGradient === 'function') {
+        console.log('[DOMContentLoaded] Initializing fluid gradient shader...');
+        initFluidGradient();
+    } else {
+        console.warn('[DOMContentLoaded] Fluid gradient shader not available');
+    }
+    
     // Initial background will be set when game starts
     // updateMarketSentimentBackground('neutral');
     
