@@ -1050,7 +1050,7 @@ function updateUI(state) {
     const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
 
       if (periodSpan) {
-          periodSpan.innerHTML = `${state.state.period} | ${state.state.roundNumberInPeriod} | ${highlightedPlayerName}${yourTurnText}`;
+          periodSpan.innerHTML = `P${state.state.period} | R${state.state.roundNumberInPeriod} | ${highlightedPlayerName}${yourTurnText}`;
           console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
       }
 
@@ -1200,8 +1200,8 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                     const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
                     portfolioDetails.push({
                         name: companyName,
-                        shares: shares.toLocaleString(),
-                        value: value.toLocaleString(),
+                        shares: formatIndianNumber(shares),
+                        value: formatIndianNumber(value),
                         textClass: textClass,
                         type: 'long'
                     });
@@ -1221,8 +1221,8 @@ function updateLeaderboard(players, marketPrices, companiesStaticData) {
                 const unrealizedPnl = (shortPosition.priceOpened - currentPrice) * shortPosition.quantity;
                 portfolioDetails.push({
                     name: companyName,
-                    shares: `-${shortPosition.quantity.toLocaleString()}`,
-                    value: value.toLocaleString(),
+                    shares: `-${formatIndianNumber(shortPosition.quantity)}`,
+                    value: formatIndianNumber(value),
                     textClass: textClass,
                     type: 'short',
                     priceOpened: shortPosition.priceOpened,
@@ -3000,7 +3000,6 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
                     <div class="holding-item">
                         <div class="company-name ${textClass}">${companyName}</div>
                         <div class="shares">${shares.toLocaleString()} shares</div>
-                        <div class="value">₹${value.toLocaleString()}</div>
                     </div>
                 `;
             }
@@ -3022,8 +3021,7 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
             holdingsHTML += `
                 <div class="holding-item">
                     <div class="company-name ${textClass}">${companyName} (Short)</div>
-                    <div class="shares">-${position.quantity.toLocaleString()} shares</div>
-                    <div class="value">₹${value.toLocaleString()} <span class="${pnlClass}">P&L: ₹${unrealizedPnl.toLocaleString()}</span></div>
+                    <div class="shares">-${position.quantity.toLocaleString()} shares <span class="${pnlClass}">P&L: ₹${formatIndianNumber(unrealizedPnl)}</span></div>
                 </div>
             `;
         }
