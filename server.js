@@ -1,3 +1,13 @@
+// Silence all console output
+try {
+  const noop = function(){};
+  console.log = noop;
+  console.warn = noop;
+  console.info = noop;
+  console.debug = noop;
+  console.error = noop;
+} catch (e) {}
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -744,6 +754,11 @@ function logActivity(game, playerName, actionType, detailsOverride = null, round
 
 io.on('connection', socket => {
   console.log('Client connected:', socket.id);
+
+  // Handle ping for keep-alive (prevents server sleeping on free hosting)
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
 
   // --- NEW REJOIN WITH TOKEN HANDLER ---
   socket.on('rejoinWithToken', (token, callback) => {

@@ -2,8 +2,25 @@
 const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
 // const SOCKET_SERVER = 'ws://remote-stock-exchange-backend.glitch.me'; // Example if using glitch
 
+// Silence all console output in production-like runs
+try {
+    const noop = function(){};
+    console.log = noop;
+    console.warn = noop;
+    console.info = noop;
+    console.debug = noop;
+    console.error = noop;
+} catch (e) {}
+
 // Initialize socket connection
 const socket = io();
+
+// Keep-alive ping to prevent server from sleeping on free hosting tiers
+setInterval(() => {
+    if (socket && socket.connected) {
+        socket.emit('ping');
+    }
+}, 25000); // Ping every 25 seconds
 
 // Game Constants
 const SHARE_LOTS = [500, 1000, 5000, 10000];
