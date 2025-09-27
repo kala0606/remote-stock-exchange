@@ -1,5 +1,5 @@
-// Fluid Gradient Shader System
-class FluidGradient {
+// Background Fluid Gradient Shader System (Grayscale)
+class BackgroundFluidGradient {
     constructor() {
         this.canvas = null;
         this.gl = null;
@@ -12,7 +12,7 @@ class FluidGradient {
     }
     
     init() {
-        // Create canvas element
+        // Create canvas element for background
         this.canvas = document.createElement('canvas');
         this.canvas.style.position = 'fixed';
         this.canvas.style.top = '0';
@@ -26,7 +26,7 @@ class FluidGradient {
         // Get WebGL context
         this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
         if (!this.gl) {
-            console.error('WebGL not supported');
+            console.error('WebGL not supported for background shader');
             return;
         }
         
@@ -47,6 +47,265 @@ class FluidGradient {
         this.canvas.height = window.innerHeight * dpr;
         this.canvas.style.width = window.innerWidth + 'px';
         this.canvas.style.height = window.innerHeight + 'px';
+        
+        if (this.gl) {
+            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
+    
+    createShaderProgram() {
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            varying vec2 vTexCoord;
+            
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+                vTexCoord = (a_position + 1.0) * 0.5;
+            }
+        `;
+        
+        const fragmentShaderSource = `
+            precision highp float;
+            
+            varying vec2 vTexCoord;
+            
+            uniform vec2 iResolution;
+            uniform float iTime;
+            
+            // Noise functions
+            float rand(vec2 n) { 
+                return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+            }
+            
+            float noise(vec2 p) {
+                vec2 ip = floor(p);
+                vec2 u = fract(p);
+                u = u*u*u*(u*(u*6.0-15.0)+10.0);
+                
+                float res = mix(
+                    mix(rand(ip), rand(ip+vec2(1.0,0.0)), u.x),
+                    mix(rand(ip+vec2(0.0,1.0)), rand(ip+vec2(1.0,1.0)), u.x), u.y);
+                return res;
+            }
+            
+            float sharpNoise(vec2 p) {
+                float n = noise(p);
+                n = smoothstep(0.2, 0.8, n);
+                return n;
+            }
+            
+            mat2 getRotationMatrix(float time) {
+                float angle = time * 0.2;
+                float c = cos(angle);
+                float s = sin(angle);
+                return mat2(c, -s, s, c);
+            }
+            
+            float fbm(vec2 p) {
+                float f = 0.0;
+                mat2 rotMtx = getRotationMatrix(iTime * 0.1);
+                p = rotMtx * p;
+                
+                f += 0.500000 * sharpNoise(p + iTime * 0.3);
+                p = rotMtx * p * 2.02;
+                f += 0.250000 * sharpNoise(p);
+                p = rotMtx * p * 2.01;
+                f += 0.125000 * noise(p);
+                p = rotMtx * p * 2.03;
+                f += 0.062500 * noise(p);
+                return f / 0.9375;
+            }
+            
+            float pattern(vec2 p) {
+                float base = fbm(p + fbm(p * 0.5));
+                float layers = sin(base * 6.0) * 0.5 + 0.5;
+                layers = smoothstep(0.3, 0.7, layers);
+                return mix(base, layers, 0.4);
+            }
+            
+            void main() {
+                vec2 uv = vTexCoord;
+                
+                vec2 centered_uv = uv - 0.5;
+                centered_uv.x *= iResolution.x / iResolution.y;
+                
+                mat2 globalRotation = getRotationMatrix(iTime * 0.05);
+                centered_uv = globalRotation * centered_uv;
+                
+                vec2 pattern_uv = centered_uv + 0.5;
+                
+                float shade = pattern(pattern_uv * 2.5);
+                
+                float contours = sin(shade * 8.0) * 0.5 + 0.5;
+                contours = smoothstep(0.3, 0.7, contours);
+                shade = mix(shade, contours, 0.2);
+                
+                // Grayscale colors with very low contrast
+                vec3 baseColor = vec3(0.88, 0.88, 0.88); // Light gray base
+                vec3 accentColor = vec3(0.82, 0.82, 0.82); // Slightly darker gray
+                
+                // Very subtle pattern mixing
+                float patternThreshold = 0.5;
+                float colorMix = smoothstep(patternThreshold - 0.05, patternThreshold + 0.05, shade);
+                
+                vec3 finalColor = mix(baseColor, accentColor, colorMix * 0.2);
+                
+                // Very subtle highlights
+                vec3 lightHighlight = vec3(0.92, 0.92, 0.92);
+                float highlightPattern = sin(shade * 8.0 + iTime * 0.3) * 0.5 + 0.5;
+                highlightPattern = smoothstep(0.85, 0.95, highlightPattern);
+                finalColor = mix(finalColor, lightHighlight, highlightPattern * 0.03);
+                
+                // Subtle animation
+                float timeWave = sin(iTime * 0.2) * 0.02 + 0.98;
+                finalColor *= timeWave;
+                    
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+        
+        // Create shaders
+        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+        
+        // Create program
+        this.program = this.gl.createProgram();
+        this.gl.attachShader(this.program, vertexShader);
+        this.gl.attachShader(this.program, fragmentShader);
+        this.gl.linkProgram(this.program);
+        
+        if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
+            console.error('Background shader program failed to link:', this.gl.getProgramInfoLog(this.program));
+            return;
+        }
+        
+        // Get attribute and uniform locations
+        const positionLocation = this.gl.getAttribLocation(this.program, 'a_position');
+        
+        this.uniforms = {
+            iResolution: this.gl.getUniformLocation(this.program, 'iResolution'),
+            iTime: this.gl.getUniformLocation(this.program, 'iTime')
+        };
+        
+        // Create buffer for full-screen quad
+        const buffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+            -1,  1,
+             1, -1,
+             1,  1,
+        ]), this.gl.STATIC_DRAW);
+        
+        this.gl.enableVertexAttribArray(positionLocation);
+        this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 0, 0);
+    }
+    
+    createShader(type, source) {
+        const shader = this.gl.createShader(type);
+        this.gl.shaderSource(shader, source);
+        this.gl.compileShader(shader);
+        
+        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+            console.error('Background shader compilation error:', this.gl.getShaderInfoLog(shader));
+            this.gl.deleteShader(shader);
+            return null;
+        }
+        
+        return shader;
+    }
+    
+    animate() {
+        if (!this.gl || !this.program) return;
+        
+        const currentTime = (Date.now() - this.startTime) / 1000.0;
+        
+        // Set uniforms
+        this.gl.useProgram(this.program);
+        this.gl.uniform2f(this.uniforms.iResolution, this.canvas.width, this.canvas.height);
+        this.gl.uniform1f(this.uniforms.iTime, currentTime);
+        
+        // Draw
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
+        
+        this.animationId = requestAnimationFrame(() => this.animate());
+    }
+    
+    destroy() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+        }
+        if (this.canvas && this.canvas.parentNode) {
+            this.canvas.parentNode.removeChild(this.canvas);
+        }
+    }
+}
+
+// Title Bar Fluid Gradient Shader System
+class FluidGradient {
+    constructor() {
+        this.canvas = null;
+        this.gl = null;
+        this.program = null;
+        this.uniforms = {};
+        this.animationId = null;
+        this.startTime = Date.now();
+        
+        this.init();
+    }
+    
+    init() {
+        // Get the title bar element
+        const titleBar = document.getElementById('title-bar');
+        if (!titleBar) {
+            console.error('Title bar element not found');
+            return;
+        }
+        
+        // Create canvas element
+        this.canvas = document.createElement('canvas');
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.top = '0';
+        this.canvas.style.left = '0';
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.zIndex = '1999';
+        this.canvas.style.pointerEvents = 'none';
+        
+        // Append to title bar instead of body
+        titleBar.appendChild(this.canvas);
+        
+        // Get WebGL context
+        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+        if (!this.gl) {
+            console.error('WebGL not supported');
+            return;
+        }
+        
+        // Set canvas size
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        // Create shader program
+        this.createShaderProgram();
+        
+        // Start animation
+        this.animate();
+    }
+    
+    resize() {
+        const titleBar = document.getElementById('title-bar');
+        if (!titleBar) return;
+        
+        const dpr = window.devicePixelRatio || 1;
+        const rect = titleBar.getBoundingClientRect();
+        
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
         
         if (this.gl) {
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -342,18 +601,26 @@ class FluidGradient {
     }
 }
 
-// Global instance
+// Global instances
 let fluidGradient = null;
+let backgroundFluidGradient = null;
 
 // Initialize fluid gradient system
 function initFluidGradient() {
+    // Initialize background shader (grayscale)
+    if (backgroundFluidGradient) {
+        backgroundFluidGradient.destroy();
+    }
+    backgroundFluidGradient = new BackgroundFluidGradient();
+    
+    // Initialize title bar shader (sentiment-responsive)
     if (fluidGradient) {
         fluidGradient.destroy();
     }
     fluidGradient = new FluidGradient();
 }
 
-// Update gradient with sentiment
+// Update gradient with sentiment (only affects title bar)
 function updateFluidGradient(sentiment) {
     if (fluidGradient) {
         fluidGradient.updateSentiment(sentiment);

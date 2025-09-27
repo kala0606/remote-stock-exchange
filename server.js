@@ -395,6 +395,7 @@ function initGame(game, initialAdminPlayerId) {
   });
 
   game.gameStarted = true;
+  game.gameStartTime = Date.now(); // NEW: Track game start time for analytics
   console.log(`[initGame] Game started flag set to true. Emitting initial game state...`);
   recordHistoricalWorth(game, 0); // NEW: Record initial worth for all players at period 0
   logActivity(game, null, 'GAME_STARTED', `Game started. Period ${game.period}, Round ${game.state.roundNumberInPeriod}.`);
@@ -1005,10 +1006,21 @@ io.on('connection', socket => {
             // No need to send full portfolio/cash again if chart only uses historical worth
             // But can be useful for a final leaderboard display on the summary screen
             finalCash: p.cash,
-            finalPortfolioValue: calculatePlayerTotalWorth(p, game.state.prices) - p.cash // Recalculate for safety
+            finalPortfolioValue: calculatePlayerTotalWorth(p, game.state.prices) - p.cash, // Recalculate for safety
+            finalPortfolio: p.portfolio || {},
+            finalShortPositions: p.shortPositions || {}
         })),
         historicalWorthData: game.state.historicalWorthData || [],
-        turnTimeData: game.state.turnTimeData || [] // NEW: Include turn time data
+        turnTimeData: game.state.turnTimeData || [], // NEW: Include turn time data
+        priceLog: game.state.priceLog || [], // Include complete price history
+        finalPrices: game.state.prices,
+        initialPrices: game.state.init || {},
+        chairmen: game.state.chairmen || {},
+        presidents: game.state.presidents || {},
+        companyList: COMPANIES,
+        totalPeriods: game.period,
+        gameStartTime: game.gameStartTime || null,
+        gameEndTime: Date.now()
     };
 
     io.to(roomID).emit('gameSummaryReceived', summaryData);

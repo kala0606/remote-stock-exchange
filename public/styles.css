@@ -51,6 +51,8 @@ body {
   left: 0;
   z-index: 2000;
   height: 40px; /* Increased height */
+  /* Enable relative positioning for canvas placement */
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,16 +60,21 @@ body {
 }
 
 .app-logo-titlebar {
-  filter: invert(1) brightness(2);
+  filter: none;
   height: 28px !important;
   margin-right: 14px !important;
   vertical-align: middle;
+  position: relative;
+  z-index: 2001;
 }
 
 #game-title-text {
   font-size: 1.35em;
   font-weight: 600;
   letter-spacing: 1px;
+  position: relative;
+  z-index: 2001;
+  color: #000000;
 }
 
 .screen {
@@ -1330,51 +1337,160 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* --- End of Mobile Leaderboard Overrides (Applied Last) --- */
 
-/* --- Game Over Screen Mobile Friendliness --- */
+/* Analytics Gradient Separators */
+.analytics-section + .analytics-section::before {
+  content: '';
+  display: block;
+  height: 2px;
+  margin: -15px 0 30px 0;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.4) 25%, 
+    rgba(255, 255, 255, 0.6) 50%, 
+    rgba(255, 255, 255, 0.4) 75%, 
+    rgba(255, 255, 255, 0.1) 100%);
+}
+
+/* --- Game Over Screen Mobile Responsiveness --- */
 @media (max-width: 768px) {
   #game-over-screen {
-    padding: 15px; /* Reduce padding */
-    margin-top: 20px; /* Reduce top margin */
+    padding: 15px;
   }
-  
-  #game-over-screen .game-over-content {
-    width: 95vw;
-    max-width: 95vw;
-    box-sizing: border-box;
+
+  .game-over-header {
+    padding: 20px 15px !important;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .analytics-card {
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .analytics-section {
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .analytics-table {
+    font-size: 0.85em;
+  }
+
+  .analytics-table th,
+  .analytics-table td {
+    padding: 8px 4px;
+  }
+
+  .chart-container {
+    padding: 15px 10px;
+    background: rgba(255, 255, 255, 0.15);
   }
 
   #winner-announcement {
-    font-size: 1.3em; /* Reduce font size */
-    margin-bottom: 10px; /* Reduce margin */
+    font-size: 1.3em;
+    margin-bottom: 15px;
   }
 
-  #wisdom-quote {
-    font-size: 0.9em; /* Reduce font size */
-    margin-bottom: 15px; /* Reduce margin */
+  .metric-card {
+    padding: 12px;
+    margin: 8px 0;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .metric-value {
+    font-size: 1.3em;
+  }
+
+  .company-card {
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 
 @media (max-width: 480px) {
   #game-over-screen {
-    padding: 10px; /* Further reduce padding */
+    padding: 10px;
   }
-  
-  #game-over-screen .game-over-content {
-    width: 98vw;
-    max-width: 98vw;
-    padding: 12px 2vw;
-    box-sizing: border-box;
+
+  .game-over-header {
+    padding: 15px 10px !important;
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .analytics-card {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .analytics-section {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .analytics-table {
+    font-size: 0.8em;
+  }
+
+  .analytics-table th,
+  .analytics-table td {
+    padding: 6px 3px;
+  }
+
+  .analytics-table th {
+    background: rgba(255, 255, 255, 0.3);
   }
 
   #winner-announcement {
-    font-size: 1.1em; /* Further reduce font size */
+    font-size: 1.1em;
   }
 
-  #wisdom-quote {
-    font-size: 0.8em; /* Further reduce font size */
+  .metric-value {
+    font-size: 1.2em;
+  }
+
+  .metric-card {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .company-card {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .company-card h4 {
+    font-size: 1em;
+  }
+
+  .chart-container {
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .wisdom-quote {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 20px 15px;
   }
 }
-/* --- End Game Over Screen Mobile Friendliness --- */
+/* --- End Game Over Screen Mobile Responsiveness --- */
 
 /* --- Player Turn Order Table (Below Info Bar) --- */
 /* #player-turn-order-panel {
@@ -1865,44 +1981,79 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     color: #4CAF50; /* Green color for highlight */
 }
 
+/* Game Over Screen - Full Page Layout with Glassmorphism */
 #game-over-screen {
   display: none;
-  position: fixed;
-  z-index: 9999;
-  left: 0;
-  top: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.9);
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background: transparent;
+  color: #000000;
   overflow-y: auto;
+  padding-bottom: 40px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+#game-over-screen .game-over-header {
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  margin-bottom: 30px;
+  padding: 25px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
-#game-over-screen {
-  background: rgba(0,0,0,0.9) !important; /* Ensure dark overlay */
+/* Analytics Grid Layout */
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
 }
 
-#game-over-screen.panel {
-  background: transparent !important; /* Override panel transparency */
+.analytics-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
 }
 
-#game-over-screen .game-over-content {
-  background: #ffffff !important; /* Solid opaque white background */
-  border-radius: 8px;
-  padding: 32px 24px;
-  max-width: 600px;
-  width: 90vw;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-  margin: 0 auto;
-  text-align: center;
-  border: 1px solid #cccccc;
+.analytics-card:hover {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.analytics-card h3 {
+  margin: 0 0 15px 0;
+  color: #000000;
+  font-size: 1.2em;
+  font-weight: 600;
+  position: relative;
+}
+
+.analytics-card h3::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    rgba(255, 255, 255, 0.5) 25%, 
+    rgba(255, 255, 255, 0.7) 50%, 
+    rgba(255, 255, 255, 0.5) 75%, 
+    rgba(255, 255, 255, 0.2) 100%);
 }
 
 #game-over-screen h2 {
@@ -2376,8 +2527,8 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .app-logo-titlebar {
-  filter: invert(1) brightness(2);
-  /* Ensures the SVG appears white on black background */
+  filter: none;
+  /* Logo appears in original black color */
 }
 
 .deck-info-table {
@@ -2757,11 +2908,205 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   100% { opacity: 1; }
 }
 
+/* Analytics Sections */
+.analytics-sections {
+  display: grid;
+  gap: 30px;
+}
+
+.analytics-section {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.analytics-section:hover {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.analytics-section h3 {
+  margin: 0 0 20px 0;
+  color: #000000;
+  font-size: 1.3em;
+  font-weight: 600;
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.analytics-section h3::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.3) 0%, 
+    rgba(255, 255, 255, 0.6) 25%, 
+    rgba(255, 255, 255, 0.8) 50%, 
+    rgba(255, 255, 255, 0.6) 75%, 
+    rgba(255, 255, 255, 0.3) 100%);
+}
+
 #game-over-screen h3 {
-  color: #2c3e50;
+  color: #000000;
   margin: 20px 0 10px 0;
   font-size: 1.3em;
+  font-weight: 600;
+}
+
+/* Chart Container */
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.06);
+}
+
+/* Tables in Analytics */
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 0.95em;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.analytics-table th {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-weight: 600;
+  color: #000000;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.analytics-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.analytics-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Metric Cards */
+.metric-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 15px;
+  margin: 10px 0;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.metric-value {
+  font-size: 1.5em;
   font-weight: bold;
+  color: #000000;
+  margin-bottom: 5px;
+}
+
+.metric-label {
+  font-size: 0.9em;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* Company Performance Cards */
+.company-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 15px;
+  margin: 10px 0;
+  transition: all 0.3s ease;
+}
+
+.company-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.company-card h4 {
+  margin: 0 0 10px 0;
+  color: #000000;
+  font-weight: 600;
+}
+
+.price-change {
+  font-weight: bold;
+}
+
+.price-change.positive {
+  color: #0f5132;
+}
+
+.price-change.negative {
+  color: #8B0000;
+}
+
+.price-change.neutral {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* Wisdom Quote */
+.wisdom-quote {
+  text-align: center;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 1.1em;
+  margin: 40px 0 20px 0;
+  padding: 25px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.wisdom-quote:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
 /* Restore action buttons styles */

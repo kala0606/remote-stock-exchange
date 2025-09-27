@@ -11,7 +11,7 @@
   <div id="title-bar">
     <img src="/logo.svg" alt="Logo" class="app-logo-titlebar" style="height:18px; margin-right:8px; vertical-align:middle;" />
     <span id="game-title-text">Remote Stock Exchange</span>
-    <button id="helpButton" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); padding:0; font-size:16px; background:none; color:#ffffff; border:none; cursor:pointer; width:20px; height:20px; display:flex; align-items:center; justify-content:center;">?</button>
+    <button id="helpButton" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); padding:0; font-size:16px; background:none; color:#000000; border:none; cursor:pointer; width:20px; height:20px; display:flex; align-items:center; justify-content:center; z-index:2001;">?</button>
   </div>
 
   <div id="main-content-wrapper">
@@ -339,17 +339,85 @@
     </div>
 
     <!-- NEW: Game Over Screen -->
-    <div id="game-over-screen" class="screen panel" style="display: none; text-align: center;">
-      <div class="game-over-content">
-        <img src="/logo.svg" alt="Logo" class="app-logo-endscreen" style="height:48px; margin-bottom:12px; display:block; margin-left:auto; margin-right:auto;" />
-        <h2>Game Over!</h2>
-        <h4 id="winner-announcement" style="margin-bottom: 15px;">Calculating winner...</h4>
-        <div style="width: 80%; max-width: 800px; margin: 20px auto;">
-            <canvas id="playerWorthChart"></canvas>
-        </div>
-        <div id="game-over-stats" style="margin: 24px 0 0 0;"></div>
-        <div id="wisdom-quote" style="margin-top: 25px; font-style: italic; color: #333333;"></div>
+    <div id="game-over-screen" class="screen" style="display: none; padding: 20px; max-width: 1400px;">
+      <div class="game-over-header">
+        <img src="/logo.svg" alt="Logo" class="app-logo-endscreen" style="height:48px; margin-bottom:12px;" />
+        <h2>Game Analytics & Results</h2>
+        <h4 id="winner-announcement" style="margin-bottom: 20px;">Calculating winner...</h4>
       </div>
+
+      <!-- Summary Cards Section -->
+      <div class="analytics-grid">
+        <div class="analytics-card" id="game-summary-card">
+          <h3>Game Summary</h3>
+          <div id="game-summary-content"></div>
+        </div>
+        
+        <div class="analytics-card" id="top-performers-card">
+          <h3>Top Performers</h3>
+          <div id="top-performers-content"></div>
+        </div>
+        
+        <div class="analytics-card" id="key-metrics-card">
+          <h3>Key Metrics</h3>
+          <div id="key-metrics-content"></div>
+        </div>
+      </div>
+
+      <!-- Player Worth Chart -->
+      <div class="analytics-section">
+        <h3>Player Net Worth Over Time</h3>
+        <div class="chart-container">
+          <canvas id="playerWorthChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Detailed Analytics Sections -->
+      <div class="analytics-sections">
+        <!-- Final Standings -->
+        <div class="analytics-section">
+          <h3>Final Standings</h3>
+          <div id="final-standings-table"></div>
+        </div>
+
+        <!-- Company Performance -->
+        <div class="analytics-section">
+          <h3>Company Performance</h3>
+          <div id="company-performance-content"></div>
+        </div>
+
+        <!-- Player Detailed Stats -->
+        <div class="analytics-section">
+          <h3>Player Performance Breakdown</h3>
+          <div id="player-performance-breakdown"></div>
+        </div>
+
+        <!-- Transaction Analysis -->
+        <div class="analytics-section">
+          <h3>Transaction & Activity Analysis</h3>
+          <div id="transaction-analysis-content"></div>
+        </div>
+
+        <!-- Rights & Shorts Analysis -->
+        <div class="analytics-section">
+          <h3>Rights Offerings & Short Positions</h3>
+          <div id="rights-shorts-analysis"></div>
+        </div>
+
+        <!-- Leadership Analysis -->
+        <div class="analytics-section">
+          <h3>Company Leadership</h3>
+          <div id="leadership-analysis"></div>
+        </div>
+
+        <!-- Game Timeline -->
+        <div class="analytics-section">
+          <h3>Game Timeline</h3>
+          <div id="game-timeline-content"></div>
+        </div>
+      </div>
+
+      <div id="wisdom-quote" class="wisdom-quote"></div>
     </div>
   </div>
 
