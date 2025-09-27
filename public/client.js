@@ -973,10 +973,17 @@ function updateUI(state) {
     const isNewPeriod = state.state?.period && currentGameState?.state?.period && 
                         state.state.period !== currentGameState.state.period;
     
+    // Also check for new round within same period (after admin resolves prices)
+    const isNewRound = state.state?.roundNumberInPeriod && currentGameState?.state?.roundNumberInPeriod &&
+                       state.state.roundNumberInPeriod !== currentGameState.state.roundNumberInPeriod;
+    
     console.log('Period Detection:', {
         currentPeriod: state.state?.period,
         previousPeriod: currentGameState?.state?.period,
         isNewPeriod,
+        currentRound: state.state?.roundNumberInPeriod,
+        previousRound: currentGameState?.state?.roundNumberInPeriod,
+        isNewRound,
         currentGameStateExists: !!currentGameState,
         handLength: state.hand?.length || 0,
         priceCards: state.hand?.filter(card => card.type === 'price' && !card.played).length || 0
@@ -1015,9 +1022,9 @@ function updateUI(state) {
     const isNewHand = playerHandToRender.length > 0 && lastHandSignature === '';
     const handChanged = lastHandSignature !== currentHandSignature;
     
-    // Reset signature if new period to force gradient update
-    if (isNewPeriod) {
-        console.log('New period detected, resetting hand signature');
+    // Reset signature if new period or new round to force gradient update
+    if (isNewPeriod || isNewRound) {
+        console.log('New period or round detected, resetting hand signature');
         lastHandSignature = '';
     }
     
@@ -1025,21 +1032,24 @@ function updateUI(state) {
     const hasSignificantPriceCards = playerHandToRender.filter(card => card.type === 'price' && !card.played).length >= 5;
     const shouldForceUpdate = hasSignificantPriceCards && lastHandSignature !== '';
     
-    if (isNewHand || handChanged || isNewPeriod || shouldForceUpdate) {
-        console.log('Hand changed, new hand, new period, or significant price cards - updating gradient...', { 
+    if (isNewHand || handChanged || isNewPeriod || isNewRound || shouldForceUpdate) {
+        console.log('Hand changed, new hand, new period/round, or significant price cards - updating gradient...', { 
             isNewHand, 
             handChanged, 
             isNewPeriod,
+            isNewRound,
             shouldForceUpdate,
             priceCards: playerHandToRender.filter(card => card.type === 'price' && !card.played).length,
             period: state.state?.period,
-            previousPeriod: currentGameState?.state?.period
+            previousPeriod: currentGameState?.state?.period,
+            round: state.state?.roundNumberInPeriod,
+            previousRound: currentGameState?.state?.roundNumberInPeriod
         });
         const futureSentiment = calculateFutureMarketSentiment(state.players, companiesStaticData, currentMarketPrices);
         
-        // Reset smoothing when new cards are dealt (new period or significant price cards)
-        if (isNewPeriod || shouldForceUpdate) {
-            console.log('New period or significant price cards - resetting gradient smoothing');
+        // Reset smoothing when new cards are dealt (new period, new round, or significant price cards)
+        if (isNewPeriod || isNewRound || shouldForceUpdate) {
+            console.log('New period, new round, or significant price cards - resetting gradient smoothing');
             lastGradientSentiment = 0; // Reset to prevent accumulation
         }
         

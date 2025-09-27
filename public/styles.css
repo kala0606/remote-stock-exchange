@@ -3,7 +3,7 @@ body {
   margin: 0;
   min-height: 100vh;
   padding: 0;
-  padding-top: 48px; /* Increased to match 40px title bar + a bit of spacing */
+  padding-top: 120px; /* Increased to match 40px title bar + 60px info bar + spacing */
   box-sizing: border-box;
   color: #000000; /* Black text */
   background: linear-gradient(45deg, 
@@ -855,7 +855,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   body {
     padding: 10px;
     font-size: 15px; /* Slightly adjust base font size */
-    padding-top: 48px; /* Ensure enough space for the 40px title bar on mobile */
+    padding-top: 120px; /* Ensure enough space for the 40px title bar + 60px info bar on mobile */
   }
 
   .screen {
@@ -1049,6 +1049,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 @media (max-width: 480px) {
   body {
     font-size: 14px; /* Further adjust base font size for small screens */
+    padding-top: 120px; /* Ensure enough space for the 40px title bar + 60px info bar on small screens */
   }
 
   h1 {
@@ -2705,6 +2706,13 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   justify-content: space-between;
   gap: 12px;
   transition: all 0.3s ease;
+  position: fixed;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 1200px;
+  width: calc(100vw - 40px);
 }
 
 #info-bar > span {

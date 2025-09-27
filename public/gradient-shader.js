@@ -83,12 +83,21 @@ class FluidGradient {
             float noise(vec2 p) {
                 vec2 ip = floor(p);
                 vec2 u = fract(p);
-                u = u*u*(3.0-2.0*u);
+                // Make transitions sharper for water-like effect
+                u = u*u*u*(u*(u*6.0-15.0)+10.0);
                 
                 float res = mix(
                     mix(rand(ip), rand(ip+vec2(1.0,0.0)), u.x),
                     mix(rand(ip+vec2(0.0,1.0)), rand(ip+vec2(1.0,1.0)), u.x), u.y);
-                return res*res;
+                return res;
+            }
+            
+            // Softer noise for water-like contours
+            float sharpNoise(vec2 p) {
+                float n = noise(p);
+                // Create softer contours with gentle transitions
+                n = smoothstep(0.2, 0.8, n);
+                return n;
             }
             
             // Create rotation matrix
@@ -99,27 +108,30 @@ class FluidGradient {
                 return mat2(c, -s, s, c);
             }
             
-            // Fractal Brownian Motion
+            // Fractal Brownian Motion with water-like characteristics
             float fbm(vec2 p) {
                 float f = 0.0;
                 mat2 rotMtx = getRotationMatrix(iTime * 0.1);
                 p = rotMtx * p;
                 
-                f += 0.500000 * noise(p + iTime * 0.5);
+                // Use sharper noise for water-like contours
+                f += 0.500000 * sharpNoise(p + iTime * 0.3);
                 p = rotMtx * p * 2.02;
-                f += 0.250000 * noise(p);
+                f += 0.250000 * sharpNoise(p);
                 p = rotMtx * p * 2.01;
-                f += 0.125000 * noise(p);
+                f += 0.125000 * noise(p); // Keep some regular noise for detail
                 p = rotMtx * p * 2.03;
                 f += 0.062500 * noise(p);
-                p = rotMtx * p * 2.01;
-                f += 0.031250 * noise(p);
-                return f / 0.96875;
+                return f / 0.9375;
             }
             
-            // Pattern function
+            // Water-like pattern function with softer contours
             float pattern(vec2 p) {
-                return fbm(p + fbm(p + fbm(p)));
+                float base = fbm(p + fbm(p * 0.5));
+                // Create softer water-like layers
+                float layers = sin(base * 6.0) * 0.5 + 0.5;
+                layers = smoothstep(0.3, 0.7, layers);
+                return mix(base, layers, 0.4);
             }
             
             // Smooth color interpolation
@@ -142,21 +154,30 @@ class FluidGradient {
                 // Move back to UV space
                 vec2 pattern_uv = centered_uv + 0.5;
                 
-            // Generate fluid pattern
+            // Generate water-like pattern with multiple scales
             float shade = pattern(pattern_uv * 2.5);
+            
+            // Add subtle water-like contours with soft edges
+            float contours = sin(shade * 8.0) * 0.5 + 0.5;
+            contours = smoothstep(0.3, 0.7, contours); // Softer edges
+            shade = mix(shade, contours, 0.2);
             
             // Create gradient based on sentiment
             vec3 baseColor = u_baseColor; // Grey base
             vec3 accentColor = u_accentColor; // Green or red accent
             
+            // Add subtle white highlights for depth
+            vec3 whiteHighlight = vec3(1.0, 1.0, 1.0);
+            float highlightPattern = sin(shade * 10.0 + iTime * 0.5) * 0.5 + 0.5;
+            highlightPattern = smoothstep(0.7, 0.9, highlightPattern);
+            
             // Mix colors based on pattern and sentiment intensity
             float intensity = abs(u_sentiment) / 50.0; // Normalize sentiment to 0-1
             intensity = clamp(intensity, 0.0, 1.0);
             
-            // Create 40% white / 60% accent color split
-            // Use the pattern to create distinct regions of color
-            float patternThreshold = 0.4; // Reduced from 0.5 to 0.4 for 40% white
-            float colorMix = smoothstep(patternThreshold - 0.1, patternThreshold + 0.1, shade);
+            // Create softer transitions with subtle blur
+            float patternThreshold = 0.4;
+            float colorMix = smoothstep(patternThreshold - 0.15, patternThreshold + 0.15, shade);
             
             // Create stronger contrast between base and accent colors
             vec3 finalColor;
@@ -178,9 +199,12 @@ class FluidGradient {
                 }
                 
                 finalColor = mix(baseColor, enhancedAccent, colorMix * intensity);
+                
+                // Add subtle white highlights for depth and interest
+                finalColor = mix(finalColor, whiteHighlight, highlightPattern * 0.15 * intensity);
             } else {
-                // When neutral, just use base color
-                finalColor = baseColor;
+                // When neutral, use base color with subtle white highlights
+                finalColor = mix(baseColor, whiteHighlight, highlightPattern * 0.1);
             }
             
             // Add subtle animation based on time
