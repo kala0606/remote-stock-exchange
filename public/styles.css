@@ -2214,6 +2214,17 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     color: #000000; /* Black text */
 }
 
+/* Activity Log Entry Separators */
+.activity-log-content .log-entry {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(150, 150, 150, 0.3);
+    line-height: 1.4;
+}
+
+.activity-log-content .log-entry:last-child {
+    border-bottom: none; /* Remove separator from last entry */
+}
+
 /* Portfolio Summary Styles */
 #portfolio-summary {
     display: flex;
@@ -2518,12 +2529,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(255, 255, 255, 0.2) 20%, 
-    rgba(255, 255, 255, 0.4) 50%, 
-    rgba(255, 255, 255, 0.2) 80%, 
-    transparent 100%);
+  background: rgba(150, 150, 150, 0.3);
 }
 
 .app-logo-titlebar {

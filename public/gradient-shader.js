@@ -140,21 +140,21 @@ class BackgroundFluidGradient {
                 contours = smoothstep(0.3, 0.7, contours);
                 shade = mix(shade, contours, 0.2);
                 
-                // Grayscale colors with very low contrast
-                vec3 baseColor = vec3(0.88, 0.88, 0.88); // Light gray base
-                vec3 accentColor = vec3(0.82, 0.82, 0.82); // Slightly darker gray
+                // Lighter grayscale colors with white highlights
+                vec3 baseColor = vec3(0.94, 0.94, 0.94); // Much lighter gray base (closer to white)
+                vec3 accentColor = vec3(0.88, 0.88, 0.88); // Light gray accent
                 
                 // Very subtle pattern mixing
                 float patternThreshold = 0.5;
                 float colorMix = smoothstep(patternThreshold - 0.05, patternThreshold + 0.05, shade);
                 
-                vec3 finalColor = mix(baseColor, accentColor, colorMix * 0.2);
+                vec3 finalColor = mix(baseColor, accentColor, colorMix * 0.3); // Slightly more contrast
                 
-                // Very subtle highlights
-                vec3 lightHighlight = vec3(0.92, 0.92, 0.92);
+                // Enhanced white highlights
+                vec3 whiteHighlight = vec3(1.0, 1.0, 1.0); // Pure white highlights
                 float highlightPattern = sin(shade * 8.0 + iTime * 0.3) * 0.5 + 0.5;
-                highlightPattern = smoothstep(0.85, 0.95, highlightPattern);
-                finalColor = mix(finalColor, lightHighlight, highlightPattern * 0.03);
+                highlightPattern = smoothstep(0.75, 0.9, highlightPattern); // More frequent highlights
+                finalColor = mix(finalColor, whiteHighlight, highlightPattern * 0.08); // Stronger white mixing
                 
                 // Subtle animation
                 float timeWave = sin(iTime * 0.2) * 0.02 + 0.98;
@@ -413,11 +413,11 @@ class FluidGradient {
                 // Move back to UV space
                 vec2 pattern_uv = centered_uv + 0.5;
                 
-            // Generate water-like pattern with multiple scales
-            float shade = pattern(pattern_uv * 2.5);
+            // Generate water-like pattern with multiple scales - zoomed in more
+            float shade = pattern(pattern_uv * 1.2);
             
-            // Add subtle water-like contours with soft edges
-            float contours = sin(shade * 8.0) * 0.5 + 0.5;
+            // Add subtle water-like contours with soft edges - adjusted for new scale
+            float contours = sin(shade * 6.0) * 0.5 + 0.5;
             contours = smoothstep(0.3, 0.7, contours); // Softer edges
             shade = mix(shade, contours, 0.2);
             
@@ -427,7 +427,7 @@ class FluidGradient {
             
             // Add subtle white highlights for depth
             vec3 whiteHighlight = vec3(1.0, 1.0, 1.0);
-            float highlightPattern = sin(shade * 10.0 + iTime * 0.5) * 0.5 + 0.5;
+            float highlightPattern = sin(shade * 7.0 + iTime * 0.5) * 0.5 + 0.5;
             highlightPattern = smoothstep(0.7, 0.9, highlightPattern);
             
             // Mix colors based on pattern and sentiment intensity
