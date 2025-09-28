@@ -1,19 +1,41 @@
-// const SOCKET_SERVER = 'https://wiggly-alder-cornet.glitch.me'; // FOR GLITCH DEPLOYMENT
-const SOCKET_SERVER = 'http://localhost:3000'; // FOR LOCAL TESTING
-// const SOCKET_SERVER = 'ws://remote-stock-exchange-backend.glitch.me'; // Example if using glitch
+// Dynamic socket server configuration
+const SOCKET_SERVER = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000' 
+    : `https://${window.location.hostname}`;
 
-// Silence all console output in production-like runs
-try {
-    const noop = function(){};
-    console.log = noop;
-    console.warn = noop;
-    console.info = noop;
-    console.debug = noop;
-    console.error = noop;
-} catch (e) {}
+// Enable console output for debugging Socket.IO connection issues
+// Comment out console silencing for now to help debug connection problems
+// try {
+//     const noop = function(){};
+//     console.log = noop;
+//     console.warn = noop;
+//     console.info = noop;
+//     console.debug = noop;
+//     console.error = noop;
+// } catch (e) {}
 
-// Initialize socket connection
-const socket = io();
+// Initialize socket connection with proper configuration
+const socket = io(SOCKET_SERVER, {
+    transports: ['websocket', 'polling'],
+    timeout: 20000,
+    forceNew: true
+});
+
+// Connection event handlers for debugging
+socket.on('connect', () => {
+    console.log('Socket.IO connected to:', SOCKET_SERVER);
+    isConnected = true;
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Socket.IO disconnected:', reason);
+    isConnected = false;
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Socket.IO connection error:', error);
+    isConnected = false;
+});
 
 // Keep-alive ping to prevent server from sleeping on free hosting tiers
 setInterval(() => {

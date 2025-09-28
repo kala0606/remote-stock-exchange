@@ -1,12 +1,13 @@
-// Silence all console output
-try {
-  const noop = function(){};
-  console.log = noop;
-  console.warn = noop;
-  console.info = noop;
-  console.debug = noop;
-  console.error = noop;
-} catch (e) {}
+// Enable console output for debugging Socket.IO connection issues
+// Comment out console silencing for now to help debug connection problems
+// try {
+//   const noop = function(){};
+//   console.log = noop;
+//   console.warn = noop;
+//   console.info = noop;
+//   console.debug = noop;
+//   console.error = noop;
+// } catch (e) {}
 
 const express = require('express');
 const http = require('http');
@@ -224,7 +225,18 @@ const PRESIDENT_SHARE_THRESHOLD = 50000; // Threshold for president
 // Setup Express and Socket.IO
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "http://localhost:3000",
+      "https://remote-stock-exchange.fly.dev"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
+});
 app.use(express.static('public'));
 
 // Game state storage
@@ -754,7 +766,7 @@ function logActivity(game, playerName, actionType, detailsOverride = null, round
 }
 
 io.on('connection', socket => {
-  console.log('Client connected:', socket.id);
+  console.log('Client connected:', socket.id, 'from:', socket.handshake.address);
 
   // Handle ping for keep-alive (prevents server sleeping on free hosting)
   socket.on('ping', () => {
@@ -1840,4 +1852,10 @@ io.on('connection', socket => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Socket.IO CORS origins configured for localhost and remote-stock-exchange.fly.dev`);
+}).on('error', (err) => {
+  console.error('Server startup error:', err);
+});
