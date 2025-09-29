@@ -3,16 +3,15 @@ const SOCKET_SERVER = window.location.hostname === 'localhost'
     ? 'http://localhost:3000' 
     : `https://${window.location.hostname}`;
 
-// Enable console output for debugging Socket.IO connection issues
-// Comment out console silencing for now to help debug connection problems
-// try {
-//     const noop = function(){};
-//     console.log = noop;
-//     console.warn = noop;
-//     console.info = noop;
-//     console.debug = noop;
-//     console.error = noop;
-// } catch (e) {}
+// Silence all console output
+try {
+    const noop = function(){};
+    console.log = noop;
+    console.warn = noop;
+    console.info = noop;
+    console.debug = noop;
+    console.error = noop;
+} catch (e) {}
 
 // Initialize socket connection with proper configuration
 const socket = io(SOCKET_SERVER, {

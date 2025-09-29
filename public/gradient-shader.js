@@ -1,3 +1,20 @@
+// Silence console output for gradient shader
+try {
+    const noop = function(){};
+    const originalConsole = {
+        log: console.log,
+        warn: console.warn,
+        info: console.info,
+        debug: console.debug,
+        error: console.error
+    };
+    console.log = noop;
+    console.warn = noop;
+    console.info = noop;
+    console.debug = noop;
+    console.error = noop;
+} catch (e) {}
+
 // Background Fluid Gradient Shader System (Grayscale)
 class BackgroundFluidGradient {
     constructor() {
