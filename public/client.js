@@ -443,27 +443,29 @@ if (createRoomBtn) {
                     playerNameInput.value = 'Player 1';
                 }
                 currentPlayerName = playerNameInput ? playerNameInput.value.trim() : 'Player';
-                socket.emit('joinRoom', { roomID, name: currentPlayerName }, response => {
-                    console.log('Auto-join response after create:', response);
-                    if (response.error) {
-                        alert(response.error);
-                        return;
-                    }
-                    if (response.sessionToken) {
-                        currentSessionToken = response.sessionToken;
-                        localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
-                        const url = new URL(window.location.href);
-                        url.searchParams.set('room', roomID);
-                        url.searchParams.set('session', currentSessionToken);
-                        history.pushState({ roomID, playerName: currentPlayerName, token: currentSessionToken }, ``, url.toString());
-                        console.log('[joinRoom] Updated URL with session token:', url.toString());
-                    }
-                    // After successful auto-join post-creation, this player is admin.
-                    // The global isAdmin flag will be set by the subsequent gameState event.
-                    // We can preemptively show the start button here for the creator.
-                    if (startGameBtn) startGameBtn.style.display = 'block'; 
-                    isAdmin = true; // Tentatively set for immediate UI, will be confirmed by gameState
-                });
+                
+                // Use retry logic for auto-join after room creation
+                attemptJoinRoom(roomID, currentPlayerName, 5, 200) // More retries for creator, shorter delay
+                    .then(response => {
+                        console.log('Auto-join response after create:', response);
+                        if (response.sessionToken) {
+                            currentSessionToken = response.sessionToken;
+                            localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('room', roomID);
+                            url.searchParams.set('session', currentSessionToken);
+                            history.pushState({ roomID, playerName: currentPlayerName, token: currentSessionToken }, ``, url.toString());
+                            console.log('[joinRoom] Updated URL with session token:', url.toString());
+                        }
+                        // After successful auto-join post-creation, this player is admin.
+                        // The global isAdmin flag will be set by the subsequent gameState event.
+                        // We can preemptively show the start button here for the creator.
+                        if (startGameBtn) startGameBtn.style.display = 'block'; 
+                        isAdmin = true; // Tentatively set for immediate UI, will be confirmed by gameState
+                    })
+                    .catch(error => {
+                        alert('Failed to join created room: ' + error);
+                    });
             } else {
                 alert('Failed to create room. Please try again.');
             }
@@ -475,8 +477,43 @@ if (createRoomBtn) {
     };
 }
 
+// Helper function to join room with retry logic
+function attemptJoinRoom(roomID, name, maxRetries = 3, retryDelay = 500) {
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        
+        function tryJoin() {
+            attempts++;
+            console.log(`Joining room attempt ${attempts}/${maxRetries}:`, roomID, 'as:', name);
+            
+            socket.emit('joinRoom', { roomID, name }, response => {
+                console.log('Join response:', response);
+                if (response.error) {
+                    if (response.error === 'Room not found' && attempts < maxRetries) {
+                        console.log(`Room not found, retrying in ${retryDelay}ms... (attempt ${attempts}/${maxRetries})`);
+                        
+                        // Update button text to show retry status
+                        if (joinRoomBtn) {
+                            joinRoomBtn.textContent = `Retrying... (${attempts}/${maxRetries})`;
+                        }
+                        
+                        setTimeout(tryJoin, retryDelay);
+                        retryDelay *= 1.5; // Exponential backoff
+                        return;
+                    }
+                    reject(response.error);
+                    return;
+                }
+                resolve(response);
+            });
+        }
+        
+        tryJoin();
+    });
+}
+
 if (joinRoomBtn) {
-    joinRoomBtn.onclick = () => {
+    joinRoomBtn.onclick = async () => {
         if (!isConnected) {
             alert('Not connected to server. Please refresh the page.');
             return;
@@ -488,15 +525,12 @@ if (joinRoomBtn) {
             return;
         }
         currentPlayerName = name;
-        console.log('Joining room:', roomID, 'as:', name);
         joinRoomBtn.disabled = true;
-        socket.emit('joinRoom', { roomID, name }, response => {
-            joinRoomBtn.disabled = false;
-            console.log('Join response:', response);
-            if (response.error) {
-                alert(response.error);
-                return;
-            }
+        joinRoomBtn.textContent = 'Joining...';
+        
+        try {
+            const response = await attemptJoinRoom(roomID, name);
+            
             if (response.sessionToken) {
                 currentSessionToken = response.sessionToken;
                 localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
@@ -508,8 +542,12 @@ if (joinRoomBtn) {
             }
             currentRoom = roomID;
             // Visibility of startGameBtn is now handled by updateUI based on isAdmin from server
-            // if (startGameBtn) startGameBtn.style.display = 'block'; 
-        });
+        } catch (error) {
+            alert(error);
+        } finally {
+            joinRoomBtn.disabled = false;
+            joinRoomBtn.textContent = 'Join Room';
+        }
     };
 }
 

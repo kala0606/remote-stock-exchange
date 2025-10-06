@@ -854,15 +854,19 @@ io.on('connection', socket => {
         discard: [],
         period: 0,
         state: null,
-        admin: null // Admin ID will be set on first join
+        admin: null, // Admin ID will be set on first join
+        created: Date.now() // Track creation time
       };
       
       socket.join(roomID);
       console.log('Room created:', roomID);
       
-      if (typeof callback === 'function') {
-    callback(roomID);
-      }
+      // Add small delay to ensure room is fully initialized
+      setTimeout(() => {
+        if (typeof callback === 'function') {
+          callback(roomID);
+        }
+      }, 50); // 50ms delay
     } catch (error) {
       console.error('Error creating room:', error);
       if (typeof callback === 'function') {
