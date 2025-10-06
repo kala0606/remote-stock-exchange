@@ -6,6 +6,42 @@
   <title>Remote Stock Exchange</title>
   <!-- <base href="/remote-stock-exchange/"> -->
   <link rel="stylesheet" href="styles.css"/>
+  <style>
+    .connection-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      font-size: 0.9em;
+    }
+    
+    .status-indicator {
+      margin-right: 8px;
+      font-size: 1.2em;
+    }
+    
+    .status-indicator.connected {
+      color: #4CAF50;
+    }
+    
+    .status-indicator.connecting {
+      color: #FF9800;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .status-indicator.disconnected {
+      color: #f44336;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+  </style>
 </head>
 <body>
   <div id="title-bar">
@@ -19,6 +55,11 @@
       <img src="/logo.svg" alt="Logo" class="app-logo-lobby" style="height:48px; margin-bottom:10px; display:block; margin-left:auto; margin-right:auto;" />
       <h1>Remote Stock Exchange</h1>
       
+      <div class="connection-status" id="connectionStatus">
+        <span class="status-indicator" id="statusIndicator">●</span>
+        <span id="statusText">Connecting...</span>
+      </div>
+      
       <div class="lobby-input-group">
         <label for="playerName">Your Name:</label>
         <input type="text" id="playerName" placeholder="Enter your name">
@@ -31,7 +72,7 @@
         <div class="join-section">
           <p>Or Join an Existing Room:</p>
           <div class="join-controls">
-            <input type="text" id="roomCode" placeholder="Room Code">
+            <input type="text" id="roomCode" placeholder="4-digit code (e.g., 1234)" maxlength="4" pattern="[0-9]{4}">
             <button id="joinRoom">Join Room</button>
           </div>
         </div>

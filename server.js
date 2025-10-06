@@ -243,7 +243,66 @@ const games = {};
 
 // --- NEW Session Token Storage ---
 // Store: token -> { roomID, playerName, socketId, isAdminInitial, lastActive }
-const tokenStore = {}; 
+const tokenStore = {};
+
+// --- Room Cleanup Configuration ---
+const ROOM_EXPIRY_TIME = 30 * 60 * 1000; // 30 minutes
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// Cleanup function to remove stale rooms
+function cleanupStaleRooms() {
+  const now = Date.now();
+  const roomsToDelete = [];
+  
+  for (const [roomID, game] of Object.entries(games)) {
+    const timeSinceCreation = now - (game.createdAt || now);
+    const timeSinceActivity = now - (game.lastActivity || now);
+    
+    // Delete room if it's been inactive for too long or is very old
+    if (timeSinceActivity > ROOM_EXPIRY_TIME || timeSinceCreation > ROOM_EXPIRY_TIME * 2) {
+      roomsToDelete.push(roomID);
+    }
+  }
+  
+  if (roomsToDelete.length > 0) {
+    console.log(`[cleanupStaleRooms] Removing ${roomsToDelete.length} stale rooms:`, roomsToDelete);
+    roomsToDelete.forEach(roomID => {
+      delete games[roomID];
+      // Also clean up related tokens
+      Object.keys(tokenStore).forEach(token => {
+        if (tokenStore[token].roomID === roomID) {
+          delete tokenStore[token];
+        }
+      });
+    });
+  }
+}
+
+// Start cleanup interval
+setInterval(cleanupStaleRooms, CLEANUP_INTERVAL);
+
+// Debug endpoint to check server status and active rooms
+app.get('/api/status', (req, res) => {
+  const activeRooms = Object.keys(games).map(roomID => {
+    const game = games[roomID];
+    return {
+      roomID,
+      playerCount: game.players.length,
+      createdAt: new Date(game.createdAt || 0).toISOString(),
+      lastActivity: new Date(game.lastActivity || 0).toISOString(),
+      gameStarted: game.gameStarted || false,
+      admin: game.admin
+    };
+  });
+  
+  res.json({
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    activeRooms: activeRooms.length,
+    rooms: activeRooms,
+    totalTokens: Object.keys(tokenStore).length
+  });
+}); 
 
 // --- NEW: Helper function to calculate player's total worth ---
 function calculatePlayerTotalWorth(player, marketPrices) {
@@ -845,8 +904,14 @@ io.on('connection', socket => {
 
   socket.on('createRoom', (callback) => {
     try {
-      const roomID = Math.random().toString(36).substr(2, 4).toUpperCase();
+      const roomID = Math.floor(1000 + Math.random() * 9000).toString(); // Generate 4-digit number (1000-9999)
       console.log('Creating room:', roomID);
+      
+      // Check if room already exists (very unlikely but good practice)
+      if (games[roomID]) {
+        console.warn('Room ID collision detected:', roomID);
+        return callback(null);
+      }
       
       games[roomID] = {
         players: [],
@@ -855,18 +920,17 @@ io.on('connection', socket => {
         period: 0,
         state: null,
         admin: null, // Admin ID will be set on first join
-        created: Date.now() // Track creation time
+        createdAt: Date.now(), // Track when room was created
+        lastActivity: Date.now() // Track last activity for cleanup
       };
       
       socket.join(roomID);
-      console.log('Room created:', roomID);
+      console.log('Room created successfully:', roomID);
+      console.log('Total active rooms:', Object.keys(games).length);
       
-      // Add small delay to ensure room is fully initialized
-      setTimeout(() => {
-        if (typeof callback === 'function') {
-          callback(roomID);
-        }
-      }, 50); // 50ms delay
+      if (typeof callback === 'function') {
+        callback(roomID);
+      }
     } catch (error) {
       console.error('Error creating room:', error);
       if (typeof callback === 'function') {
@@ -880,7 +944,8 @@ io.on('connection', socket => {
     const game = games[roomID];
     if (!game) {
       console.log('Room not found:', roomID);
-      return callback({ error: 'Room not found' });
+      console.log('Available rooms:', Object.keys(games));
+      return callback({ error: 'Room not found. The room may have expired or the server restarted. Please ask the admin to create a new room.' });
     }
     if (game.players.length >= MAX_PLAYERS) {
       console.log('Room full:', roomID);
@@ -901,6 +966,7 @@ io.on('connection', socket => {
       shortPositions: {}
     };
     game.players.push(player);
+    game.lastActivity = Date.now(); // Update room activity timestamp
     socket.join(roomID);
     
     let isFirstPlayer = false;

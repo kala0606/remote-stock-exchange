@@ -17,24 +17,14 @@ try {
 const socket = io(SOCKET_SERVER, {
     transports: ['websocket', 'polling'],
     timeout: 20000,
-    forceNew: true
+    forceNew: true,
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5,
+    maxReconnectionAttempts: 5
 });
 
-// Connection event handlers for debugging
-socket.on('connect', () => {
-    console.log('Socket.IO connected to:', SOCKET_SERVER);
-    isConnected = true;
-});
-
-socket.on('disconnect', (reason) => {
-    console.log('Socket.IO disconnected:', reason);
-    isConnected = false;
-});
-
-socket.on('connect_error', (error) => {
-    console.error('Socket.IO connection error:', error);
-    isConnected = false;
-});
+// Connection event handlers will be defined later after DOM elements are loaded
 
 // Keep-alive ping to prevent server from sleeping on free hosting tiers
 setInterval(() => {
@@ -225,6 +215,31 @@ const joinRoomBtn = document.getElementById('joinRoom');
 const startGameBtn = document.getElementById('startGame');
 const roomCodeInput = document.getElementById('roomCode');
 const playerNameInput = document.getElementById('playerName');
+const statusIndicator = document.getElementById('statusIndicator');
+const statusText = document.getElementById('statusText');
+
+// Function to update connection status indicator
+function updateConnectionStatus(status, message) {
+    if (statusIndicator && statusText) {
+        statusIndicator.className = `status-indicator ${status}`;
+        statusText.textContent = message;
+    }
+}
+
+// Initialize connection status
+updateConnectionStatus('connecting', 'Connecting to server...');
+
+// Add input filtering for room code to only allow numbers
+if (roomCodeInput) {
+    roomCodeInput.addEventListener('input', (e) => {
+        // Remove any non-numeric characters
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        // Limit to 4 digits
+        if (e.target.value.length > 4) {
+            e.target.value = e.target.value.slice(0, 4);
+        }
+    });
+}
 const playerListDiv = document.getElementById('playerList');
 const periodSpan = document.getElementById('period');
 const cashSpan = document.getElementById('cash');
@@ -362,12 +377,17 @@ function getCompanyName(companyId, companiesStaticData) {
     return companyId; // Return ID if name not found
 }
 
+// Connection event handlers
 socket.on('connect', () => {
-    console.log('[connect] Connected to server with socket ID:', socket.id);
+    console.log('[connect] Socket.IO connected to:', SOCKET_SERVER, 'Socket ID:', socket.id);
     isConnected = true;
+    updateConnectionStatus('connected', 'Connected to server');
+    
+    // Enable buttons when connected
     if (createRoomBtn) createRoomBtn.disabled = false;
     if (joinRoomBtn) joinRoomBtn.disabled = false;
 
+    // Handle session token rejoin if available
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('session');
     currentSessionToken = tokenFromUrl || localStorage.getItem('remoteStockExchangeSessionToken');
@@ -383,7 +403,7 @@ socket.on('connect', () => {
                 history.replaceState(null, '', window.location.pathname);
                 currentSessionToken = null;
                 isRejoining = false;
-                if (lobbyScreen) lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
+                if (lobbyScreen) lobbyScreen.style.display = 'block';
                 if (gameScreen) gameScreen.style.display = 'none';
                 return;
             }
@@ -394,14 +414,23 @@ socket.on('connect', () => {
         });
     } else {
         console.log('[connect] No session token found. Fresh connection.');
-        if (lobbyScreen) lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
+        if (lobbyScreen) lobbyScreen.style.display = 'block';
         if (gameScreen) gameScreen.style.display = 'none';
     }
 });
 
-socket.on('disconnect', () => {
-    console.log('Disconnected from server');
+socket.on('disconnect', (reason) => {
+    console.log('[disconnect] Socket.IO disconnected:', reason);
     isConnected = false;
+    updateConnectionStatus('disconnected', 'Disconnected from server');
+    if (createRoomBtn) createRoomBtn.disabled = true;
+    if (joinRoomBtn) joinRoomBtn.disabled = true;
+});
+
+socket.on('connect_error', (error) => {
+    console.log('[connect_error] Socket.IO connection error:', error);
+    isConnected = false;
+    updateConnectionStatus('disconnected', 'Connection failed - retrying...');
     if (createRoomBtn) createRoomBtn.disabled = true;
     if (joinRoomBtn) joinRoomBtn.disabled = true;
 });
@@ -443,29 +472,27 @@ if (createRoomBtn) {
                     playerNameInput.value = 'Player 1';
                 }
                 currentPlayerName = playerNameInput ? playerNameInput.value.trim() : 'Player';
-                
-                // Use retry logic for auto-join after room creation
-                attemptJoinRoom(roomID, currentPlayerName, 5, 200) // More retries for creator, shorter delay
-                    .then(response => {
-                        console.log('Auto-join response after create:', response);
-                        if (response.sessionToken) {
-                            currentSessionToken = response.sessionToken;
-                            localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
-                            const url = new URL(window.location.href);
-                            url.searchParams.set('room', roomID);
-                            url.searchParams.set('session', currentSessionToken);
-                            history.pushState({ roomID, playerName: currentPlayerName, token: currentSessionToken }, ``, url.toString());
-                            console.log('[joinRoom] Updated URL with session token:', url.toString());
-                        }
-                        // After successful auto-join post-creation, this player is admin.
-                        // The global isAdmin flag will be set by the subsequent gameState event.
-                        // We can preemptively show the start button here for the creator.
-                        if (startGameBtn) startGameBtn.style.display = 'block'; 
-                        isAdmin = true; // Tentatively set for immediate UI, will be confirmed by gameState
-                    })
-                    .catch(error => {
-                        alert('Failed to join created room: ' + error);
-                    });
+                socket.emit('joinRoom', { roomID, name: currentPlayerName }, response => {
+                    console.log('Auto-join response after create:', response);
+                    if (response.error) {
+                        alert(response.error);
+                        return;
+                    }
+                    if (response.sessionToken) {
+                        currentSessionToken = response.sessionToken;
+                        localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('room', roomID);
+                        url.searchParams.set('session', currentSessionToken);
+                        history.pushState({ roomID, playerName: currentPlayerName, token: currentSessionToken }, ``, url.toString());
+                        console.log('[joinRoom] Updated URL with session token:', url.toString());
+                    }
+                    // After successful auto-join post-creation, this player is admin.
+                    // The global isAdmin flag will be set by the subsequent gameState event.
+                    // We can preemptively show the start button here for the creator.
+                    if (startGameBtn) startGameBtn.style.display = 'block'; 
+                    isAdmin = true; // Tentatively set for immediate UI, will be confirmed by gameState
+                });
             } else {
                 alert('Failed to create room. Please try again.');
             }
@@ -477,60 +504,40 @@ if (createRoomBtn) {
     };
 }
 
-// Helper function to join room with retry logic
-function attemptJoinRoom(roomID, name, maxRetries = 3, retryDelay = 500) {
-    return new Promise((resolve, reject) => {
-        let attempts = 0;
-        
-        function tryJoin() {
-            attempts++;
-            console.log(`Joining room attempt ${attempts}/${maxRetries}:`, roomID, 'as:', name);
-            
-            socket.emit('joinRoom', { roomID, name }, response => {
-                console.log('Join response:', response);
-                if (response.error) {
-                    if (response.error === 'Room not found' && attempts < maxRetries) {
-                        console.log(`Room not found, retrying in ${retryDelay}ms... (attempt ${attempts}/${maxRetries})`);
-                        
-                        // Update button text to show retry status
-                        if (joinRoomBtn) {
-                            joinRoomBtn.textContent = `Retrying... (${attempts}/${maxRetries})`;
-                        }
-                        
-                        setTimeout(tryJoin, retryDelay);
-                        retryDelay *= 1.5; // Exponential backoff
-                        return;
-                    }
-                    reject(response.error);
-                    return;
-                }
-                resolve(response);
-            });
-        }
-        
-        tryJoin();
-    });
-}
-
 if (joinRoomBtn) {
-    joinRoomBtn.onclick = async () => {
+    joinRoomBtn.onclick = () => {
         if (!isConnected) {
             alert('Not connected to server. Please refresh the page.');
             return;
         }
-        const roomID = roomCodeInput ? roomCodeInput.value.toUpperCase() : '';
+        const roomID = roomCodeInput ? roomCodeInput.value.trim() : '';
         const name = playerNameInput ? playerNameInput.value.trim() : '';
         if (!roomID || !name) {
             alert('Please enter both room code and your name.');
             return;
         }
+        if (!/^\d{4}$/.test(roomID)) {
+            alert('Room code must be a 4-digit number (e.g., 1234).');
+            return;
+        }
         currentPlayerName = name;
+        console.log('Joining room:', roomID, 'as:', name);
         joinRoomBtn.disabled = true;
-        joinRoomBtn.textContent = 'Joining...';
-        
-        try {
-            const response = await attemptJoinRoom(roomID, name);
-            
+        socket.emit('joinRoom', { roomID, name }, response => {
+            joinRoomBtn.disabled = false;
+            console.log('Join response:', response);
+            if (response.error) {
+                if (response.error.includes('Room not found')) {
+                    alert('Room not found. This usually means:\n\n1. The server restarted and the room was lost\n2. The room code is incorrect\n3. The room expired\n\nPlease ask the admin to create a new room and share the new code.');
+                } else if (response.error.includes('Room is full')) {
+                    alert('Room is full! Maximum 12 players allowed.');
+                } else if (response.error.includes('Name already taken')) {
+                    alert('Name already taken in this room. Please choose a different name.');
+                } else {
+                    alert(response.error);
+                }
+                return;
+            }
             if (response.sessionToken) {
                 currentSessionToken = response.sessionToken;
                 localStorage.setItem('remoteStockExchangeSessionToken', currentSessionToken);
@@ -542,12 +549,8 @@ if (joinRoomBtn) {
             }
             currentRoom = roomID;
             // Visibility of startGameBtn is now handled by updateUI based on isAdmin from server
-        } catch (error) {
-            alert(error);
-        } finally {
-            joinRoomBtn.disabled = false;
-            joinRoomBtn.textContent = 'Join Room';
-        }
+            // if (startGameBtn) startGameBtn.style.display = 'block'; 
+        });
     };
 }
 
