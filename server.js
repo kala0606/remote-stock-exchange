@@ -1,12 +1,4 @@
-// Silence all console output
-try {
-  const noop = function(){};
-  console.log = noop;
-  console.warn = noop;
-  console.info = noop;
-  console.debug = noop;
-  console.error = noop;
-} catch (e) {}
+// Console output enabled for debugging and monitoring
 
 const express = require('express');
 const http = require('http');
@@ -281,7 +273,7 @@ function cleanupStaleRooms() {
 // Start cleanup interval
 setInterval(cleanupStaleRooms, CLEANUP_INTERVAL);
 
-// Debug endpoint to check server status and active rooms
+// Health check endpoint for fly.dev
 app.get('/api/status', (req, res) => {
   const activeRooms = Object.keys(games).map(roomID => {
     const game = games[roomID];
@@ -295,13 +287,20 @@ app.get('/api/status', (req, res) => {
     };
   });
   
-  res.json({
+  res.status(200).json({
     status: 'running',
     timestamp: new Date().toISOString(),
     activeRooms: activeRooms.length,
     rooms: activeRooms,
-    totalTokens: Object.keys(tokenStore).length
+    totalTokens: Object.keys(tokenStore).length,
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
   });
+});
+
+// Simple health check endpoint for load balancer
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 }); 
 
 // --- NEW: Helper function to calculate player's total worth ---
@@ -1927,4 +1926,32 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Socket.IO CORS origins configured for localhost and remote-stock-exchange.fly.dev`);
 }).on('error', (err) => {
   console.error('Server startup error:', err);
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
