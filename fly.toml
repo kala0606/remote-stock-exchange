@@ -16,6 +16,9 @@ primary_region = 'bom'
   min_machines_running = 1
   processes = ['app']
 
+[env]
+  PORT = "3000"
+
 [checks]
   [checks.alive]
     grace_period = "10s"

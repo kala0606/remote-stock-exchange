@@ -1920,12 +1920,19 @@ io.on('connection', socket => {
 });
 
 const PORT = process.env.PORT || 3000;
+console.log(`Starting server on port ${PORT}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`Process environment PORT: ${process.env.PORT}`);
+
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server successfully running on 0.0.0.0:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Socket.IO CORS origins configured for localhost and remote-stock-exchange.fly.dev`);
+  console.log(`Health check available at: http://0.0.0.0:${PORT}/api/status`);
 }).on('error', (err) => {
-  console.error('Server startup error:', err);
+  console.error('❌ Server startup error:', err);
+  console.error('Error details:', err.message);
+  console.error('Error code:', err.code);
 });
 
 // Graceful shutdown handling

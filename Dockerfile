@@ -29,6 +29,9 @@ COPY . .
 # Final stage for app image
 FROM base
 
+# Install curl for health checks
+RUN apt-get update -qq && apt-get install --no-install-recommends -y curl && rm -rf /var/lib/apt/lists/*
+
 # Copy built application
 COPY --from=build /app /app
 
