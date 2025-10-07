@@ -23,6 +23,7 @@ primary_region = 'bom'
     method = "GET"
     timeout = "5s"
     path = "/api/status"
+    type = "http"
 
 [[vm]]
   memory = '1gb'
