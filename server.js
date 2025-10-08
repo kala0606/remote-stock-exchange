@@ -226,7 +226,10 @@ const io = new Server(server, {
     credentials: true
   },
   transports: ['websocket', 'polling'],
-  allowEIO3: true
+  allowEIO3: true,
+  pingTimeout: 60000, // 60 seconds - increased from default 20s
+  pingInterval: 25000, // 25 seconds - keep default
+  connectTimeout: 45000 // 45 seconds connection timeout
 });
 app.use(express.static('public'));
 
@@ -238,8 +241,15 @@ const games = {};
 const tokenStore = {};
 
 // --- Room Cleanup Configuration ---
-const ROOM_EXPIRY_TIME = 30 * 60 * 1000; // 30 minutes
-const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const ROOM_EXPIRY_TIME = 2 * 60 * 60 * 1000; // 2 hours (increased from 30 minutes)
+const CLEANUP_INTERVAL = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
+
+// Helper function to update game activity timestamp
+function updateGameActivity(game) {
+  if (game) {
+    game.lastActivity = Date.now();
+  }
+}
 
 // Cleanup function to remove stale rooms
 function cleanupStaleRooms() {
@@ -698,7 +708,7 @@ function dealNewCardsAndStartNewPeriod(game) {
   game.state.roundNumberInPeriod = 1;
 
   console.log(`[dealNewCardsAndStartNewPeriod] Period ${game.period}: Building fresh deck and dealing new cards.`);
-  game.deck = buildDeck(); 
+  game.deck = buildDeck(game); 
   game.discard = [];
   game.players.forEach(player => {
     player.hand = game.deck.splice(0, 10);
@@ -865,6 +875,8 @@ io.on('connection', socket => {
       const oldSocketId = player.id;
       console.log(`[rejoinWithToken] Player ${playerName} rejoining room ${roomID}. Old socket: ${oldSocketId}, New socket: ${socket.id}`);
 
+      updateGameActivity(game); // Update activity timestamp on rejoin
+      
       // Update player's socket ID in the game state
       player.id = socket.id;
 
@@ -1048,6 +1060,8 @@ io.on('connection', socket => {
         return;
     }
     
+    updateGameActivity(game); // Update activity timestamp
+    
     console.log(`[startGame] Admin ${socket.id} starting game in room ${roomID}. Calling initGame...`);
     // Pass the confirmed admin ID to initGame
     initGame(game, game.admin); 
@@ -1065,6 +1079,8 @@ io.on('connection', socket => {
         console.warn(`[adminEndGameRequest] Non-admin player ${socket.id} tried to end game in room ${roomID}.`);
         return io.to(socket.id).emit('error', { message: 'Only the admin can end the game.' });
     }
+    
+    updateGameActivity(game); // Update activity timestamp
     if (game.gameEnded) {
         console.warn(`[adminEndGameRequest] Game in room ${roomID} has already ended.`);
         // Optionally re-send summary if needed, or just inform admin
@@ -1119,6 +1135,8 @@ io.on('connection', socket => {
         console.log('Error: Game not found');
         return;
     }
+    
+    updateGameActivity(game); // Update activity timestamp
     
     const player = game.players.find(p => p.id === socket.id);
     if (!player) {
@@ -1233,6 +1251,8 @@ io.on('connection', socket => {
         return;
     }
     
+    updateGameActivity(game); // Update activity timestamp
+    
     const player = game.players.find(p => p.id === socket.id);
     if (!player) {
         console.log('Error: Player not found');
@@ -1332,6 +1352,9 @@ io.on('connection', socket => {
   socket.on('windfall', ({ roomID, card, targetCompany, desiredRightsShares }) => {
     const game = games[roomID];
     if (!game) return socket.emit('error', { message: 'Game not found.' });
+    
+    updateGameActivity(game); // Update activity timestamp
+    
     const player = game.players.find(p => p.id === socket.id);
     if (!player) return socket.emit('error', { message: 'Player not found in game.' });
     if (!card || !player.hand) return socket.emit('error', { message: 'Invalid card or hand data.' });
@@ -1437,6 +1460,8 @@ io.on('connection', socket => {
         console.warn(`[pass] Game or players not found for roomID: ${roomID}`);
         return socket.emit('error', { message: 'Game or players not found.' });
     }
+    
+    updateGameActivity(game); // Update activity timestamp
 
     const player = game.players.find(p => p.id === socket.id);
     if (!player || game.state.currentTurnPlayerId !== player.id) {
@@ -1539,6 +1564,8 @@ io.on('connection', socket => {
         console.warn(`[endTurn] Game or players not found for roomID: ${roomID}`);
         return socket.emit('error', { message: 'Game or players not found.' });
     }
+    
+    updateGameActivity(game); // Update activity timestamp
     
     const player = game.players.find(p => p.id === socket.id); 
 
@@ -1653,6 +1680,8 @@ io.on('connection', socket => {
         console.warn(`[adminResolvePeriodAndDeal] Invalid attempt by ${socket.id} in room ${roomID}. Game Admin: ${game?.admin}, Socket ID: ${socket.id}, Awaiting: ${game?.state?.awaitingAdminDecision}`);
         return io.to(socket.id).emit('error', { message: 'Not admin or not awaiting decision for period resolution.' });
     }
+    
+    updateGameActivity(game); // Update activity timestamp
     if (game.state.pricesResolvedThisCycle) {
         console.warn(`[adminResolvePeriodAndDeal] Prices already resolved this cycle for room ${roomID}.`);
         return io.to(socket.id).emit('error', { message: 'Prices already resolved this cycle.' });
@@ -1675,6 +1704,8 @@ io.on('connection', socket => {
         console.warn(`[adminAdvanceToNewPeriod_DealCards] Invalid attempt by ${socket.id} in room ${roomID}. Game Admin: ${game?.admin}, Socket ID: ${socket.id}, Awaiting: ${game?.state?.awaitingAdminDecision}`);
         return io.to(socket.id).emit('error', { message: 'Not admin or not awaiting decision for period advancement.' });
     }
+    
+    updateGameActivity(game); // Update activity timestamp
     if (!game.state.pricesResolvedThisCycle) {
         console.warn(`[adminAdvanceToNewPeriod_DealCards] Prices not yet resolved for room ${roomID}.`);
         return io.to(socket.id).emit('error', { message: 'Prices must be resolved before advancing to new period.' });
@@ -1690,6 +1721,8 @@ io.on('connection', socket => {
   socket.on('exerciseGeneralRights', ({ roomID, targetCompany, desiredRightsShares }) => {
     const game = games[roomID];
     if (!game) return socket.emit('error', { message: 'Game not found.' });
+    
+    updateGameActivity(game); // Update activity timestamp
 
     const player = game.players.find(p => p.id === socket.id);
     if (!player) return socket.emit('error', { message: 'Player not found in game.' });
@@ -1782,6 +1815,9 @@ io.on('connection', socket => {
     console.log('Received short sell request:', { roomID, companyId, quantity });
     const game = games[roomID];
     if (!game) return socket.emit('error', { message: 'Game not found.' });
+    
+    updateGameActivity(game); // Update activity timestamp
+    
     const player = game.players.find(p => p.id === socket.id);
     if (!player) return socket.emit('error', { message: 'Player not found.' });
 
@@ -1855,6 +1891,9 @@ io.on('connection', socket => {
     console.log('Received cover short request:', { roomID, companyId });
     const game = games[roomID];
     if (!game) return socket.emit('error', { message: 'Game not found.' });
+    
+    updateGameActivity(game); // Update activity timestamp
+    
     const player = game.players.find(p => p.id === socket.id);
     if (!player) return socket.emit('error', { message: 'Player not found.' });
 
