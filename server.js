@@ -916,11 +916,11 @@ io.on('connection', socket => {
   socket.on('createRoom', (callback) => {
     try {
       const roomID = Math.floor(1000 + Math.random() * 9000).toString(); // Generate 4-digit number (1000-9999)
-      console.log('Creating room:', roomID);
+      console.log(`[CREATE_ROOM] Socket ${socket.id} creating room: ${roomID}`);
       
       // Check if room already exists (very unlikely but good practice)
       if (games[roomID]) {
-        console.warn('Room ID collision detected:', roomID);
+        console.warn(`[CREATE_ROOM] Room ID collision detected: ${roomID}`);
         return callback(null);
       }
       
@@ -936,14 +936,14 @@ io.on('connection', socket => {
       };
       
       socket.join(roomID);
-      console.log('Room created successfully:', roomID);
-      console.log('Total active rooms:', Object.keys(games).length);
+      console.log(`[CREATE_ROOM] Room ${roomID} created successfully by socket ${socket.id}`);
+      console.log(`[CREATE_ROOM] Total active rooms: ${Object.keys(games).length}, Rooms: [${Object.keys(games).join(', ')}]`);
       
       if (typeof callback === 'function') {
         callback(roomID);
       }
     } catch (error) {
-      console.error('Error creating room:', error);
+      console.error('[CREATE_ROOM] Error creating room:', error);
       if (typeof callback === 'function') {
         callback(null);
       }
@@ -951,11 +951,13 @@ io.on('connection', socket => {
   });
 
   socket.on('joinRoom', ({ roomID, name }, callback) => {
-    console.log('Join attempt:', roomID, name);
+    const timestamp = new Date().toISOString();
+    console.log(`[JOIN_ROOM] ${timestamp} - Socket ${socket.id} attempting to join room ${roomID} as "${name}"`);
     const game = games[roomID];
     if (!game) {
-      console.log('Room not found:', roomID);
-      console.log('Available rooms:', Object.keys(games));
+      console.log(`[JOIN_ROOM] ERROR: Room ${roomID} NOT FOUND for player "${name}"`);
+      console.log(`[JOIN_ROOM] Available rooms: [${Object.keys(games).join(', ')}] (Total: ${Object.keys(games).length})`);
+      console.log(`[JOIN_ROOM] Server uptime: ${process.uptime()} seconds`);
       return callback({ error: 'Room not found. The room may have expired or the server restarted. Please ask the admin to create a new room.' });
     }
     if (game.players.length >= MAX_PLAYERS) {
@@ -1959,24 +1961,40 @@ io.on('connection', socket => {
 });
 
 const PORT = process.env.PORT || 3000;
+const SERVER_START_TIME = new Date().toISOString();
+console.log('='.repeat(80));
+console.log(`🚀 SERVER STARTING at ${SERVER_START_TIME}`);
 console.log(`Starting server on port ${PORT}`);
 console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 console.log(`Process environment PORT: ${process.env.PORT}`);
+console.log('='.repeat(80));
 
 server.listen(PORT, '0.0.0.0', () => {
+  console.log('='.repeat(80));
   console.log(`✅ Server successfully running on 0.0.0.0:${PORT}`);
+  console.log(`✅ Started at: ${SERVER_START_TIME}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Socket.IO CORS origins configured for localhost and remote-stock-exchange.fly.dev`);
-  console.log(`Health check available at: http://0.0.0.0:${PORT}/api/status`);
+  console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
+  console.log(`Status endpoint available at: http://0.0.0.0:${PORT}/api/status`);
+  console.log(`Room cleanup: Every ${CLEANUP_INTERVAL/60000} minutes, expiry: ${ROOM_EXPIRY_TIME/60000} minutes`);
+  console.log('='.repeat(80));
 }).on('error', (err) => {
+  console.error('='.repeat(80));
   console.error('❌ Server startup error:', err);
   console.error('Error details:', err.message);
   console.error('Error code:', err.code);
+  console.error('='.repeat(80));
 });
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  const shutdownTime = new Date().toISOString();
+  console.log('='.repeat(80));
+  console.log(`⚠️  SIGTERM received at ${shutdownTime}, shutting down gracefully`);
+  console.log(`Server uptime: ${process.uptime()} seconds`);
+  console.log(`Active rooms at shutdown: ${Object.keys(games).length}`);
+  console.log('='.repeat(80));
   server.close(() => {
     console.log('Process terminated');
     process.exit(0);
@@ -1984,7 +2002,12 @@ process.on('SIGTERM', () => {
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
+  const shutdownTime = new Date().toISOString();
+  console.log('='.repeat(80));
+  console.log(`⚠️  SIGINT received at ${shutdownTime}, shutting down gracefully`);
+  console.log(`Server uptime: ${process.uptime()} seconds`);
+  console.log(`Active rooms at shutdown: ${Object.keys(games).length}`);
+  console.log('='.repeat(80));
   server.close(() => {
     console.log('Process terminated');
     process.exit(0);
@@ -1993,11 +2016,19 @@ process.on('SIGINT', () => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  console.error('='.repeat(80));
+  console.error('❌ Uncaught Exception at', new Date().toISOString());
+  console.error('Error:', err);
+  console.error('Stack:', err.stack);
+  console.error('='.repeat(80));
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('='.repeat(80));
+  console.error('❌ Unhandled Rejection at', new Date().toISOString());
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+  console.error('='.repeat(80));
   process.exit(1);
 });

@@ -21,11 +21,11 @@ primary_region = 'bom'
 
 [checks]
   [checks.alive]
-    grace_period = "10s"
+    grace_period = "30s"
     interval = "30s"
     method = "GET"
-    timeout = "5s"
-    path = "/api/status"
+    timeout = "10s"
+    path = "/health"
     type = "http"
 
 [[vm]]
