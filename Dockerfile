@@ -1,44 +1,20 @@
-# syntax = docker/dockerfile:1
+# Use Node.js LTS version
+FROM node:18-alpine
 
-# Adjust NODE_VERSION as desired
-ARG NODE_VERSION=20.18.0
-FROM node:${NODE_VERSION}-slim AS base
-
-LABEL fly_launch_runtime="Node.js"
-
-# Node.js app lives here
+# Set working directory
 WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV="production"
+# Copy package files
+COPY package*.json ./
 
-# Throw-away build stage to reduce size of final image
-FROM base AS build
+# Install dependencies
+RUN npm ci --only=production
 
-# Install packages needed to build node modules
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 curl
-
-# Install node modules
-COPY package-lock.json package.json ./
-RUN npm ci
-
-# Copy application code
+# Copy application files
 COPY . .
 
-# Final stage for app image
-FROM base
-
-# Install curl for health checks
-RUN apt-get update -qq && apt-get install --no-install-recommends -y curl && rm -rf /var/lib/apt/lists/*
-
-# Copy built application
-COPY --from=build /app /app
-
-# Add health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/status || exit 1
-
-# Start the server by default, this can be overwritten at runtime
+# Expose port (Fly.io will use the PORT from fly.toml)
 EXPOSE 3000
-CMD [ "npm", "run", "start" ]
+
+# Start the application
+CMD ["node", "server.js"]

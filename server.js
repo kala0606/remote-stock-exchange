@@ -486,15 +486,22 @@ function emitGameState(game, context = 'normal') {
       console.error('[emitGameState] Error: Invalid game object.');
       return;
   }
-  console.log(`[emitGameState] Emitting game state. Context: ${context}`);
-  console.log(`[emitGameState] Current turn index: ${game.state.currentTurn}, Current turn player ID: ${game.state.currentTurnPlayerId}`);
   
-  // Track turn time - record when turn changes
-  const currentTurnPlayer = game.players[game.state.currentTurn];
-  if (currentTurnPlayer && game.state.currentTurnStartTime === null) {
-    // New turn starting - record start time
-    game.state.currentTurnStartTime = Date.now();
-    console.log(`[emitGameState] Turn started for ${currentTurnPlayer.name} at ${new Date().toISOString()}`);
+  // Check if game has started (game.state exists)
+  const gameStarted = game.state !== null && game.gameStarted === true;
+  
+  console.log(`[emitGameState] Emitting game state. Context: ${context}, Game started: ${gameStarted}`);
+  
+  if (gameStarted) {
+    console.log(`[emitGameState] Current turn index: ${game.state.currentTurn}, Current turn player ID: ${game.state.currentTurnPlayerId}`);
+    
+    // Track turn time - record when turn changes
+    const currentTurnPlayer = game.players[game.state.currentTurn];
+    if (currentTurnPlayer && game.state.currentTurnStartTime === null) {
+      // New turn starting - record start time
+      game.state.currentTurnStartTime = Date.now();
+      console.log(`[emitGameState] Turn started for ${currentTurnPlayer.name} at ${new Date().toISOString()}`);
+    }
   }
   
   game.players.forEach(player => {
@@ -502,11 +509,17 @@ function emitGameState(game, context = 'normal') {
     const currentPlayerId = player.id;
     const isAdmin = currentPlayerId === currentAdminId;
     
-    const currentTurnPlayer = game.players[game.state.currentTurn];
-    const currentTurnPlayerId = currentTurnPlayer ? currentTurnPlayer.id : null;
-    const isYourTurn = currentTurnPlayerId ? currentPlayerId === currentTurnPlayerId : false;
+    let currentTurnPlayerId = null;
+    let isYourTurn = false;
     
-    console.log(`[emitGameState] Player ${player.name} (${player.id}): isAdmin=${isAdmin}, isYourTurn=${isYourTurn}, currentTurnPlayerId=${currentTurnPlayerId}`);
+    if (gameStarted) {
+      const currentTurnPlayer = game.players[game.state.currentTurn];
+      currentTurnPlayerId = currentTurnPlayer ? currentTurnPlayer.id : null;
+      isYourTurn = currentTurnPlayerId ? currentPlayerId === currentTurnPlayerId : false;
+      console.log(`[emitGameState] Player ${player.name} (${player.id}): isAdmin=${isAdmin}, isYourTurn=${isYourTurn}, currentTurnPlayerId=${currentTurnPlayerId}`);
+    } else {
+      console.log(`[emitGameState] Player ${player.name} (${player.id}): isAdmin=${isAdmin}, Game not started yet`);
+    }
     
     // Create company name mapping
     const companyNameMapping = COMPANIES.reduce((acc, company) => {
@@ -526,7 +539,7 @@ function emitGameState(game, context = 'normal') {
         hand: p.hand || [], // Include hand data for all players
         isAdmin: p.id === game.admin 
       })),
-      state: { 
+      state: gameStarted ? { 
         prices: game.state.prices,
         init: game.state.init || {},
         historicalWorthData: game.state.historicalWorthData || [],
@@ -545,6 +558,11 @@ function emitGameState(game, context = 'normal') {
         pricesResolvedThisCycle: game.state.pricesResolvedThisCycle,
         periodStarter: game.state.periodStarter,
         marketSentiment: game.state.marketSentiment || 'neutral'
+      } : {
+        // Minimal state for pre-game lobby
+        companyNames: companyNameMapping,
+        companyList: COMPANIES,
+        gameStarted: false
       },
       hand: player.hand, 
       isAdmin: isAdmin, 
