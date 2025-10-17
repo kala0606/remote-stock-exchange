@@ -17,6 +17,12 @@ body {
   animation: gradientAnimation 15s ease-in-out infinite;
 }
 
+/* Utility classes */
+.text-danger {
+  color: #dc3545 !important;
+  font-weight: bold;
+}
+
 @keyframes gradientAnimation {
   0% {
     background-position: 0% 50%;

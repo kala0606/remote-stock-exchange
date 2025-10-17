@@ -231,6 +231,12 @@ const io = new Server(server, {
   pingInterval: 25000, // 25 seconds - keep default
   connectTimeout: 45000 // 45 seconds connection timeout
 });
+// Root route to serve the main page and update activity
+app.get('/', (req, res) => {
+  updateGlobalActivity();
+  res.sendFile(__dirname + '/public/index.html');
+});
+
 app.use(express.static('public'));
 
 // Game state storage
@@ -244,10 +250,40 @@ const tokenStore = {};
 const ROOM_EXPIRY_TIME = 2 * 60 * 60 * 1000; // 2 hours (increased from 30 minutes)
 const CLEANUP_INTERVAL = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
 
+// --- Idle Detection Configuration ---
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes of no activity before considering shutdown
+const IDLE_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
+let lastActivityTime = Date.now();
+
 // Helper function to update game activity timestamp
 function updateGameActivity(game) {
   if (game) {
     game.lastActivity = Date.now();
+    lastActivityTime = Date.now(); // Update global activity timestamp
+  }
+}
+
+// Helper function to update global activity timestamp
+function updateGlobalActivity() {
+  lastActivityTime = Date.now();
+}
+
+// Idle detection function
+function checkIdleAndShutdown() {
+  const now = Date.now();
+  const timeSinceLastActivity = now - lastActivityTime;
+  const activeRooms = Object.keys(games).length;
+  
+  console.log(`[Idle Check] Time since last activity: ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes, Active rooms: ${activeRooms}`);
+  
+  // If no activity for IDLE_TIMEOUT and no active games, consider shutting down
+  if (timeSinceLastActivity > IDLE_TIMEOUT && activeRooms === 0) {
+    console.log(`[Idle Shutdown] No activity for ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes and no active games. Initiating graceful shutdown...`);
+    // Give a brief moment for any pending requests to complete
+    setTimeout(() => {
+      console.log('[Idle Shutdown] Graceful shutdown initiated due to inactivity');
+      process.exit(0);
+    }, 5000);
   }
 }
 
@@ -283,6 +319,9 @@ function cleanupStaleRooms() {
 // Start cleanup interval
 setInterval(cleanupStaleRooms, CLEANUP_INTERVAL);
 
+// Start idle detection interval
+setInterval(checkIdleAndShutdown, IDLE_CHECK_INTERVAL);
+
 // Health check endpoint for fly.dev
 app.get('/api/status', (req, res) => {
   const activeRooms = Object.keys(games).map(roomID => {
@@ -310,6 +349,7 @@ app.get('/api/status', (req, res) => {
 
 // Simple health check endpoint for load balancer
 app.get('/health', (req, res) => {
+  updateGlobalActivity(); // Update activity on health checks
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 }); 
 
@@ -852,11 +892,10 @@ function logActivity(game, playerName, actionType, detailsOverride = null, round
 
 io.on('connection', socket => {
   console.log('Client connected:', socket.id, 'from:', socket.handshake.address);
+  updateGlobalActivity(); // Update activity on new connections
 
-  // Handle ping for keep-alive (prevents server sleeping on free hosting)
-  socket.on('ping', () => {
-    socket.emit('pong');
-  });
+  // Ping handler removed - using auto_stop_machines for cost optimization
+  // Machine will auto-start when players connect
 
   // --- NEW REJOIN WITH TOKEN HANDLER ---
   socket.on('rejoinWithToken', (token, callback) => {

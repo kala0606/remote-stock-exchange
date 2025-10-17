@@ -26,12 +26,13 @@ const socket = io(SOCKET_SERVER, {
 
 // Connection event handlers will be defined later after DOM elements are loaded
 
-// Keep-alive ping to prevent server from sleeping on free hosting tiers
-setInterval(() => {
-    if (socket && socket.connected) {
-        socket.emit('ping');
-    }
-}, 25000); // Ping every 25 seconds
+// Keep-alive ping REMOVED to allow machine auto-stop and reduce costs
+// The machine will auto-start when players visit the site
+// setInterval(() => {
+//     if (socket && socket.connected) {
+//         socket.emit('ping');
+//     }
+// }, 25000);
 
 // Game Constants
 const SHARE_LOTS = [500, 1000, 5000, 10000];
@@ -254,6 +255,17 @@ const quantityInput = document.getElementById('quantityInput');
 const costInfoDiv = document.getElementById('costInfo');
 const confirmTransactionBtn = document.getElementById('confirm');
 const cancelBtn = document.getElementById('cancel');
+
+// Rights Calculator elements
+const rightsCalculator = document.getElementById('rights-calculator');
+const rightsCardsInput = document.getElementById('rightsCardsInput');
+const rightsCalculation = document.getElementById('rightsCalculation');
+
+console.log('[Element Selection] Rights calculator elements:', {
+    rightsCalculator: !!rightsCalculator,
+    rightsCardsInput: !!rightsCardsInput,
+    rightsCalculation: !!rightsCalculation
+});
 const leaderboardContent = document.querySelector('.leaderboard-content');
 const advancePeriodBtn = document.getElementById('advancePeriod');
 const handSummaryDiv = document.getElementById('hand-summary');
@@ -585,8 +597,17 @@ function showTransactionModal(action) {
         transactionTypeTitle.textContent = action === 'buy' ? 'Buy Shares' : 'Sell Shares';
     }
     
+    // Show/hide rights calculator based on action
+    if (rightsCalculator) {
+        console.log('[showTransactionModal] Setting rights calculator display:', action === 'buy' ? 'block' : 'none');
+        rightsCalculator.style.display = action === 'buy' ? 'block' : 'none';
+    } else {
+        console.log('[showTransactionModal] Rights calculator element not found!');
+    }
+    
     if (companySelect) companySelect.innerHTML = '<option value="" disabled selected>Select a company</option>';
     if (quantityInput) quantityInput.value = '';
+    if (rightsCardsInput) rightsCardsInput.value = '0';
     
     const player = currentGameState?.players.find(p => p.id === socket.id);
     if (!player || !currentGameState?.state?.prices) {
@@ -620,6 +641,7 @@ function showTransactionModal(action) {
     
     if (transactionModal) transactionModal.style.display = 'flex';
     updateTransactionCostInfo();
+    updateRightsCalculator();
 }
 
 if (companySelect) {
@@ -631,6 +653,7 @@ if (companySelect) {
         currentTransaction.quantity = null;
         if (quantityInput) quantityInput.value = '';
         updateTransactionCostInfo();
+        updateRightsCalculator();
     });
 }
 
@@ -639,6 +662,13 @@ if (quantityInput) {
         const quantity = parseInt(event.target.value);
         currentTransaction.quantity = isNaN(quantity) ? null : quantity;
         updateTransactionCostInfo();
+    });
+}
+
+// Rights Calculator event listeners
+if (rightsCardsInput) {
+    rightsCardsInput.addEventListener('input', () => {
+        updateRightsCalculator();
     });
 }
 
@@ -1875,6 +1905,208 @@ function updatePriceLogTable() {
     });
 }
 
+// Helper function to calculate rights information for a player and company
+function calculateRightsInfo(player, companyId) {
+    console.log('[calculateRightsInfo] Called with:', { player: player?.name, companyId, hasGameState: !!currentGameState, hasInitialPrices: !!initialPrices });
+    
+    if (!player || !companyId || !currentGameState || !initialPrices) {
+        console.log('[calculateRightsInfo] Missing required data, returning null');
+        return null;
+    }
+    
+    // Check if player has RIGHTS cards in hand
+    const playerHand = currentGameState.players.find(p => p.id === socket.id)?.hand || [];
+    const rightsCards = playerHand.filter(card => card.type === 'windfall' && card.sub === 'RIGHTS' && !card.played);
+    
+    console.log('[calculateRightsInfo] Player hand:', playerHand.map(c => ({ type: c.type, sub: c.sub, played: c.played })));
+    console.log('[calculateRightsInfo] Rights cards found:', rightsCards.length);
+    
+    if (rightsCards.length === 0) {
+        console.log('[calculateRightsInfo] No RIGHTS cards found, returning null');
+        return null;
+    }
+    
+    // Check if player owns shares in the selected company
+    const ownedShares = player.portfolio?.[companyId] || 0;
+    console.log('[calculateRightsInfo] Owned shares:', ownedShares);
+    
+    if (ownedShares === 0) {
+        console.log('[calculateRightsInfo] No shares owned in company, returning null');
+        return null;
+    }
+    
+    // Get initial price for rights calculation
+    const initialPrice = initialPrices[companyId];
+    console.log('[calculateRightsInfo] Initial price:', initialPrice);
+    
+    if (initialPrice === undefined) {
+        console.log('[calculateRightsInfo] No initial price found, returning null');
+        return null;
+    }
+    
+    // Calculate rights information
+    const rightsPrice = Math.ceil(initialPrice / 2);
+    const maxEligibleRaw = Math.floor(ownedShares / 2);
+    const maxEligibleInLots = Math.floor(maxEligibleRaw / 1000) * 1000;
+    const maxAffordableRaw = Math.floor(player.cash / rightsPrice);
+    const maxAffordableInLots = Math.floor(maxAffordableRaw / 1000) * 1000;
+    
+    // Generate suggestion
+    let suggestion = '';
+    if (maxEligibleInLots > 0 && maxAffordableInLots > 0) {
+        const optimalAmount = Math.min(maxEligibleInLots, maxAffordableInLots);
+        suggestion = `Consider using RIGHTS for ${optimalAmount.toLocaleString()} shares at ₹${rightsPrice}/share instead of buying at market price.`;
+    } else if (maxEligibleInLots > 0) {
+        suggestion = `You're eligible for ${maxEligibleInLots.toLocaleString()} rights shares but need more cash.`;
+    } else {
+        suggestion = `You need at least 2,000 shares to be eligible for rights.`;
+    }
+    
+    return {
+        rightsCardsCount: rightsCards.length,
+        rightsPrice: rightsPrice,
+        maxEligible: maxEligibleInLots,
+        maxAffordable: maxAffordableInLots,
+        suggestion: suggestion
+    };
+}
+
+// Function to update rights calculator display
+function updateRightsCalculator() {
+    if (!rightsCalculator || !rightsCalculation || !rightsCardsInput) {
+        console.log('[updateRightsCalculator] Missing elements:', { rightsCalculator: !!rightsCalculator, rightsCalculation: !!rightsCalculation, rightsCardsInput: !!rightsCardsInput });
+        return;
+    }
+    
+    const selectedCompany = currentTransaction.company;
+    const rightsCardsCount = parseInt(rightsCardsInput.value) || 0;
+    
+    console.log('[updateRightsCalculator] Called with:', { selectedCompany, rightsCardsCount });
+    
+    if (!selectedCompany) {
+        rightsCalculation.innerHTML = 'Select a company to see rights strategy';
+        return;
+    }
+    
+    if (rightsCardsCount === 0) {
+        rightsCalculation.innerHTML = 'Enter number of rights cards to see strategy';
+        return;
+    }
+    
+    const strategy = calculateRightsStrategy(selectedCompany, rightsCardsCount);
+    if (!strategy) {
+        rightsCalculation.innerHTML = 'Cannot calculate strategy - missing data';
+        return;
+    }
+    
+    let html = `<div style="margin-bottom: 8px;">
+                  <strong>Prices:</strong> Market ₹${strategy.currentPrice}/share, Rights ₹${strategy.rightsPrice}/share (50% of ₹${strategy.initialPrice} initial)
+                </div>
+                <div style="margin-bottom: 8px; font-size: 0.9em; color: #666;">
+                  <strong>Your Cash:</strong> ₹${strategy.playerCash.toLocaleString()}
+                </div>`;
+    
+    if (strategy.strategies.length === 0) {
+        html += `<div style="color: #dc3545;">Not enough cash for any rights strategy</div>`;
+    } else {
+        html += `<div><strong>Optimal Strategies (sorted by savings):</strong></div>`;
+        strategy.strategies.forEach((s, index) => {
+            const isBest = index === 0;
+            const bgColor = isBest ? '#d4edda' : '#e8f4fd';
+            const borderColor = isBest ? '#28a745' : '#4a90e2';
+            
+            html += `<div style="margin: 4px 0; padding: 8px; background-color: ${bgColor}; border-left: 3px solid ${borderColor}; border-radius: 3px;">
+                      <div><strong>${isBest ? '🏆 BEST: ' : ''}Buy ${s.sharesToBuy.toLocaleString()} shares normally</strong></div>
+                      <div style="font-size: 0.8em; margin: 2px 0;">→ Then exercise ${s.rightsEligible.toLocaleString()} rights at ₹${strategy.rightsPrice}/share (needs ${s.rightsCardsNeeded} rights card${s.rightsCardsNeeded > 1 ? 's' : ''})</div>
+                      <div style="font-size: 0.8em; margin: 2px 0;"><strong>Result:</strong> ${s.totalSharesAfter.toLocaleString()} total shares for ₹${s.totalInvestment.toLocaleString()}</div>
+                      <div style="font-size: 0.8em; margin: 2px 0;">Average cost: ₹${Math.round(s.avgCostPerShare)}/share (vs ₹${strategy.currentPrice}/share market)</div>
+                      <div style="font-size: 0.8em; color: #28a745; font-weight: bold;">💰 Save ₹${Math.round(s.savings).toLocaleString()} (${s.savingsPercent}% discount)</div>
+                    </div>`;
+        });
+        
+        // Add summary
+        const bestStrategy = strategy.strategies[0];
+        if (bestStrategy) {
+            html += `<div style="margin-top: 8px; padding: 6px; background-color: #fff3cd; border-radius: 3px; font-size: 0.85em;">
+                      <strong>💡 Recommended:</strong> Buy ${bestStrategy.sharesToBuy.toLocaleString()} shares now, then use ${bestStrategy.rightsCardsNeeded} rights card${bestStrategy.rightsCardsNeeded > 1 ? 's' : ''} to get ${bestStrategy.rightsEligible.toLocaleString()} more at half price!
+                    </div>`;
+        }
+    }
+    
+    rightsCalculation.innerHTML = html;
+}
+
+// Function to calculate rights strategy
+function calculateRightsStrategy(companyId, rightsCardsCount) {
+    if (!companyId || !initialPrices || !currentGameState) return null;
+    
+    const initialPrice = initialPrices[companyId];
+    const currentPrice = currentGameState.state?.prices[companyId];
+    const player = currentGameState.players.find(p => p.id === socket.id);
+    
+    if (!initialPrice || !currentPrice || !player) return null;
+    
+    const rightsPrice = Math.ceil(initialPrice / 2);
+    const playerCash = player.cash;
+    
+    console.log('[calculateRightsStrategy] Input:', { companyId, rightsCardsCount, initialPrice, currentPrice, rightsPrice, playerCash });
+    
+    const strategies = [];
+    
+    // Calculate different scenarios: buy 2k, 4k, 6k, etc. shares
+    const maxSharesAffordable = Math.floor(playerCash / currentPrice / 1000) * 1000;
+    
+    for (let sharesToBuy = 2000; sharesToBuy <= Math.min(maxSharesAffordable, 20000); sharesToBuy += 2000) {
+        const sharesCost = sharesToBuy * currentPrice;
+        
+        // Calculate how many rights we can exercise (1 right per 2 owned shares)
+        const rightsEligible = Math.floor(sharesToBuy / 2);
+        const rightsCost = rightsEligible * rightsPrice;
+        
+        // Check if we have enough cash for both shares and rights
+        if (sharesCost + rightsCost <= playerCash) {
+            const totalSharesAfter = sharesToBuy + rightsEligible;
+            const totalInvestment = sharesCost + rightsCost;
+            const avgCostPerShare = totalInvestment / totalSharesAfter;
+            
+            // Calculate savings compared to buying all shares at market price
+            const marketCostForTotalShares = totalSharesAfter * currentPrice;
+            const savings = marketCostForTotalShares - totalInvestment;
+            const savingsPercent = Math.round((savings / marketCostForTotalShares) * 100);
+            
+            strategies.push({
+                rightsCardsNeeded: Math.ceil(rightsEligible / 1000), // Estimate how many rights cards needed
+                sharesToBuy: sharesToBuy,
+                rightsEligible: rightsEligible,
+                sharesCost: sharesCost,
+                rightsCost: rightsCost,
+                totalInvestment: totalInvestment,
+                totalSharesAfter: totalSharesAfter,
+                avgCostPerShare: avgCostPerShare,
+                savings: savings,
+                savingsPercent: savingsPercent,
+                marketCostForTotalShares: marketCostForTotalShares
+            });
+        }
+    }
+    
+    // Filter strategies based on available rights cards
+    const validStrategies = strategies.filter(s => s.rightsCardsNeeded <= rightsCardsCount);
+    
+    // Sort valid strategies by savings (best first)
+    validStrategies.sort((a, b) => b.savings - a.savings);
+    
+    console.log('[calculateRightsStrategy] Valid strategies:', validStrategies);
+    
+    return {
+        initialPrice: initialPrice,
+        currentPrice: currentPrice,
+        rightsPrice: rightsPrice,
+        playerCash: playerCash,
+        strategies: validStrategies.slice(0, 5) // Show top 5 strategies
+    };
+}
+
 function updateTransactionCostInfo() {
     if (!costInfoDiv || !currentGameState) { // Ensure currentGameState is available
       if (costInfoDiv) costInfoDiv.innerHTML = "Waiting for game data...";
@@ -1908,6 +2140,38 @@ function updateTransactionCostInfo() {
                     additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">Max share limit reached.</p>`;
                 } else {
                     additionalInfo += `<p style="font-size: 0.85em; margin-bottom: 5px;">Not enough cash for any lots.</p>`;
+                }
+            }
+            
+            // NEW: Add rights information for buy transactions
+            console.log('[updateTransactionCostInfo] Checking for rights info for company:', selectedCompany);
+            const rightsInfo = calculateRightsInfo(player, selectedCompany);
+            console.log('[updateTransactionCostInfo] Rights info result:', rightsInfo);
+            
+            if (rightsInfo) {
+                console.log('[updateTransactionCostInfo] Adding rights info to display');
+                const savings = currentPrice - rightsInfo.rightsPrice;
+                const savingsPercent = currentPrice > 0 ? Math.round((savings / currentPrice) * 100) : 0;
+                additionalInfo += `<div style="margin-top: 10px; padding: 8px; background-color: #e8f4fd; border-left: 3px solid #4a90e2; border-radius: 3px;">
+                                    <p style="margin: 0 0 5px 0; font-weight: bold; color: #4a90e2;">🎫 Rights Available</p>
+                                    <p style="margin: 0; font-size: 0.9em;">You have ${rightsInfo.rightsCardsCount} RIGHTS card(s) in hand</p>
+                                    <p style="margin: 0; font-size: 0.9em;"><strong>Rights Price:</strong> ₹${rightsInfo.rightsPrice}/share (vs ₹${currentPrice}/share market)</p>
+                                    ${savings > 0 ? `<p style="margin: 0; font-size: 0.9em; color: #28a745;"><strong>Save:</strong> ₹${savings}/share (${savingsPercent}% discount)</p>` : ''}
+                                    <p style="margin: 0; font-size: 0.9em;"><strong>Max Eligible:</strong> ${rightsInfo.maxEligible} rights shares</p>
+                                    <p style="margin: 0; font-size: 0.9em;"><strong>Max Affordable:</strong> ${rightsInfo.maxAffordable} shares with current cash</p>
+                                    ${rightsInfo.suggestion ? `<p style="margin: 5px 0 0 0; font-size: 0.85em; font-style: italic; color: #666;">💡 ${rightsInfo.suggestion}</p>` : ''}
+                                  </div>`;
+            } else {
+                console.log('[updateTransactionCostInfo] No rights info to display');
+                // Debug: Show why rights info is not available
+                const playerHand = currentGameState.players.find(p => p.id === socket.id)?.hand || [];
+                const rightsCards = playerHand.filter(card => card.type === 'windfall' && card.sub === 'RIGHTS' && !card.played);
+                const ownedShares = player.portfolio?.[selectedCompany] || 0;
+                
+                if (rightsCards.length === 0 && ownedShares > 0) {
+                    additionalInfo += `<div style="margin-top: 10px; padding: 8px; background-color: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px;">
+                                        <p style="margin: 0; font-size: 0.9em; color: #856404;">💡 You own ${ownedShares.toLocaleString()} shares but have no RIGHTS cards in hand</p>
+                                      </div>`;
                 }
             }
         } else if (currentTransaction.action === 'sell') {
