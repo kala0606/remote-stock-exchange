@@ -260,6 +260,7 @@ const cancelBtn = document.getElementById('cancel');
 const rightsCalculator = document.getElementById('rights-calculator');
 const rightsCardsInput = document.getElementById('rightsCardsInput');
 const rightsCalculation = document.getElementById('rightsCalculation');
+const calculateRightsBtn = document.getElementById('calculateRightsBtn');
 
 console.log('[Element Selection] Rights calculator elements:', {
     rightsCalculator: !!rightsCalculator,
@@ -641,7 +642,6 @@ function showTransactionModal(action) {
     
     if (transactionModal) transactionModal.style.display = 'flex';
     updateTransactionCostInfo();
-    updateRightsCalculator();
 }
 
 if (companySelect) {
@@ -653,7 +653,6 @@ if (companySelect) {
         currentTransaction.quantity = null;
         if (quantityInput) quantityInput.value = '';
         updateTransactionCostInfo();
-        updateRightsCalculator();
     });
 }
 
@@ -666,8 +665,8 @@ if (quantityInput) {
 }
 
 // Rights Calculator event listeners
-if (rightsCardsInput) {
-    rightsCardsInput.addEventListener('input', () => {
+if (calculateRightsBtn) {
+    calculateRightsBtn.addEventListener('click', () => {
         updateRightsCalculator();
     });
 }
@@ -2049,19 +2048,22 @@ function calculateRightsStrategy(companyId, rightsCardsCount) {
     // Calculate maximum shares we can buy with available cash
     const maxSharesWithCash = Math.floor(playerCash / currentPrice / 1000) * 1000;
     
+    // Respect the 200,000 share limit per company
+    const maxSharesAllowed = 200000;
+    const maxSharesWithCashAndLimit = Math.min(maxSharesWithCash, maxSharesAllowed);
+    
     // Calculate different scenarios: buy 2k, 4k, 6k, etc. shares up to max affordable
-    // Also include the maximum possible if it's not already included
-    const maxPossible = Math.min(maxSharesWithCash, 20000);
+    // Use the actual maximum shares affordable, not a hardcoded limit
     const scenarios = [];
     
-    // Add standard scenarios (2k, 4k, 6k, etc.)
-    for (let sharesToBuy = 2000; sharesToBuy <= maxPossible; sharesToBuy += 2000) {
+    // Add standard scenarios (2k, 4k, 6k, etc.) up to the maximum affordable
+    for (let sharesToBuy = 2000; sharesToBuy <= maxSharesWithCashAndLimit; sharesToBuy += 2000) {
         scenarios.push(sharesToBuy);
     }
     
     // Add maximum possible if it's not already included
-    if (maxPossible > 0 && !scenarios.includes(maxPossible)) {
-        scenarios.push(maxPossible);
+    if (maxSharesWithCashAndLimit > 0 && !scenarios.includes(maxSharesWithCashAndLimit)) {
+        scenarios.push(maxSharesWithCashAndLimit);
     }
     
     // Sort scenarios
@@ -2137,6 +2139,7 @@ function calculateRightsStrategy(companyId, rightsCardsCount) {
     
     console.log('[calculateRightsStrategy] Valid strategies:', validStrategies);
     console.log('[calculateRightsStrategy] Max shares with cash:', maxSharesWithCash);
+    console.log('[calculateRightsStrategy] Max shares with limit:', maxSharesWithCashAndLimit);
     console.log('[calculateRightsStrategy] Scenarios calculated:', scenarios);
     
     return {
