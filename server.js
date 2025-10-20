@@ -251,8 +251,8 @@ const ROOM_EXPIRY_TIME = 2 * 60 * 60 * 1000; // 2 hours (increased from 30 minut
 const CLEANUP_INTERVAL = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
 
 // --- Idle Detection Configuration ---
-const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes of no activity before considering shutdown
-const IDLE_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
+const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes of no activity before considering shutdown
+const IDLE_CHECK_INTERVAL = 2 * 60 * 1000; // Check every 2 minutes
 let lastActivityTime = Date.now();
 
 // Helper function to update game activity timestamp
@@ -276,9 +276,21 @@ function checkIdleAndShutdown() {
   
   console.log(`[Idle Check] Time since last activity: ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes, Active rooms: ${activeRooms}`);
   
-  // If no activity for IDLE_TIMEOUT and no active games, consider shutting down
-  if (timeSinceLastActivity > IDLE_TIMEOUT && activeRooms === 0) {
-    console.log(`[Idle Shutdown] No activity for ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes and no active games. Initiating graceful shutdown...`);
+  // Check if any active rooms have been idle for too long
+  let allRoomsIdle = true;
+  if (activeRooms > 0) {
+    for (const [roomID, game] of Object.entries(games)) {
+      const roomIdleTime = now - (game.lastActivity || game.createdAt || now);
+      if (roomIdleTime < IDLE_TIMEOUT) {
+        allRoomsIdle = false;
+        break;
+      }
+    }
+  }
+  
+  // Shutdown if no activity for IDLE_TIMEOUT and (no active games OR all rooms are idle)
+  if (timeSinceLastActivity > IDLE_TIMEOUT && (activeRooms === 0 || allRoomsIdle)) {
+    console.log(`[Idle Shutdown] No activity for ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes. Active rooms: ${activeRooms}, All idle: ${allRoomsIdle}. Initiating graceful shutdown...`);
     // Give a brief moment for any pending requests to complete
     setTimeout(() => {
       console.log('[Idle Shutdown] Graceful shutdown initiated due to inactivity');

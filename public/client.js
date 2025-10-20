@@ -2000,7 +2000,7 @@ function updateRightsCalculator() {
     }
     
     let html = `<div style="margin-bottom: 8px;">
-                  <strong>Prices:</strong> Market ₹${strategy.currentPrice}/share, Rights ₹${strategy.rightsPrice}/share (50% of ₹${strategy.initialPrice} initial)
+                  <strong>Prices:</strong> Market ₹${strategy.currentPrice}/share, Rights ₹${strategy.rightsPrice}/share
                 </div>
                 <div style="margin-bottom: 8px; font-size: 0.9em; color: #666;">
                   <strong>Your Cash:</strong> ₹${strategy.playerCash.toLocaleString()}
@@ -2009,28 +2009,15 @@ function updateRightsCalculator() {
     if (strategy.strategies.length === 0) {
         html += `<div style="color: #dc3545;">Not enough cash for any rights strategy</div>`;
     } else {
-        html += `<div><strong>Optimal Strategies (sorted by savings):</strong></div>`;
-        strategy.strategies.forEach((s, index) => {
-            const isBest = index === 0;
-            const bgColor = isBest ? '#d4edda' : '#e8f4fd';
-            const borderColor = isBest ? '#28a745' : '#4a90e2';
-            
-            html += `<div style="margin: 4px 0; padding: 8px; background-color: ${bgColor}; border-left: 3px solid ${borderColor}; border-radius: 3px;">
-                      <div><strong>${isBest ? '🏆 BEST: ' : ''}Buy ${s.sharesToBuy.toLocaleString()} shares normally</strong></div>
-                      <div style="font-size: 0.8em; margin: 2px 0;">→ Then exercise ${s.rightsEligible.toLocaleString()} rights at ₹${strategy.rightsPrice}/share (needs ${s.rightsCardsNeeded} rights card${s.rightsCardsNeeded > 1 ? 's' : ''})</div>
-                      <div style="font-size: 0.8em; margin: 2px 0;"><strong>Result:</strong> ${s.totalSharesAfter.toLocaleString()} total shares for ₹${s.totalInvestment.toLocaleString()}</div>
-                      <div style="font-size: 0.8em; margin: 2px 0;">Average cost: ₹${Math.round(s.avgCostPerShare)}/share (vs ₹${strategy.currentPrice}/share market)</div>
-                      <div style="font-size: 0.8em; color: #28a745; font-weight: bold;">💰 Save ₹${Math.round(s.savings).toLocaleString()} (${s.savingsPercent}% discount)</div>
-                    </div>`;
-        });
+        html += `<div><strong>Optimal Strategy:</strong></div>`;
         
-        // Add summary
         const bestStrategy = strategy.strategies[0];
-        if (bestStrategy) {
-            html += `<div style="margin-top: 8px; padding: 6px; background-color: #fff3cd; border-radius: 3px; font-size: 0.85em;">
-                      <strong>💡 Recommended:</strong> Buy ${bestStrategy.sharesToBuy.toLocaleString()} shares now, then use ${bestStrategy.rightsCardsNeeded} rights card${bestStrategy.rightsCardsNeeded > 1 ? 's' : ''} to get ${bestStrategy.rightsEligible.toLocaleString()} more at half price!
-                    </div>`;
-        }
+        html += `<div style="margin: 8px 0; padding: 12px; background-color: #d4edda; border-left: 4px solid #28a745; border-radius: 4px;">
+                  <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 6px;">🏆 Buy ${bestStrategy.sharesToBuy.toLocaleString()} shares</div>
+                  <div style="font-size: 0.95em; margin-bottom: 4px;">→ Use ${bestStrategy.rightsCardsNeeded} rights card${bestStrategy.rightsCardsNeeded > 1 ? 's' : ''} to get ${bestStrategy.rightsEligible.toLocaleString()} more at half price</div>
+                  <div style="font-size: 0.9em; color: #666; margin-bottom: 4px;"><strong>Result:</strong> ${bestStrategy.totalSharesAfterRights.toLocaleString()} total shares for ₹${bestStrategy.totalInvestment.toLocaleString()}</div>
+                  <div style="font-size: 0.9em; color: #28a745; font-weight: bold;">💰 Save ₹${Math.round(bestStrategy.savings).toLocaleString()} (${bestStrategy.savingsPercent}% discount)</div>
+                </div>`;
     }
     
     rightsCalculation.innerHTML = html;
@@ -2049,43 +2036,90 @@ function calculateRightsStrategy(companyId, rightsCardsCount) {
     const rightsPrice = Math.ceil(initialPrice / 2);
     const playerCash = player.cash;
     
-    console.log('[calculateRightsStrategy] Input:', { companyId, rightsCardsCount, initialPrice, currentPrice, rightsPrice, playerCash });
+    // Get existing shares in this company (if any)
+    const existingShares = player.portfolio?.[companyId] || 0;
+    
+    console.log('[calculateRightsStrategy] Input:', { 
+        companyId, rightsCardsCount, initialPrice, currentPrice, rightsPrice, 
+        playerCash, existingShares 
+    });
     
     const strategies = [];
     
-    // Calculate different scenarios: buy 2k, 4k, 6k, etc. shares
-    const maxSharesAffordable = Math.floor(playerCash / currentPrice / 1000) * 1000;
+    // Calculate maximum shares we can buy with available cash
+    const maxSharesWithCash = Math.floor(playerCash / currentPrice / 1000) * 1000;
     
-    for (let sharesToBuy = 2000; sharesToBuy <= Math.min(maxSharesAffordable, 20000); sharesToBuy += 2000) {
+    // Calculate different scenarios: buy 2k, 4k, 6k, etc. shares up to max affordable
+    // Also include the maximum possible if it's not already included
+    const maxPossible = Math.min(maxSharesWithCash, 20000);
+    const scenarios = [];
+    
+    // Add standard scenarios (2k, 4k, 6k, etc.)
+    for (let sharesToBuy = 2000; sharesToBuy <= maxPossible; sharesToBuy += 2000) {
+        scenarios.push(sharesToBuy);
+    }
+    
+    // Add maximum possible if it's not already included
+    if (maxPossible > 0 && !scenarios.includes(maxPossible)) {
+        scenarios.push(maxPossible);
+    }
+    
+    // Sort scenarios
+    scenarios.sort((a, b) => a - b);
+    
+    for (const sharesToBuy of scenarios) {
         const sharesCost = sharesToBuy * currentPrice;
         
+        // Total shares after buying (existing + new)
+        const totalSharesAfterBuying = existingShares + sharesToBuy;
+        
         // Calculate how many rights we can exercise (1 right per 2 owned shares)
-        const rightsEligible = Math.floor(sharesToBuy / 2);
+        const rightsEligible = Math.floor(totalSharesAfterBuying / 2);
         const rightsCost = rightsEligible * rightsPrice;
         
         // Check if we have enough cash for both shares and rights
         if (sharesCost + rightsCost <= playerCash) {
-            const totalSharesAfter = sharesToBuy + rightsEligible;
-            const totalInvestment = sharesCost + rightsCost;
-            const avgCostPerShare = totalInvestment / totalSharesAfter;
+            // Calculate compound rights effect
+            let totalSharesAfterAllRights = totalSharesAfterBuying;
+            let totalRightsCost = 0;
+            
+            // Apply rights cards sequentially
+            for (let card = 1; card <= rightsCardsCount; card++) {
+                const rightsEligibleThisCard = Math.floor(totalSharesAfterAllRights / 2);
+                const rightsCostThisCard = rightsEligibleThisCard * rightsPrice;
+                
+                // Check if we can afford this rights card
+                if (sharesCost + totalRightsCost + rightsCostThisCard <= playerCash) {
+                    totalSharesAfterAllRights += rightsEligibleThisCard;
+                    totalRightsCost += rightsCostThisCard;
+                } else {
+                    break; // Can't afford more rights cards
+                }
+            }
+            
+            const totalInvestment = sharesCost + totalRightsCost;
+            const avgCostPerShare = totalInvestment / totalSharesAfterAllRights;
             
             // Calculate savings compared to buying all shares at market price
-            const marketCostForTotalShares = totalSharesAfter * currentPrice;
+            const marketCostForTotalShares = totalSharesAfterAllRights * currentPrice;
             const savings = marketCostForTotalShares - totalInvestment;
             const savingsPercent = Math.round((savings / marketCostForTotalShares) * 100);
             
             strategies.push({
-                rightsCardsNeeded: Math.ceil(rightsEligible / 1000), // Estimate how many rights cards needed
+                rightsCardsNeeded: rightsCardsCount, // Use all available rights cards
                 sharesToBuy: sharesToBuy,
-                rightsEligible: rightsEligible,
+                existingShares: existingShares,
+                totalSharesAfterBuying: totalSharesAfterBuying,
+                rightsEligible: totalSharesAfterAllRights - totalSharesAfterBuying, // Total rights exercised
                 sharesCost: sharesCost,
-                rightsCost: rightsCost,
+                rightsCost: totalRightsCost,
                 totalInvestment: totalInvestment,
-                totalSharesAfter: totalSharesAfter,
+                totalSharesAfterRights: totalSharesAfterAllRights,
                 avgCostPerShare: avgCostPerShare,
                 savings: savings,
                 savingsPercent: savingsPercent,
-                marketCostForTotalShares: marketCostForTotalShares
+                marketCostForTotalShares: marketCostForTotalShares,
+                remainingCash: playerCash - totalInvestment
             });
         }
     }
@@ -2093,16 +2127,25 @@ function calculateRightsStrategy(companyId, rightsCardsCount) {
     // Filter strategies based on available rights cards
     const validStrategies = strategies.filter(s => s.rightsCardsNeeded <= rightsCardsCount);
     
-    // Sort valid strategies by savings (best first)
-    validStrategies.sort((a, b) => b.savings - a.savings);
+    // Sort valid strategies by total shares after rights (maximize holdings first), then by savings
+    validStrategies.sort((a, b) => {
+        if (b.totalSharesAfterRights !== a.totalSharesAfterRights) {
+            return b.totalSharesAfterRights - a.totalSharesAfterRights; // More shares first
+        }
+        return b.savings - a.savings; // Then by savings
+    });
     
     console.log('[calculateRightsStrategy] Valid strategies:', validStrategies);
+    console.log('[calculateRightsStrategy] Max shares with cash:', maxSharesWithCash);
+    console.log('[calculateRightsStrategy] Scenarios calculated:', scenarios);
     
     return {
         initialPrice: initialPrice,
         currentPrice: currentPrice,
         rightsPrice: rightsPrice,
         playerCash: playerCash,
+        existingShares: existingShares,
+        maxSharesWithCash: maxSharesWithCash,
         strategies: validStrategies.slice(0, 5) // Show top 5 strategies
     };
 }
@@ -2888,44 +2931,22 @@ socket.on('gameSummaryReceived', (summaryData) => {
     }
 });
 
-// NEW: Comprehensive analytics renderer
+// NEW: Minimal analytics renderer
 function renderGameAnalytics(summaryData) {
-    const { historicalWorthData, players: playersInfo, priceLog, finalPrices, initialPrices, 
-            chairmen, presidents, companyList, turnTimeData, totalPeriods, gameStartTime, gameEndTime } = summaryData;
+    const { historicalWorthData, players: playersInfo, turnTimeData } = summaryData;
     
     console.log('[renderGameAnalytics] Processing summary data:', summaryData);
     
     // 1. Determine Winner and populate winner announcement
     renderWinnerAnnouncement(historicalWorthData, playersInfo);
     
-    // 2. Render summary cards
-    renderSummaryCards(summaryData);
-    
-    // 3. Render player worth chart
+    // 2. Render player worth chart
     if (historicalWorthData && playersInfo) {
         renderPlayerWorthChart(historicalWorthData, playersInfo);
     }
     
-    // 4. Render final standings table
+    // 3. Render final standings table (simplified)
     renderFinalStandings(historicalWorthData, playersInfo, turnTimeData);
-    
-    // 5. Render company performance analysis
-    renderCompanyPerformance(companyList, initialPrices, finalPrices, priceLog);
-    
-    // 6. Render detailed player performance breakdown
-    renderPlayerPerformanceBreakdown(summaryData);
-    
-    // 7. Render transaction analysis
-    renderTransactionAnalysis(summaryData);
-    
-    // 8. Render rights & shorts analysis
-    renderRightsAndShortsAnalysis(summaryData);
-    
-    // 9. Render leadership analysis
-    renderLeadershipAnalysis(chairmen, presidents, playersInfo, companyList);
-    
-    // 10. Render game timeline
-    renderGameTimeline(summaryData);
 }
 
 function renderWinnerAnnouncement(historicalWorthData, playersInfo) {
@@ -2964,89 +2985,6 @@ function renderWinnerAnnouncement(historicalWorthData, playersInfo) {
     winnerAnnouncementElement.textContent = winnerText;
 }
 
-function renderSummaryCards(summaryData) {
-    const { historicalWorthData, players: playersInfo, totalPeriods, gameStartTime, gameEndTime, turnTimeData } = summaryData;
-    
-    // Game Summary Card
-    const gameSummaryContent = document.getElementById('game-summary-content');
-    if (gameSummaryContent) {
-        const gameDuration = gameEndTime && gameStartTime ? 
-            Math.round((gameEndTime - gameStartTime) / 1000 / 60) : 'Unknown';
-        const totalTurns = turnTimeData ? turnTimeData.length : 'Unknown';
-        
-        gameSummaryContent.innerHTML = `
-            <div class="metric-card">
-                <div class="metric-value">${totalPeriods || 'Unknown'}</div>
-                <div class="metric-label">Total Periods</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${gameDuration}m</div>
-                <div class="metric-label">Game Duration</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${totalTurns}</div>
-                <div class="metric-label">Total Turns</div>
-            </div>
-        `;
-    }
-    
-    // Top Performers Card
-    const topPerformersContent = document.getElementById('top-performers-content');
-    if (topPerformersContent && historicalWorthData && historicalWorthData.length > 0) {
-        const maxPeriod = Math.max(...historicalWorthData.map(d => d.period));
-        const finalPeriodData = historicalWorthData.filter(d => d.period === maxPeriod);
-        const ranked = [...finalPeriodData].sort((a, b) => b.totalWorth - a.totalWorth);
-        
-        let html = '';
-        ranked.slice(0, 3).forEach((player, index) => {
-            const playerInfo = playersInfo.find(p => p.uuid === player.playerId);
-            const medal = ['🥇', '🥈', '🥉'][index];
-            html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">
-                    <span>${medal} ${playerInfo ? playerInfo.name : 'Unknown'}</span>
-                    <span><strong>₹${formatIndianNumber(player.totalWorth)}</strong></span>
-                </div>
-            `;
-        });
-        topPerformersContent.innerHTML = html;
-    }
-    
-    // Key Metrics Card
-    const keyMetricsContent = document.getElementById('key-metrics-content');
-    if (keyMetricsContent && historicalWorthData && historicalWorthData.length > 0) {
-        // Calculate key metrics
-        const maxPeriod = Math.max(...historicalWorthData.map(d => d.period));
-        const initialData = historicalWorthData.filter(d => d.period === 0);
-        const finalData = historicalWorthData.filter(d => d.period === maxPeriod);
-        
-        const totalInitialWealth = initialData.reduce((sum, p) => sum + p.totalWorth, 0);
-        const totalFinalWealth = finalData.reduce((sum, p) => sum + p.totalWorth, 0);
-        const wealthGrowth = totalFinalWealth - totalInitialWealth;
-        const wealthGrowthPercent = totalInitialWealth > 0 ? 
-            ((wealthGrowth / totalInitialWealth) * 100).toFixed(1) : 0;
-        
-        // Calculate average turn time
-        const avgTurnTime = turnTimeData && turnTimeData.length > 0 ?
-            Math.round(turnTimeData.reduce((sum, turn) => sum + turn.turnDuration, 0) / turnTimeData.length / 1000) : 0;
-        
-        keyMetricsContent.innerHTML = `
-            <div class="metric-card">
-                <div class="metric-value ${wealthGrowth >= 0 ? 'price-change positive' : 'price-change negative'}">
-                    ${wealthGrowth >= 0 ? '+' : ''}₹${formatIndianNumber(wealthGrowth)}
-                </div>
-                <div class="metric-label">Total Wealth Change</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${wealthGrowthPercent}%</div>
-                <div class="metric-label">Wealth Growth Rate</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${avgTurnTime}s</div>
-                <div class="metric-label">Avg Turn Time</div>
-            </div>
-        `;
-    }
-}
 
 function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
     const finalStandingsTable = document.getElementById('final-standings-table');
@@ -3058,27 +2996,13 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
     playersInfo.forEach(p => { playerMap[p.uuid] = p; });
     const ranked = [...finalPeriodData].sort((a, b) => b.totalWorth - a.totalWorth);
     
-    // Calculate turn time stats
-    const playerTurnTimes = {};
-    if (turnTimeData && turnTimeData.length > 0) {
-        turnTimeData.forEach(turn => {
-            if (!playerTurnTimes[turn.playerName]) {
-                playerTurnTimes[turn.playerName] = [];
-            }
-            playerTurnTimes[turn.playerName].push(turn.turnDuration);
-        });
-    }
-    
     let html = `
         <table class="analytics-table">
             <thead>
                 <tr>
                     <th>Rank</th>
                     <th>Player</th>
-                    <th>Net Worth</th>
-                    <th>Cash</th>
-                    <th>Portfolio Value</th>
-                    <th>Avg Turn Time</th>
+                    <th>Final Net Worth</th>
                     <th>Performance</th>
                 </tr>
             </thead>
@@ -3088,11 +3012,6 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
     ranked.forEach((d, i) => {
         const p = playerMap[d.playerId];
         const playerName = p ? p.name : d.playerId;
-        const turnTimes = playerTurnTimes[playerName] || [];
-        const avgTurnTime = turnTimes.length > 0 
-            ? Math.round(turnTimes.reduce((sum, time) => sum + time, 0) / turnTimes.length / 1000) 
-            : 0;
-        const avgTimeDisplay = avgTurnTime > 0 ? `${avgTurnTime}s` : 'N/A';
         
         // Calculate performance relative to starting position
         const initialData = historicalWorthData.find(h => h.period === 0 && h.playerId === d.playerId);
@@ -3101,14 +3020,13 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
         const performanceClass = performance !== 'N/A' ? 
             (parseFloat(performance) >= 0 ? 'price-change positive' : 'price-change negative') : '';
         
+        const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+        
         html += `
             <tr>
-                <td>${i + 1}</td>
+                <td>${rankEmoji} ${i + 1}</td>
                 <td><strong>${playerName}</strong></td>
                 <td>₹${formatIndianNumber(d.totalWorth)}</td>
-                <td>₹${p ? formatIndianNumber(p.finalCash || 0) : 'N/A'}</td>
-                <td>₹${p ? formatIndianNumber(p.finalPortfolioValue || 0) : 'N/A'}</td>
-                <td>${avgTimeDisplay}</td>
                 <td><span class="${performanceClass}">${performance !== 'N/A' ? (performance >= 0 ? '+' : '') + performance + '%' : 'N/A'}</span></td>
             </tr>
         `;
@@ -3118,336 +3036,6 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
     finalStandingsTable.innerHTML = html;
 }
 
-function renderCompanyPerformance(companyList, initialPrices, finalPrices, priceLog) {
-    const companyPerformanceContent = document.getElementById('company-performance-content');
-    if (!companyPerformanceContent || !companyList) return;
-    
-    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">';
-    
-    companyList.forEach(company => {
-        const initialPrice = initialPrices ? initialPrices[company.id] : company.initial;
-        const finalPrice = finalPrices ? finalPrices[company.id] : initialPrice;
-        const priceChange = finalPrice - initialPrice;
-        const priceChangePercent = initialPrice > 0 ? ((priceChange / initialPrice) * 100).toFixed(1) : 0;
-        const priceChangeClass = priceChange > 0 ? 'positive' : priceChange < 0 ? 'negative' : 'neutral';
-        
-        // Calculate volatility from price log
-        let volatility = 'N/A';
-        if (priceLog && priceLog.length > 0) {
-            const companyPrices = priceLog.map(log => log.prices[company.id]).filter(p => p !== undefined);
-            if (companyPrices.length > 1) {
-                const avg = companyPrices.reduce((sum, p) => sum + p, 0) / companyPrices.length;
-                const variance = companyPrices.reduce((sum, p) => sum + Math.pow(p - avg, 2), 0) / companyPrices.length;
-                volatility = Math.sqrt(variance).toFixed(0);
-            }
-        }
-        
-        html += `
-            <div class="company-card">
-                <h4>${company.name} (${company.id})</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em;">
-                    <div>Initial: ₹${formatIndianNumber(initialPrice)}</div>
-                    <div>Final: ₹${formatIndianNumber(finalPrice)}</div>
-                    <div>Change: <span class="price-change ${priceChangeClass}">
-                        ${priceChange >= 0 ? '+' : ''}₹${formatIndianNumber(priceChange)}
-                    </span></div>
-                    <div>Change%: <span class="price-change ${priceChangeClass}">
-                        ${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent}%
-                    </span></div>
-                    <div>Volatility: ₹${volatility}</div>
-                    <div>Sector: ${company.sector || 'General'}</div>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    companyPerformanceContent.innerHTML = html;
-}
-
-function renderPlayerPerformanceBreakdown(summaryData) {
-    const playerPerformanceBreakdown = document.getElementById('player-performance-breakdown');
-    if (!playerPerformanceBreakdown) return;
-    
-    const { players: playersInfo, historicalWorthData, turnTimeData } = summaryData;
-    
-    let html = '';
-    
-    playersInfo.forEach(player => {
-        const playerHistory = historicalWorthData.filter(h => h.playerId === player.uuid).sort((a, b) => a.period - b.period);
-        const playerTurnTimes = turnTimeData ? turnTimeData.filter(t => t.playerName === player.name) : [];
-        
-        // Calculate player-specific metrics
-        const initialWorth = playerHistory.length > 0 ? playerHistory[0].totalWorth : 0;
-        const finalWorth = playerHistory.length > 0 ? playerHistory[playerHistory.length - 1].totalWorth : 0;
-        const totalGain = finalWorth - initialWorth;
-        const totalGainPercent = initialWorth > 0 ? ((totalGain / initialWorth) * 100).toFixed(1) : 0;
-        
-        // Best and worst periods
-        let bestPeriodGain = { period: 'N/A', gain: -Infinity };
-        let worstPeriodGain = { period: 'N/A', gain: Infinity };
-        
-        for (let i = 1; i < playerHistory.length; i++) {
-            const gain = playerHistory[i].totalWorth - playerHistory[i - 1].totalWorth;
-            if (gain > bestPeriodGain.gain) {
-                bestPeriodGain = { period: playerHistory[i].period, gain };
-            }
-            if (gain < worstPeriodGain.gain) {
-                worstPeriodGain = { period: playerHistory[i].period, gain };
-            }
-        }
-        
-        // Turn time stats
-        const avgTurnTime = playerTurnTimes.length > 0 ? 
-            Math.round(playerTurnTimes.reduce((sum, t) => sum + t.turnDuration, 0) / playerTurnTimes.length / 1000) : 0;
-        const maxTurnTime = playerTurnTimes.length > 0 ? 
-            Math.round(Math.max(...playerTurnTimes.map(t => t.turnDuration)) / 1000) : 0;
-        
-        // Portfolio composition
-        let portfolioHtml = '';
-        if (player.finalPortfolio && Object.keys(player.finalPortfolio).length > 0) {
-            portfolioHtml = Object.entries(player.finalPortfolio)
-                .filter(([, shares]) => shares > 0)
-                .map(([companyId, shares]) => `${companyId}: ${formatIndianNumber(shares)}`)
-                .join(', ');
-        }
-        
-        html += `
-            <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f8f9fa;">
-                <h4 style="margin: 0 0 15px 0; color: #2c3e50;">${player.name}</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                    <div>
-                        <strong>Financial Performance</strong><br>
-                        Total Gain: <span class="price-change ${totalGain >= 0 ? 'positive' : 'negative'}">
-                            ${totalGain >= 0 ? '+' : ''}₹${formatIndianNumber(totalGain)} (${totalGainPercent}%)
-                        </span><br>
-                        Final Cash: ₹${formatIndianNumber(player.finalCash || 0)}<br>
-                        Portfolio Value: ₹${formatIndianNumber(player.finalPortfolioValue || 0)}
-                    </div>
-                    <div>
-                        <strong>Period Performance</strong><br>
-                        Best Period: P${bestPeriodGain.period} 
-                        <span class="price-change positive">+₹${formatIndianNumber(bestPeriodGain.gain)}</span><br>
-                        Worst Period: P${worstPeriodGain.period} 
-                        <span class="price-change negative">₹${formatIndianNumber(worstPeriodGain.gain)}</span>
-                    </div>
-                    <div>
-                        <strong>Turn Time Stats</strong><br>
-                        Average: ${avgTurnTime}s<br>
-                        Longest: ${maxTurnTime}s<br>
-                        Total Turns: ${playerTurnTimes.length}
-                    </div>
-                </div>
-                ${portfolioHtml ? `<div style="margin-top: 15px;"><strong>Final Portfolio:</strong><br>${portfolioHtml}</div>` : ''}
-            </div>
-        `;
-    });
-    
-    playerPerformanceBreakdown.innerHTML = html;
-}
-
-function renderTransactionAnalysis(summaryData) {
-    const transactionAnalysisContent = document.getElementById('transaction-analysis-content');
-    if (!transactionAnalysisContent) return;
-    
-    const { turnTimeData, totalPeriods } = summaryData;
-    
-    if (!turnTimeData || turnTimeData.length === 0) {
-        transactionAnalysisContent.innerHTML = '<p>No transaction data available.</p>';
-        return;
-    }
-    
-    // Analyze turn patterns by period
-    const periodStats = {};
-    turnTimeData.forEach(turn => {
-        if (!periodStats[turn.period]) {
-            periodStats[turn.period] = { totalTime: 0, count: 0, players: new Set() };
-        }
-        periodStats[turn.period].totalTime += turn.turnDuration;
-        periodStats[turn.period].count++;
-        periodStats[turn.period].players.add(turn.playerName);
-    });
-    
-    let html = `
-        <table class="analytics-table">
-            <thead>
-                <tr>
-                    <th>Period</th>
-                    <th>Total Turns</th>
-                    <th>Avg Turn Time</th>
-                    <th>Active Players</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    Object.entries(periodStats).forEach(([period, stats]) => {
-        const avgTime = Math.round(stats.totalTime / stats.count / 1000);
-        html += `
-            <tr>
-                <td>Period ${period}</td>
-                <td>${stats.count}</td>
-                <td>${avgTime}s</td>
-                <td>${stats.players.size}</td>
-            </tr>
-        `;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Add activity timeline visualization
-    html += '<h4 style="margin-top: 30px;">Activity Timeline</h4>';
-    html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px;">';
-    html += '<p>Game activity distributed across periods with varying turn times and player engagement.</p>';
-    html += '</div>';
-    
-    transactionAnalysisContent.innerHTML = html;
-}
-
-function renderRightsAndShortsAnalysis(summaryData) {
-    const rightsAndShortsAnalysis = document.getElementById('rights-shorts-analysis');
-    if (!rightsAndShortsAnalysis) return;
-    
-    const { players: playersInfo } = summaryData;
-    
-    let html = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">';
-    
-    // Rights Analysis
-    html += '<div><h4>Rights Offerings Analysis</h4>';
-    html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">';
-    html += '<p>Rights offerings data would be displayed here based on game activity logs.</p>';
-    html += '<p>This would include rights issued, subscribed, and their impact on player positions.</p>';
-    html += '</div></div>';
-    
-    // Shorts Analysis
-    html += '<div><h4>Short Positions Analysis</h4>';
-    let hasShorts = false;
-    let shortsHtml = '';
-    
-    playersInfo.forEach(player => {
-        if (player.finalShortPositions && Object.keys(player.finalShortPositions).length > 0) {
-            hasShorts = true;
-            const shortsList = Object.entries(player.finalShortPositions)
-                .map(([company, shares]) => `${company}: ${formatIndianNumber(shares)}`)
-                .join(', ');
-            shortsHtml += `<p><strong>${player.name}:</strong> ${shortsList}</p>`;
-        }
-    });
-    
-    if (hasShorts) {
-        html += `<div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">${shortsHtml}</div>`;
-    } else {
-        html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px;"><p>No short positions held at game end.</p></div>';
-    }
-    
-    html += '</div></div>';
-    
-    rightsAndShortsAnalysis.innerHTML = html;
-}
-
-function renderLeadershipAnalysis(chairmen, presidents, playersInfo, companyList) {
-    const leadershipAnalysis = document.getElementById('leadership-analysis');
-    if (!leadershipAnalysis) return;
-    
-    let html = '';
-    
-    if (companyList && companyList.length > 0) {
-        html += `
-            <table class="analytics-table">
-                <thead>
-                    <tr>
-                        <th>Company</th>
-                        <th>Chairmen</th>
-                        <th>Presidents</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        companyList.forEach(company => {
-            const companyChairmen = chairmen && chairmen[company.id] ? 
-                chairmen[company.id].map(playerId => {
-                    const player = playersInfo.find(p => p.id === playerId);
-                    return player ? player.name : 'Unknown';
-                }).join(', ') : 'None';
-            
-            const companyPresidents = presidents && presidents[company.id] ? 
-                presidents[company.id].map(playerId => {
-                    const player = playersInfo.find(p => p.id === playerId);
-                    return player ? player.name : 'Unknown';
-                }).join(', ') : 'None';
-            
-            html += `
-                <tr>
-                    <td><strong>${company.name}</strong></td>
-                    <td>${companyChairmen}</td>
-                    <td>${companyPresidents}</td>
-                </tr>
-            `;
-        });
-        
-        html += '</tbody></table>';
-    } else {
-        html = '<p>No leadership data available.</p>';
-    }
-    
-    leadershipAnalysis.innerHTML = html;
-}
-
-function renderGameTimeline(summaryData) {
-    const gameTimelineContent = document.getElementById('game-timeline-content');
-    if (!gameTimelineContent) return;
-    
-    const { totalPeriods, gameStartTime, gameEndTime, turnTimeData } = summaryData;
-    
-    let html = '<div class="timeline-container">';
-    
-    // Game duration info
-    if (gameStartTime && gameEndTime) {
-        const duration = Math.round((gameEndTime - gameStartTime) / 1000 / 60);
-        const startTime = new Date(gameStartTime).toLocaleTimeString();
-        const endTime = new Date(gameEndTime).toLocaleTimeString();
-        
-        html += `
-            <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                <h4 style="margin: 0 0 10px 0;">Game Session</h4>
-                <p><strong>Started:</strong> ${startTime} | <strong>Ended:</strong> ${endTime} | <strong>Duration:</strong> ${duration} minutes</p>
-                <p><strong>Total Periods:</strong> ${totalPeriods} | <strong>Total Turns:</strong> ${turnTimeData ? turnTimeData.length : 'Unknown'}</p>
-            </div>
-        `;
-    }
-    
-    // Period breakdown
-    if (turnTimeData && turnTimeData.length > 0) {
-        const periodData = {};
-        turnTimeData.forEach(turn => {
-            if (!periodData[turn.period]) {
-                periodData[turn.period] = { turns: 0, totalTime: 0 };
-            }
-            periodData[turn.period].turns++;
-            periodData[turn.period].totalTime += turn.turnDuration;
-        });
-        
-        html += '<h4>Period Breakdown</h4>';
-        html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">';
-        
-        Object.entries(periodData).forEach(([period, data]) => {
-            const avgTime = Math.round(data.totalTime / data.turns / 1000);
-            html += `
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; text-align: center;">
-                    <h5 style="margin: 0 0 10px 0;">Period ${period}</h5>
-                    <p><strong>${data.turns}</strong> turns</p>
-                    <p><strong>${avgTime}s</strong> avg time</p>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-    }
-    
-    html += '</div>';
-    gameTimelineContent.innerHTML = html;
-}
 
 // Handle endturn_awaiting_admin event to stop timer immediately
 socket.on('endturn_awaiting_admin', () => {
