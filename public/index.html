@@ -91,46 +91,56 @@
             </span>
           </div>
           
-          <!-- Activity Log Panel -->
-          <div id="activity-log-panel" class="panel" style="margin-top: 15px;">
-              <div class="activity-log-header" style="cursor: pointer;" onclick="
-                  const logContent = this.nextElementSibling;
-                  const logIcon = this.querySelector('.expand-icon');
-                  if (logContent.style.display === 'none') {
-                      logContent.style.display = 'block';
-                      logIcon.textContent = '▼';
-                  } else {
-                      logContent.style.display = 'none';
-                      logIcon.textContent = '▶';
-                  }
-              ">
-                  <h4>Activity Log <span class="expand-icon">▼</span></h4>
-              </div>
-              <div class="activity-log-content" style="display: block; max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
-                  <!-- Log entries will be added here by client.js -->
-              </div>
+          <!-- Player Turn Indicator and Activity Log Container -->
+          <div id="turn-indicator-activity-log-container">
+            <!-- Player Turn Order Table will be inserted here by JavaScript -->
+            <!-- Activity Log Panel -->
+            <div id="activity-log-panel" class="panel">
+                <div class="activity-log-header" style="cursor: pointer;" onclick="
+                    const logContent = this.nextElementSibling;
+                    const logIcon = this.querySelector('.expand-icon');
+                    if (logContent.style.display === 'none') {
+                        logContent.style.display = 'block';
+                        logIcon.textContent = '▼';
+                    } else {
+                        logContent.style.display = 'none';
+                        logIcon.textContent = '▶';
+                    }
+                ">
+                    <h4>Activity Log <span class="expand-icon">▼</span></h4>
+                </div>
+                <div class="activity-log-content" style="display: block; max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
+                    <!-- Log entries will be added here by client.js -->
+                </div>
+            </div>
           </div>
           
-          <div id="portfolio-panel" class="panel">
-            <h4>Your Portfolio</h4>
-            <div id="portfolio-content">
-              <div id="portfolio-summary">
-                <div class="portfolio-item">
-                  <span class="portfolio-label">Cash:</span>
-                  <span id="portfolio-cash" class="portfolio-value">₹600k</span>
+          <div id="portfolio-hand-summary-container">
+            <div id="portfolio-panel" class="panel">
+              <h4>Your Portfolio</h4>
+              <div id="portfolio-content">
+                <div id="portfolio-summary">
+                  <div class="portfolio-item">
+                    <span class="portfolio-label">Cash:</span>
+                    <span id="portfolio-cash" class="portfolio-value">₹600k</span>
+                  </div>
+                  <div class="portfolio-item">
+                    <span class="portfolio-label">Portfolio:</span>
+                    <span id="portfolio-value" class="portfolio-value">₹0</span>
+                  </div>
+                  <div class="portfolio-item">
+                    <span class="portfolio-label">Total:</span>
+                    <span id="portfolio-total" class="portfolio-value">₹600k</span>
+                  </div>
                 </div>
-                <div class="portfolio-item">
-                  <span class="portfolio-label">Portfolio:</span>
-                  <span id="portfolio-value" class="portfolio-value">₹0</span>
-                </div>
-                <div class="portfolio-item">
-                  <span class="portfolio-label">Total:</span>
-                  <span id="portfolio-total" class="portfolio-value">₹600k</span>
+                <div id="portfolio-holdings">
+                  <!-- Holdings will be populated by JavaScript -->
                 </div>
               </div>
-              <div id="portfolio-holdings">
-                <!-- Holdings will be populated by JavaScript -->
-              </div>
+            </div>
+            <div id="hand-summary" class="panel" style="display: none;">
+                <h4>Hand Price Impact</h4>
+                <div id="hand-summary-content"></div>
             </div>
           </div>
           <div id="market-board-container"></div>
@@ -165,10 +175,6 @@
               <div class="hand-content" style="display: block;">
                   <!-- Player hand cards will be rendered here -->
               </div>
-          </div>
-          <div id="hand-summary" class="panel" style="display: none;">
-              <h4>Hand Price Impact</h4>
-              <div id="hand-summary-content"></div>
           </div>
 
           <div id="price-log-panel" class="panel" style="display: block; max-height: 200px; overflow-y: auto; margin-top: 15px;">

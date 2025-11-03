@@ -3134,22 +3134,35 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
 
 // NEW: Function to render Player Turn Order Table
 function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameStarted) {
-    const infoBar = document.getElementById('info-bar');
-    if (!infoBar) {
-        if (playerTurnOrderTableElement) {
-            playerTurnOrderTableElement.style.display = 'none';
+    const container = document.getElementById('turn-indicator-activity-log-container');
+    const wrapperPanel = document.getElementById('player-turn-indicator-panel');
+    
+    if (!container) {
+        if (wrapperPanel) {
+            wrapperPanel.style.display = 'none';
         }
         return;
     }
 
     if (!gameStarted || !players || players.length === 0) {
-        if (playerTurnOrderTableElement) {
-            playerTurnOrderTableElement.style.display = 'none';
+        if (wrapperPanel) {
+            wrapperPanel.style.display = 'none';
         }
         return;
     }
-
-    if (!playerTurnOrderTableElement) {
+    
+    // Create wrapper panel if it doesn't exist
+    if (!wrapperPanel) {
+        const newWrapperPanel = document.createElement('div');
+        newWrapperPanel.className = 'panel';
+        newWrapperPanel.id = 'player-turn-indicator-panel';
+        
+        // Create header for the panel
+        const header = document.createElement('h4');
+        header.textContent = 'Player Turn Order';
+        newWrapperPanel.appendChild(header);
+        
+        // Create table
         playerTurnOrderTableElement = document.createElement('table');
         playerTurnOrderTableElement.className = 'player-turn-order-table';
         
@@ -3168,7 +3181,20 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
 
         const tbody = document.createElement('tbody');
         playerTurnOrderTableElement.appendChild(tbody);
-        infoBar.parentNode.insertBefore(playerTurnOrderTableElement, infoBar.nextSibling);
+        
+        // Append table to wrapper panel
+        newWrapperPanel.appendChild(playerTurnOrderTableElement);
+        
+        // Insert wrapper panel at the beginning of the container (before activity log)
+        container.insertBefore(newWrapperPanel, container.firstChild);
+    } else {
+        // Show the wrapper panel if it exists
+        wrapperPanel.style.display = 'block';
+    }
+    
+    // Ensure table element exists (it should if wrapper exists)
+    if (!playerTurnOrderTableElement && wrapperPanel) {
+        playerTurnOrderTableElement = wrapperPanel.querySelector('.player-turn-order-table');
     }
 
     playerTurnOrderTableElement.style.display = 'table';

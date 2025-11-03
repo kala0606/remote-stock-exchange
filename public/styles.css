@@ -705,7 +705,14 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Update specific panel styles if needed */
 #hand-summary {
-  background: transparent; /* REVERTED */
+  background: rgba(255, 255, 255, 0.4);
+  border: none;
+  border-radius: 4px;
+  padding: 15px;
+  margin: 0;
+  flex: 1;
+  box-sizing: border-box;
+  min-width: 0; /* Allows flex item to shrink below content size */
 }
 
 #hand-summary h4 {
@@ -715,9 +722,34 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   padding: 5px 0;
 }
 
+/* Container for Player Turn Indicator and Activity Log */
+#turn-indicator-activity-log-container {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    margin: 15px 0;
+    box-sizing: border-box;
+}
+
+#player-turn-indicator-panel {
+    flex: 1;
+    margin: 0;
+    box-sizing: border-box;
+    min-width: 0; /* Allows flex item to shrink below content size */
+}
+
+#player-turn-indicator-panel h4 {
+    margin: 0 0 8px 0;
+    font-size: 1em;
+    color: #333;
+}
+
 /* Styling for the new Activity Log panel */
 #activity-log-panel {
-    background: transparent; /* REVERTED */
+    flex: 1;
+    margin: 0;
+    box-sizing: border-box;
+    min-width: 0; /* Allows flex item to shrink below content size */
 }
 
 #activity-log-content {
@@ -1520,8 +1552,7 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 .player-turn-order-table {
     width: 100%;
-    max-width: 1200px; /* Match screen max-width */
-    margin: 10px auto 20px auto; /* Center and provide spacing */
+    margin: 0;
     border-collapse: collapse;
     font-size: 0.95em;
 }
@@ -3321,14 +3352,23 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     }
 }
 
-#portfolio-panel {
+#portfolio-hand-summary-container {
+    display: flex;
+    gap: 15px;
+    width: 100%;
     margin: 10px 0;
+    box-sizing: border-box;
+}
+
+#portfolio-panel {
+    margin: 0;
     padding: 15px;
     background: rgba(255, 255, 255, 0.4);
     border: none;
     border-radius: 4px;
-    width: 100%;
+    flex: 1;
     box-sizing: border-box;
+    min-width: 0; /* Allows flex item to shrink below content size */
 }
 
 #portfolio-panel h4 {
@@ -3374,6 +3414,27 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 .holding-item .shares {
     text-align: right;
     font-size: 0.9em;
+}
+
+/* Responsive: Stack panels vertically on smaller screens */
+@media (max-width: 768px) {
+    #portfolio-hand-summary-container {
+        flex-direction: column;
+    }
+    
+    #portfolio-panel,
+    #hand-summary {
+        width: 100%;
+    }
+    
+    #turn-indicator-activity-log-container {
+        flex-direction: column;
+    }
+    
+    #player-turn-indicator-panel,
+    #activity-log-panel {
+        width: 100%;
+    }
 }
 
 @media (max-width: 700px) {
