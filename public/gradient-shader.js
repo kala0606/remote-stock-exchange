@@ -624,11 +624,11 @@ let backgroundFluidGradient = null;
 
 // Initialize fluid gradient system
 function initFluidGradient() {
-    // Initialize background shader (grayscale)
-    if (backgroundFluidGradient) {
-        backgroundFluidGradient.destroy();
-    }
-    backgroundFluidGradient = new BackgroundFluidGradient();
+    // Background shader removed - using CSS gradient instead
+    // if (backgroundFluidGradient) {
+    //     backgroundFluidGradient.destroy();
+    // }
+    // backgroundFluidGradient = new BackgroundFluidGradient();
     
     // Initialize title bar shader (sentiment-responsive)
     if (fluidGradient) {

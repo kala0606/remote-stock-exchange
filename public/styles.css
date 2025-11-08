@@ -6,15 +6,17 @@ body {
   padding-top: 120px; /* Increased to match 40px title bar + 60px info bar + spacing */
   box-sizing: border-box;
   color: #000000; /* Black text */
-  background: linear-gradient(45deg, 
-    rgba(135, 206, 250, 0.3), 
-    rgba(255, 182, 193, 0.3), 
-    rgba(221, 160, 221, 0.3), 
-    rgba(173, 216, 230, 0.3),
-    rgba(240, 230, 140, 0.3));
+  background: linear-gradient(135deg, 
+    rgba(255, 99, 71, 0.15) 0%,
+    rgba(70, 130, 180, 0.15) 16.67%,
+    rgba(50, 205, 50, 0.15) 33.33%,
+    rgba(255, 215, 0, 0.15) 50%,
+    rgba(106, 90, 205, 0.15) 66.67%,
+    rgba(255, 105, 180, 0.15) 83.33%,
+    rgba(255, 99, 71, 0.15) 100%);
   background-size: 400% 400%;
   transition: background 0.5s ease-in-out;
-  animation: gradientAnimation 15s ease-in-out infinite;
+  animation: gradientAnimation 25s ease-in-out infinite;
 }
 
 /* Utility classes */
@@ -27,8 +29,14 @@ body {
   0% {
     background-position: 0% 50%;
   }
+  25% {
+    background-position: 100% 25%;
+  }
   50% {
-    background-position: 100% 50%;
+    background-position: 50% 100%;
+  }
+  75% {
+    background-position: 25% 0%;
   }
   100% {
     background-position: 0% 50%;
@@ -413,12 +421,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   width: 100%;
   padding: 10px 12px;
   margin-bottom: 15px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
 }
 
@@ -616,11 +624,11 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   max-width: 600px;
   margin: 20px auto;
   padding: 30px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid #dddddd;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   border-radius: 16px;
   transition: all 0.3s ease;
 }
@@ -705,14 +713,17 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Update specific panel styles if needed */
 #hand-summary {
-  background: rgba(255, 255, 255, 0.4);
-  border: none;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
+  border-radius: 12px;
   padding: 15px;
   margin: 0;
   flex: 1;
   box-sizing: border-box;
   min-width: 0; /* Allows flex item to shrink below content size */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 #hand-summary h4 {
@@ -1624,12 +1635,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 #market-board-container {
   width: 100%;
   margin-bottom: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid #dddddd;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 .market-table {
@@ -1831,12 +1842,14 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
     width: 100%;
     margin: 0;
     max-width: none;
-    border: none;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid #dddddd;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     box-sizing: border-box;
     text-align: center;
-    box-shadow: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     padding: 15px 24px;
     display: flex;
     flex-direction: column;
@@ -1886,24 +1899,24 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .leaderboard-item {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #dddddd;
   margin-bottom: 15px;
   padding: 15px 20px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 10px;
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   display: flex;
   gap: 20px;
   transition: all 0.3s ease;
 }
 
 .leaderboard-item:hover {
-  background: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #cccccc;
 }
 
 .leaderboard-player-column {
@@ -2035,12 +2048,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   text-align: center;
   margin-bottom: 30px;
   padding: 25px 20px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #dddddd;
   border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
 }
 
@@ -2053,21 +2066,21 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .analytics-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
 }
 
 .analytics-card:hover {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #cccccc;
 }
 
 .analytics-card h3 {
@@ -2141,9 +2154,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 .deck-info-panel {
     margin-top: 20px;
     padding: 15px;
-    background: rgba(255, 255, 255, 0.4);
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid #dddddd;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 .deck-info-header {
@@ -2417,12 +2433,12 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   margin-top: 10px;
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   font-size: 1em;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border: 1px solid #dddddd;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 .leaderboard-table th, .leaderboard-table td {
   border: none;
@@ -2480,11 +2496,14 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Mobile Card/List Format */
 .leaderboard-card {
-  background: rgba(255, 255, 255, 0.4);
-  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
   padding: 15px;
   margin-bottom: 15px;
-  border-radius: 4px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 .leaderboard-card-header {
   font-size: 1.1em;
@@ -2885,15 +2904,15 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Restore info bar styles */
 #info-bar {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   padding: 12px 20px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  border: 1px solid #dddddd;
   margin-bottom: 15px;
   font-size: 1.08em;
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2958,20 +2977,20 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 }
 
 .analytics-section {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
   border-radius: 12px;
   padding: 25px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
 }
 
 .analytics-section:hover {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #cccccc;
 }
 
 .analytics-section h3 {
@@ -3011,13 +3030,13 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 /* Tables in Analytics */
@@ -3059,21 +3078,23 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Metric Cards */
 .metric-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
+  border-radius: 12px;
   padding: 15px;
   margin: 10px 0;
   text-align: center;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 .metric-card:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.35);
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #cccccc;
 }
 
 .metric-value {
@@ -3090,21 +3111,22 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 
 /* Company Performance Cards */
 .company-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
+  border-radius: 12px;
   padding: 15px;
   margin: 10px 0;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 .company-card:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #cccccc;
 }
 
 .company-card h4 {
@@ -3137,19 +3159,19 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
   font-size: 1.1em;
   margin: 40px 0 20px 0;
   padding: 25px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #dddddd;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
 }
 
 .wisdom-quote:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
 }
 
 /* Restore action buttons styles */
@@ -3363,12 +3385,15 @@ button#startGame { /* This rule is repeated, ensure #startGame is covered by the
 #portfolio-panel {
     margin: 0;
     padding: 15px;
-    background: rgba(255, 255, 255, 0.4);
-    border: none;
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid #dddddd;
+    border-radius: 12px;
     flex: 1;
     box-sizing: border-box;
     min-width: 0; /* Allows flex item to shrink below content size */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 #portfolio-panel h4 {
