@@ -59,6 +59,82 @@ let isYourTurn = false;
 // window.companyNames = {}; // Will be part of gameState or passed directly
 let priceLog = [];
 
+// Turn notification beep tracking
+let wasMyTurn = false;
+let beepInterval = null;
+
+// Function to play double beep sound
+function playTurnBeep() {
+    try {
+        // Create audio context
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // First beep
+        const oscillator1 = audioContext.createOscillator();
+        const gainNode1 = audioContext.createGain();
+        
+        oscillator1.connect(gainNode1);
+        gainNode1.connect(audioContext.destination);
+        
+        oscillator1.frequency.value = 800; // Frequency in Hz
+        oscillator1.type = 'sine'; // Sine wave for smooth sound
+        
+        gainNode1.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+        
+        oscillator1.start(audioContext.currentTime);
+        oscillator1.stop(audioContext.currentTime + 0.15);
+        
+        // Second beep (plays after short pause)
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode2 = audioContext.createGain();
+        
+        oscillator2.connect(gainNode2);
+        gainNode2.connect(audioContext.destination);
+        
+        oscillator2.frequency.value = 800;
+        oscillator2.type = 'sine';
+        
+        gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime + 0.25);
+        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        
+        oscillator2.start(audioContext.currentTime + 0.25);
+        oscillator2.stop(audioContext.currentTime + 0.4);
+    } catch (error) {
+        console.error('Error playing beep:', error);
+    }
+}
+
+// Function to manage turn notification beeps
+function manageTurnBeeps(currentlyMyTurn) {
+    // Check if turn has changed to me
+    if (currentlyMyTurn && !wasMyTurn) {
+        // New turn started - play beep immediately
+        playTurnBeep();
+        
+        // Clear any existing interval
+        if (beepInterval) {
+            clearInterval(beepInterval);
+        }
+        
+        // Set up 30-second repeating beep
+        beepInterval = setInterval(() => {
+            playTurnBeep();
+        }, 30000); // 30 seconds
+    } 
+    // Check if turn ended
+    else if (!currentlyMyTurn && wasMyTurn) {
+        // Turn ended - clear interval
+        if (beepInterval) {
+            clearInterval(beepInterval);
+            beepInterval = null;
+        }
+    }
+    
+    // Update previous state
+    wasMyTurn = currentlyMyTurn;
+}
+
 // NEW: Company Gradient Color System
 const COMPANY_GRADIENT_CLASSES = [
     'company-color-0', // Tomato gradient
@@ -845,6 +921,9 @@ socket.on('gameState', state => {
     
     isAdmin = state.isAdmin; 
     isYourTurn = state.isYourTurn;
+    
+    // Handle turn notification beeps
+    manageTurnBeeps(isYourTurn && state.state?.currentTurnPlayerId === socket.id && !state.state?.awaitingAdminDecision);
     
     // Handle timer based on turn changes
     if (isYourTurn && state.state?.currentTurnPlayerId === socket.id && !state.state?.awaitingAdminDecision) {
