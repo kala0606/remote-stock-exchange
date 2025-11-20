@@ -3078,6 +3078,26 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
     playersInfo.forEach(p => { playerMap[p.uuid] = p; });
     const ranked = [...finalPeriodData].sort((a, b) => b.totalWorth - a.totalWorth);
     
+    // Calculate total time per player from turnTimeData
+    const playerTimeMap = {};
+    if (turnTimeData && Array.isArray(turnTimeData)) {
+        turnTimeData.forEach(entry => {
+            if (!playerTimeMap[entry.playerName]) {
+                playerTimeMap[entry.playerName] = 0;
+            }
+            playerTimeMap[entry.playerName] += entry.turnDuration || 0;
+        });
+    }
+    
+    // Helper function to format time in mm:ss
+    function formatTime(milliseconds) {
+        if (!milliseconds || milliseconds === 0) return 'N/A';
+        const totalSeconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
     let html = `
         <table class="analytics-table">
             <thead>
@@ -3086,6 +3106,7 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
                     <th>Player</th>
                     <th>Final Net Worth</th>
                     <th>Performance</th>
+                    <th>Time Taken</th>
                 </tr>
             </thead>
             <tbody>
@@ -3104,12 +3125,17 @@ function renderFinalStandings(historicalWorthData, playersInfo, turnTimeData) {
         
         const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
         
+        // Get total time for this player
+        const totalTime = playerTimeMap[playerName] || 0;
+        const formattedTime = formatTime(totalTime);
+        
         html += `
             <tr>
                 <td>${rankEmoji} ${i + 1}</td>
                 <td><strong>${playerName}</strong></td>
                 <td>₹${formatIndianNumber(d.totalWorth)}</td>
                 <td><span class="${performanceClass}">${performance !== 'N/A' ? (performance >= 0 ? '+' : '') + performance + '%' : 'N/A'}</span></td>
+                <td>${formattedTime}</td>
             </tr>
         `;
     });
