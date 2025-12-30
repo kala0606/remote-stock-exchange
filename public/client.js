@@ -2795,7 +2795,7 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
                     generatedWindfall = 'Rights bonanza! For every 2 you own, snag 1 more at half price — because bargains taste better in 1000-lot bites.';
                     break;
                 case 'LOAN':
-                    generatedWindfall = 'Cheap credit hour: the bank slides you a loan, spreadsheets get brave, and leverage whispers sweet nothings.';
+                    generatedWindfall = 'Dynamic credit injection: the bank scales your loan based on market conditions—early rounds get starter cash, late game gets serious capital.';
                     break;
                 case 'DEBENTURE':
                     generatedWindfall = 'Steady Eddy: issue debentures and collect calm, fixed returns while the market argues about vibes.';

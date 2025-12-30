@@ -383,6 +383,42 @@ function calculatePlayerTotalWorth(player, marketPrices) {
     return player.cash + portfolioValue;
 }
 
+// --- NEW: Function to calculate dynamic loan amount based on game state ---
+function calculateDynamicLoanAmount(game) {
+    // Base loan amount (1 lakh)
+    const BASE_LOAN = 100000;
+    
+    // Get current round information
+    const currentPeriod = game.period || 1;
+    const currentRound = game.state.roundNumberInPeriod || 1;
+    // Calculate total round number across all periods (assuming 3 rounds per period)
+    const totalRound = (currentPeriod - 1) * MAX_ROUNDS_PER_PERIOD + currentRound;
+    
+    // Calculate average player wealth
+    let totalWealth = 0;
+    let playerCount = game.players.length;
+    
+    if (playerCount > 0) {
+        game.players.forEach(player => {
+            totalWealth += calculatePlayerTotalWorth(player, game.state.prices);
+        });
+    }
+    const averageWealth = playerCount > 0 ? totalWealth / playerCount : 0;
+    
+    // Dynamic loan calculation with two approaches:
+    // 1. Round-based exponential growth: grows by 50% per round
+    const roundBasedLoan = BASE_LOAN * Math.pow(1.5, totalRound - 1);
+    
+    // 2. Wealth-based loan: 15% of average player wealth (minimum base loan)
+    const wealthBasedLoan = Math.max(BASE_LOAN, averageWealth * 0.15);
+    
+    // Use the higher of the two approaches, but cap at 50L (5 million) to prevent abuse
+    const dynamicLoan = Math.min(Math.max(roundBasedLoan, wealthBasedLoan), 5000000);
+    
+    // Round to nearest 10,000 for cleaner numbers
+    return Math.round(dynamicLoan / 10000) * 10000;
+}
+
 // --- NEW: Function to record historical worth data ---
 function recordHistoricalWorth(game, periodMarker) {
     if (!game || !game.players || !game.state || !game.state.prices) {
@@ -1445,11 +1481,13 @@ io.on('connection', socket => {
     console.log(`[Windfall] Player ${player.name} attempting to play card:`, actualCardInHand, `Target: ${targetCompany}, DesiredRights: ${desiredRightsShares}`);
 
     if (card.sub === 'LOAN') {
-        player.cash += 100000;
+        const loanAmount = calculateDynamicLoanAmount(game);
+        player.cash += loanAmount;
         actualCardInHand.played = true;
         // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // LOAN usually doesn't count as transaction
-        const wittyMessage = actualCardInHand.message || `Played LOAN card, received ₹100,000.`;
-        logActivity(game, player.name, 'PLAY_CARD', `LOAN: ${wittyMessage}`);
+        const wittyMessage = actualCardInHand.message || `Played LOAN card.`;
+        const fullLoanMessage = `LOAN: ${wittyMessage} (Received: ₹${loanAmount.toLocaleString()})`;
+        logActivity(game, player.name, 'PLAY_CARD', fullLoanMessage);
         emitGameState(game);
     } else if (card.sub === 'DEBENTURE') {
         let debentureValue = 0;
@@ -1505,7 +1543,7 @@ io.on('connection', socket => {
         // game.state.turnTransactions = (game.state.turnTransactions || 0) + 1; // DECIDE IF PERSONAL RIGHTS ISSUE IS A TRANSACTION
         const baseRightsMessage = `Your Rights Issue: Acquired ${actualSharesToGrant.toLocaleString()} shares of ${getCompanyName(targetCompany, game)} for ₹${totalCost.toLocaleString()}.`;
         const wittyMessage = actualCardInHand.message || baseRightsMessage;
-        const fullRightsMessage = `RIGHTS: ${wittyMessage} (Acquired: ${actualSharesToGrant.toLocaleString()} shares for ₹${totalCost.toLocaleString()})`;
+        const fullRightsMessage = `RIGHTS: ${wittyMessage} (${getCompanyName(targetCompany, game)}: ${actualSharesToGrant.toLocaleString()} shares for ₹${totalCost.toLocaleString()})`;
         console.log(`[Windfall RIGHTS Personal] Player ${player.name} got ${actualSharesToGrant} of ${targetCompany}. Cash: ${player.cash}`);
         socket.emit('info', { message: fullRightsMessage });
         logActivity(game, player.name, 'PLAY_CARD_RIGHTS', fullRightsMessage);
