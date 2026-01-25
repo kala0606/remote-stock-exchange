@@ -2238,6 +2238,7 @@ io.on('connection', socket => {
   });
 });
 
+// Fly.io uses port 8080, but allow override via environment variable
 const PORT = process.env.PORT || 3000;
 const SERVER_START_TIME = new Date().toISOString();
 console.log('='.repeat(80));
@@ -2245,6 +2246,8 @@ console.log(`🚀 SERVER STARTING at ${SERVER_START_TIME}`);
 console.log(`Starting server on port ${PORT}`);
 console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 console.log(`Process environment PORT: ${process.env.PORT}`);
+console.log(`Firebase Admin initialized: ${admin && admin.apps.length > 0 ? 'Yes ✅' : 'No ⚠️ (will continue without data saving)'}`);
+console.log(`Firebase credentials available: ${process.env.FIREBASE_SERVICE_ACCOUNT ? 'Yes' : process.env.GOOGLE_APPLICATION_CREDENTIALS ? 'Yes (file path)' : 'No'}`);
 console.log('='.repeat(80));
 
 server.listen(PORT, '0.0.0.0', () => {

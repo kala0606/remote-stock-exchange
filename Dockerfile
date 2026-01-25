@@ -8,13 +8,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci --only=production || npm install --production
 
 # Copy application files
 COPY . .
 
-# Expose port (Fly.io will use the PORT from fly.toml)
-EXPOSE 3000
+# Expose port (Fly.io uses PORT env var, defaults to 8080)
+EXPOSE 8080
 
 # Start the application
 CMD ["node", "server.js"]
