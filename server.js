@@ -5,6 +5,37 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 
+// Firebase Admin SDK
+let admin = null;
+let db = null;
+try {
+  admin = require('firebase-admin');
+  // Initialize Firebase Admin (use environment variable for service account or default credentials)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault()
+    });
+  } else {
+    // Try to initialize with default credentials (for local development)
+    try {
+      admin.initializeApp();
+    } catch (e) {
+      console.warn('[Firebase] Could not initialize Firebase Admin. Game data will not be saved. Set FIREBASE_SERVICE_ACCOUNT or GOOGLE_APPLICATION_CREDENTIALS environment variable.');
+    }
+  }
+  if (admin.apps.length > 0) {
+    db = admin.firestore();
+    console.log('[Firebase] Firebase Admin initialized successfully.');
+  }
+} catch (error) {
+  console.warn('[Firebase] Firebase Admin SDK not available. Game data will not be saved. Install firebase-admin package and configure credentials.');
+}
+
 // Game Constants
 const MAX_PLAYERS = 12;
 const START_CASH = 600000;
@@ -237,6 +268,11 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
+// Dashboard route
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(__dirname + '/public/dashboard.html');
+});
+
 app.use(express.static('public'));
 
 // Game state storage
@@ -266,6 +302,121 @@ function updateGameActivity(game) {
 // Helper function to update global activity timestamp
 function updateGlobalActivity() {
   lastActivityTime = Date.now();
+}
+
+// --- NEW: Function to save game data to Firestore ---
+async function saveGameDataToFirestore(game, summaryData) {
+  if (!db || !admin) {
+    console.log('[saveGameDataToFirestore] Firestore not initialized. Skipping data save.');
+    return;
+  }
+
+  try {
+    const FieldValue = admin.firestore.FieldValue;
+    const gameData = {
+      roomID: Object.keys(games).find(key => games[key] === game),
+      gameStartTime: game.gameStartTime || null,
+      gameEndTime: Date.now(),
+      totalPeriods: game.period,
+      players: game.players.map(p => ({
+        uuid: p.uuid,
+        name: p.name,
+        finalCash: p.cash,
+        finalPortfolioValue: calculatePlayerTotalWorth(p, game.state.prices) - p.cash,
+        finalTotalWorth: calculatePlayerTotalWorth(p, game.state.prices),
+        finalPortfolio: p.portfolio || {},
+        finalShortPositions: p.shortPositions || {}
+      })),
+      historicalWorthData: game.state.historicalWorthData || [],
+      turnTimeData: game.state.turnTimeData || [],
+      priceLog: game.state.priceLog || [],
+      finalPrices: game.state.prices,
+      initialPrices: game.state.init || {},
+      chairmen: game.state.chairmen || {},
+      presidents: game.state.presidents || {},
+      companyList: COMPANIES,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    // Save game document
+    const gameRef = await db.collection('games').add(gameData);
+    console.log(`[saveGameDataToFirestore] Game data saved with ID: ${gameRef.id}`);
+
+    // Save individual player stats
+    const playerStatsPromises = game.players.map(async (player) => {
+      const playerStats = {
+        gameId: gameRef.id,
+        playerUuid: player.uuid,
+        playerName: player.name,
+        finalCash: player.cash,
+        finalPortfolioValue: calculatePlayerTotalWorth(player, game.state.prices) - player.cash,
+        finalTotalWorth: calculatePlayerTotalWorth(player, game.state.prices),
+        finalPortfolio: player.portfolio || {},
+        finalShortPositions: player.shortPositions || {},
+        totalPeriods: game.period,
+        gameStartTime: game.gameStartTime || null,
+        gameEndTime: Date.now(),
+        createdAt: FieldValue.serverTimestamp()
+      };
+
+      // Save to player_stats collection
+      await db.collection('player_stats').add(playerStats);
+      
+      // Also update/aggregate player summary stats
+      const playerSummaryRef = db.collection('player_summaries').doc(player.uuid);
+      const playerSummaryDoc = await playerSummaryRef.get();
+      
+      if (playerSummaryDoc.exists) {
+        const existing = playerSummaryDoc.data();
+        await playerSummaryRef.update({
+          totalGames: (existing.totalGames || 0) + 1,
+          totalWins: existing.totalWins || 0, // Will be updated if this player won
+          bestFinalWorth: Math.max(existing.bestFinalWorth || 0, playerStats.finalTotalWorth),
+          totalFinalWorth: (existing.totalFinalWorth || 0) + playerStats.finalTotalWorth,
+          lastPlayedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      } else {
+        await playerSummaryRef.set({
+          playerUuid: player.uuid,
+          playerName: player.name,
+          totalGames: 1,
+          totalWins: 0,
+          bestFinalWorth: playerStats.finalTotalWorth,
+          totalFinalWorth: playerStats.finalTotalWorth,
+          averageFinalWorth: playerStats.finalTotalWorth,
+          lastPlayedAt: FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      }
+    });
+
+    await Promise.all(playerStatsPromises);
+    
+    // Determine winner and update their win count
+    const winner = game.players.reduce((prev, current) => {
+      const prevWorth = calculatePlayerTotalWorth(prev, game.state.prices);
+      const currentWorth = calculatePlayerTotalWorth(current, game.state.prices);
+      return currentWorth > prevWorth ? current : prev;
+    });
+    
+    if (winner) {
+        const winnerSummaryRef = db.collection('player_summaries').doc(winner.uuid);
+        const winnerSummaryDoc = await winnerSummaryRef.get();
+        if (winnerSummaryDoc.exists) {
+          await winnerSummaryRef.update({
+            totalWins: FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp()
+          });
+        }
+    }
+
+    console.log(`[saveGameDataToFirestore] Successfully saved game data and player stats.`);
+  } catch (error) {
+    console.error('[saveGameDataToFirestore] Error saving game data:', error);
+  }
 }
 
 // Idle detection function
@@ -1228,6 +1379,11 @@ io.on('connection', socket => {
 
     io.to(roomID).emit('gameSummaryReceived', summaryData);
     logActivity(game, game.players.find(p => p.id === game.admin)?.name || 'Admin', 'GAME_ENDED', `Game has been ended by the admin.`);
+    
+    // Save game data to Firestore
+    saveGameDataToFirestore(game, summaryData).catch(err => {
+      console.error('[adminEndGameRequest] Error saving game data:', err);
+    });
     
     // Optional: Clean up the game object from `games` after a delay, or implement a proper archive/delete.
     // For now, game remains in memory but marked as ended.
