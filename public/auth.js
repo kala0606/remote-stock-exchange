@@ -10,7 +10,7 @@ import { auth } from './firebase-config.js';
 // Global auth state
 window.authState = {
   user: null,
-  mode: 'guest', // 'guest' or 'logged-in'
+  mode: null, // null (not chosen), 'guest', or 'logged-in'
   userId: null
 };
 
@@ -121,10 +121,15 @@ onAuthStateChanged(auth, (user) => {
     updateUIForLoggedIn(user);
     showLobby();
   } else {
-    // User is not logged in, but might be in guest mode
+    // User is not logged in
+    window.authState.user = null;
+    // Only show lobby if user explicitly chose guest mode
     if (window.authState.mode === 'guest') {
       showLobby();
     } else {
+      // Reset mode to null so auth screen shows
+      window.authState.mode = null;
+      window.authState.userId = null;
       showAuthScreen();
     }
   }
@@ -171,7 +176,12 @@ function updateModeIndicator() {
   }
 }
 
-// Initialize: Show auth screen if not already authenticated
-if (!window.authState.user && window.authState.mode !== 'guest') {
-  showAuthScreen();
+// Initialize: Show auth screen by default
+// onAuthStateChanged will handle the actual display logic
+// But we need to ensure auth screen is visible initially
+if (authScreen) {
+  authScreen.style.display = 'block';
+}
+if (lobby) {
+  lobby.style.display = 'none';
 }

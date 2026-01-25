@@ -348,6 +348,7 @@ async function saveGameDataToFirestore(game, summaryData) {
       const playerStats = {
         gameId: gameRef.id,
         playerUuid: player.uuid,
+        firebaseUid: player.firebaseUid || null, // Include Firebase UID in stats
         playerName: player.name,
         finalCash: player.cash,
         finalPortfolioValue: calculatePlayerTotalWorth(player, game.state.prices) - player.cash,
@@ -364,22 +365,30 @@ async function saveGameDataToFirestore(game, summaryData) {
       await db.collection('player_stats').add(playerStats);
       
       // Also update/aggregate player summary stats
-      const playerSummaryRef = db.collection('player_summaries').doc(player.uuid);
+      // Use Firebase UID if available, otherwise use player UUID
+      const statsDocId = player.firebaseUid || player.uuid;
+      console.log(`[saveGameDataToFirestore] Saving stats for player ${player.name}: UUID=${player.uuid}, FirebaseUID=${player.firebaseUid || 'none'}, DocID=${statsDocId}`);
+      const playerSummaryRef = db.collection('player_summaries').doc(statsDocId);
       const playerSummaryDoc = await playerSummaryRef.get();
       
       if (playerSummaryDoc.exists) {
         const existing = playerSummaryDoc.data();
+        const newTotalGames = (existing.totalGames || 0) + 1;
+        const newTotalWorth = (existing.totalFinalWorth || 0) + playerStats.finalTotalWorth;
         await playerSummaryRef.update({
-          totalGames: (existing.totalGames || 0) + 1,
+          totalGames: newTotalGames,
           totalWins: existing.totalWins || 0, // Will be updated if this player won
           bestFinalWorth: Math.max(existing.bestFinalWorth || 0, playerStats.finalTotalWorth),
-          totalFinalWorth: (existing.totalFinalWorth || 0) + playerStats.finalTotalWorth,
+          totalFinalWorth: newTotalWorth,
+          averageFinalWorth: newTotalWorth / newTotalGames,
           lastPlayedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp()
         });
+        console.log(`[saveGameDataToFirestore] ✅ Updated existing stats for ${player.name} (DocID: ${statsDocId}): Games=${newTotalGames}, TotalWorth=${newTotalWorth}`);
       } else {
         await playerSummaryRef.set({
           playerUuid: player.uuid,
+          firebaseUid: player.firebaseUid || null, // Store Firebase UID for linking
           playerName: player.name,
           totalGames: 1,
           totalWins: 0,
@@ -390,6 +399,7 @@ async function saveGameDataToFirestore(game, summaryData) {
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp()
         });
+        console.log(`[saveGameDataToFirestore] ✅ Created new stats document for ${player.name} (DocID: ${statsDocId}): Games=1, TotalWorth=${playerStats.finalTotalWorth}`);
       }
     });
 
@@ -403,7 +413,9 @@ async function saveGameDataToFirestore(game, summaryData) {
     });
     
     if (winner) {
-        const winnerSummaryRef = db.collection('player_summaries').doc(winner.uuid);
+        // Use Firebase UID if available, otherwise use player UUID
+        const winnerStatsDocId = winner.firebaseUid || winner.uuid;
+        const winnerSummaryRef = db.collection('player_summaries').doc(winnerStatsDocId);
         const winnerSummaryDoc = await winnerSummaryRef.get();
         if (winnerSummaryDoc.exists) {
           await winnerSummaryRef.update({
@@ -1206,9 +1218,9 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('joinRoom', ({ roomID, name }, callback) => {
+  socket.on('joinRoom', ({ roomID, name, firebaseUid }, callback) => {
     const timestamp = new Date().toISOString();
-    console.log(`[JOIN_ROOM] ${timestamp} - Socket ${socket.id} attempting to join room ${roomID} as "${name}"`);
+    console.log(`[JOIN_ROOM] ${timestamp} - Socket ${socket.id} attempting to join room ${roomID} as "${name}"${firebaseUid ? ` (Firebase UID: ${firebaseUid})` : ' (Guest mode - no Firebase UID)'}`);
     const game = games[roomID];
     if (!game) {
       console.log(`[JOIN_ROOM] ERROR: Room ${roomID} NOT FOUND for player "${name}"`);
@@ -1228,6 +1240,7 @@ io.on('connection', socket => {
     const player = {
       id: socket.id,
       uuid: uuidv4(), // ADDED: Persistent unique ID for the player
+      firebaseUid: firebaseUid || null, // ADDED: Firebase UID if user is logged in
       name,
       cash: START_CASH,
       portfolio: {},
@@ -1381,8 +1394,10 @@ io.on('connection', socket => {
     logActivity(game, game.players.find(p => p.id === game.admin)?.name || 'Admin', 'GAME_ENDED', `Game has been ended by the admin.`);
     
     // Save game data to Firestore
+    console.log(`[adminEndGameRequest] Attempting to save game data to Firestore for room ${roomID}`);
     saveGameDataToFirestore(game, summaryData).catch(err => {
       console.error('[adminEndGameRequest] Error saving game data:', err);
+      console.error('[adminEndGameRequest] Error details:', err.message, err.stack);
     });
     
     // Optional: Clean up the game object from `games` after a delay, or implement a proper archive/delete.

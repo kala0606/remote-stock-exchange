@@ -561,7 +561,9 @@ if (createRoomBtn) {
                     playerNameInput.value = 'Player 1';
                 }
                 currentPlayerName = playerNameInput ? playerNameInput.value.trim() : 'Player';
-                socket.emit('joinRoom', { roomID, name: currentPlayerName }, response => {
+                // Include Firebase UID if user is logged in
+        const firebaseUid = window.authState && window.authState.user ? window.authState.userId : null;
+        socket.emit('joinRoom', { roomID, name: currentPlayerName, firebaseUid }, response => {
                     console.log('Auto-join response after create:', response);
                     if (response.error) {
                         alert(response.error);
@@ -612,7 +614,9 @@ if (joinRoomBtn) {
         currentPlayerName = name;
         console.log('Joining room:', roomID, 'as:', name);
         joinRoomBtn.disabled = true;
-        socket.emit('joinRoom', { roomID, name }, response => {
+        // Include Firebase UID if user is logged in
+        const firebaseUid = window.authState && window.authState.user ? window.authState.userId : null;
+        socket.emit('joinRoom', { roomID, name, firebaseUid }, response => {
             joinRoomBtn.disabled = false;
             console.log('Join response:', response);
             if (response.error) {

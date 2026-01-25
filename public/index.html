@@ -133,6 +133,7 @@
             <span id="turn-timer" style="display: none; font-weight: bold; color: #ffffff; background-color: #4CAF50; padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">
               <span id="timer-display">00:00</span>
             </span>
+            <button id="my-stats-btn" style="display: none; margin-left: 10px; padding: 6px 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">📊 My Stats</button>
           </div>
           
           <!-- Player Turn Indicator and Activity Log Container -->
@@ -370,6 +371,62 @@
           </div>
       </div>
 
+      <!-- My Stats Modal -->
+      <div id="my-stats-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+          <h2>My Game Statistics</h2>
+          <div id="my-stats-content">
+            <div id="my-stats-loading" style="text-align: center; padding: 40px; color: #666;">
+              Loading your statistics...
+            </div>
+            <div id="my-stats-data" style="display: none;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0;">
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Games Played</div>
+                  <div style="font-size: 2em; font-weight: bold; color: #2196F3;" id="modal-stat-games">0</div>
+                </div>
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Total Wins</div>
+                  <div style="font-size: 2em; font-weight: bold; color: #4CAF50;" id="modal-stat-wins">0</div>
+                </div>
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Total Losses</div>
+                  <div style="font-size: 2em; font-weight: bold; color: #f44336;" id="modal-stat-losses">0</div>
+                </div>
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Win Rate</div>
+                  <div style="font-size: 2em; font-weight: bold; color: #FF9800;" id="modal-stat-winrate">0%</div>
+                </div>
+              </div>
+              <div style="margin: 20px 0;">
+                <h3 style="margin-bottom: 10px;">Performance</h3>
+                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+                  <span>Best Final Worth:</span>
+                  <strong id="modal-stat-best">₹0</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+                  <span>Average Final Worth:</span>
+                  <strong id="modal-stat-avg">₹0</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                  <span>Total Final Worth:</span>
+                  <strong id="modal-stat-total">₹0</strong>
+                </div>
+              </div>
+              <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <button id="view-full-dashboard-modal-btn" style="width: 100%; padding: 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em;">View Full Dashboard with Charts</button>
+              </div>
+            </div>
+            <div id="my-stats-error" style="display: none; text-align: center; padding: 40px; color: #f44336;">
+              Unable to load statistics. Please try again later.
+            </div>
+          </div>
+          <div class="button-group" style="margin-top: 20px;">
+            <button id="close-my-stats-btn">Close</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Help Modal -->
       <div id="help-modal" class="modal">
           <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
@@ -474,6 +531,7 @@
   <!-- Firebase SDK -->
   <script type="module" src="firebase-config.js"></script>
   <script type="module" src="auth.js"></script>
+  <script type="module" src="game-stats.js"></script>
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script> -->
   <script src="gradient-shader.js"></script>
   <script src="client.js"></script>
