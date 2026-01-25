@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for remote-stock-exchange on 2025-09-05T14:52:20Z
+# fly.toml app configuration file generated for remote-stock-exchange on 2026-01-25T15:39:27Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -11,10 +11,9 @@ primary_region = 'bom'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
-  max_machines_running = 1
+  min_machines_running = 0
   processes = ['app']
   
   [http_service.concurrency]
@@ -23,7 +22,7 @@ primary_region = 'bom'
     soft_limit = 500
 
 [env]
-  PORT = "8080"
+  PORT = "3000"
 
 [checks]
   [checks.alive]
@@ -35,7 +34,7 @@ primary_region = 'bom'
     type = "http"
 
 [[vm]]
-  memory = '256mb'
+  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256
+  memory_mb = 1024
