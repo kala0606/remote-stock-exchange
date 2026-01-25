@@ -110,15 +110,18 @@ function updateStats(data) {
 
 async function loadRecentGames(userId) {
   try {
+    console.log('[dashboard] Loading recent games for userId:', userId);
     // Query player_stats collection for this user
+    // Use firebaseUid for logged-in users (userId is Firebase UID when authenticated)
     const statsQuery = query(
       collection(db, 'player_stats'),
-      where('playerUuid', '==', userId),
+      where('firebaseUid', '==', userId),
       orderBy('gameEndTime', 'desc'),
       limit(10)
     );
     
     const statsSnapshot = await getDocs(statsQuery);
+    console.log('[dashboard] Found', statsSnapshot.size, 'game stats');
     
     if (statsSnapshot.empty) {
       gamesListContent.innerHTML = '<p>No games played yet. Start playing to see your game history!</p>';
@@ -153,9 +156,10 @@ async function loadRecentGames(userId) {
         if (gameData) {
           const gameDate = gameData.gameEndTime?.toDate ? gameData.gameEndTime.toDate() : new Date(stat.gameEndTime);
           const players = gameData.players || [];
+          // Find player by matching either uuid or firebaseUid from the stat data
           const playerRank = players
             .sort((a, b) => b.finalTotalWorth - a.finalTotalWorth)
-            .findIndex(p => p.uuid === userId) + 1;
+            .findIndex(p => p.uuid === stat.playerUuid || (stat.firebaseUid && p.firebaseUid === stat.firebaseUid)) + 1;
           
           gamesHtml.push(`
             <div class="game-item" onclick="viewGameDetails('${stat.gameId}')">
@@ -183,13 +187,17 @@ async function loadRecentGames(userId) {
 
 async function loadPerformanceChart(userId) {
   try {
+    console.log('[dashboard] Loading performance chart for userId:', userId);
+    // Query player_stats collection for this user
+    // Use firebaseUid for logged-in users (userId is Firebase UID when authenticated)
     const statsQuery = query(
       collection(db, 'player_stats'),
-      where('playerUuid', '==', userId),
+      where('firebaseUid', '==', userId),
       orderBy('gameEndTime', 'asc')
     );
     
     const statsSnapshot = await getDocs(statsQuery);
+    console.log('[dashboard] Found', statsSnapshot.size, 'game stats for chart');
     
     const labels = [];
     const finalWorthData = [];
