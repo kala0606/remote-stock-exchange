@@ -22,7 +22,7 @@ primary_region = 'bom'
     soft_limit = 500
 
 [env]
-  PORT = "3000"
+  PORT = "8080"
 
 [checks]
   [checks.alive]

@@ -5,35 +5,52 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 
-// Firebase Admin SDK
+// Firebase Admin SDK - Initialize safely without blocking server startup
 let admin = null;
 let db = null;
 try {
   admin = require('firebase-admin');
   // Initialize Firebase Admin (use environment variable for service account or default credentials)
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      if (admin.apps.length > 0) {
+        db = admin.firestore();
+        console.log('[Firebase] Firebase Admin initialized successfully from FIREBASE_SERVICE_ACCOUNT.');
+      }
+    } catch (parseError) {
+      console.warn('[Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:', parseError.message);
+    }
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault()
-    });
+    try {
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault()
+      });
+      if (admin.apps.length > 0) {
+        db = admin.firestore();
+        console.log('[Firebase] Firebase Admin initialized successfully from GOOGLE_APPLICATION_CREDENTIALS.');
+      }
+    } catch (credError) {
+      console.warn('[Firebase] Failed to initialize with GOOGLE_APPLICATION_CREDENTIALS:', credError.message);
+    }
   } else {
     // Try to initialize with default credentials (for local development)
     try {
       admin.initializeApp();
+      if (admin.apps.length > 0) {
+        db = admin.firestore();
+        console.log('[Firebase] Firebase Admin initialized successfully with default credentials.');
+      }
     } catch (e) {
       console.warn('[Firebase] Could not initialize Firebase Admin. Game data will not be saved. Set FIREBASE_SERVICE_ACCOUNT or GOOGLE_APPLICATION_CREDENTIALS environment variable.');
     }
   }
-  if (admin.apps.length > 0) {
-    db = admin.firestore();
-    console.log('[Firebase] Firebase Admin initialized successfully.');
-  }
 } catch (error) {
-  console.warn('[Firebase] Firebase Admin SDK not available. Game data will not be saved. Install firebase-admin package and configure credentials.');
+  console.warn('[Firebase] Firebase Admin SDK not available. Game data will not be saved. Error:', error.message);
+  // Continue without Firebase - server should still start
 }
 
 // Game Constants
@@ -2239,34 +2256,49 @@ io.on('connection', socket => {
 });
 
 // Fly.io uses port 8080, but allow override via environment variable
-const PORT = process.env.PORT || 3000;
+// Fly.io uses PORT environment variable, default to 8080 for Fly.io, 3000 for local
+const PORT = process.env.PORT || (process.env.FLY_APP_NAME ? 8080 : 3000);
 const SERVER_START_TIME = new Date().toISOString();
 console.log('='.repeat(80));
 console.log(`🚀 SERVER STARTING at ${SERVER_START_TIME}`);
 console.log(`Starting server on port ${PORT}`);
 console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`Process environment PORT: ${process.env.PORT}`);
+console.log(`Process environment PORT: ${process.env.PORT || 'not set (using default)'}`);
+console.log(`Fly.io app name: ${process.env.FLY_APP_NAME || 'not set (local dev)'}`);
 console.log(`Firebase Admin initialized: ${admin && admin.apps.length > 0 ? 'Yes ✅' : 'No ⚠️ (will continue without data saving)'}`);
 console.log(`Firebase credentials available: ${process.env.FIREBASE_SERVICE_ACCOUNT ? 'Yes' : process.env.GOOGLE_APPLICATION_CREDENTIALS ? 'Yes (file path)' : 'No'}`);
 console.log('='.repeat(80));
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('='.repeat(80));
-  console.log(`✅ Server successfully running on 0.0.0.0:${PORT}`);
-  console.log(`✅ Started at: ${SERVER_START_TIME}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Socket.IO CORS origins configured for localhost and remote-stock-exchange.fly.dev`);
-  console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
-  console.log(`Status endpoint available at: http://0.0.0.0:${PORT}/api/status`);
-  console.log(`Room cleanup: Every ${CLEANUP_INTERVAL/60000} minutes, expiry: ${ROOM_EXPIRY_TIME/60000} minutes`);
-  console.log('='.repeat(80));
-}).on('error', (err) => {
+// Ensure server starts even if there are issues
+try {
+  console.log(`[Server] Attempting to start server on 0.0.0.0:${PORT}...`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('='.repeat(80));
+    console.log(`✅ Server successfully running on 0.0.0.0:${PORT}`);
+    console.log(`✅ Started at: ${SERVER_START_TIME}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Socket.IO CORS origins configured for localhost and remote-stock-exchange.fly.dev`);
+    console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
+    console.log(`Status endpoint available at: http://0.0.0.0:${PORT}/api/status`);
+    console.log(`Room cleanup: Every ${CLEANUP_INTERVAL/60000} minutes, expiry: ${ROOM_EXPIRY_TIME/60000} minutes`);
+    console.log('='.repeat(80));
+  }).on('error', (err) => {
+    console.error('='.repeat(80));
+    console.error('❌ Server startup error:', err);
+    console.error('Error details:', err.message);
+    console.error('Error code:', err.code);
+    console.error('Stack:', err.stack);
+    console.error('='.repeat(80));
+    process.exit(1);
+  });
+} catch (startupError) {
   console.error('='.repeat(80));
-  console.error('❌ Server startup error:', err);
-  console.error('Error details:', err.message);
-  console.error('Error code:', err.code);
+  console.error('❌ Fatal error during server.listen():', startupError);
+  console.error('Error message:', startupError.message);
+  console.error('Stack:', startupError.stack);
   console.error('='.repeat(80));
-});
+  process.exit(1);
+}
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
