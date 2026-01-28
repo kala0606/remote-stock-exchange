@@ -1,0 +1,33 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "player_stats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "firebaseUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "gameEndTime",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "player_stats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "firebaseUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "gameEndTime",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -6,51 +6,63 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 
 // Firebase Admin SDK - Initialize safely without blocking server startup
+const path = require('path');
 let admin = null;
 let db = null;
+let firebaseCredentialsSource = 'none';
+
+function tryInitFirebase(credentialSource, initFn) {
+  if (db) return;
+  try {
+    initFn();
+    if (admin && admin.apps.length > 0) {
+      db = admin.firestore();
+      firebaseCredentialsSource = credentialSource;
+      console.log(`[Firebase] Firebase Admin initialized successfully (${credentialSource}).`);
+    }
+  } catch (e) {
+    console.warn(`[Firebase] Failed to initialize with ${credentialSource}:`, e.message);
+  }
+}
+
 try {
   admin = require('firebase-admin');
-  // Initialize Firebase Admin (use environment variable for service account or default credentials)
+  // 1) Environment: FIREBASE_SERVICE_ACCOUNT (JSON string) - used on Fly.io / production
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    try {
+    tryInitFirebase('FIREBASE_SERVICE_ACCOUNT', () => {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    });
+  }
+  // 2) Environment: GOOGLE_APPLICATION_CREDENTIALS (file path)
+  if (!db && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    tryInitFirebase('GOOGLE_APPLICATION_CREDENTIALS', () => {
+      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    });
+  }
+  // 3) Local fallback: service account file in project root (only if file exists)
+  if (!db) {
+    const localCredPath = path.join(__dirname, 'remotestockexchange-firebase-adminsdk-fbsvc-77e2b59911.json');
+    const fs = require('fs');
+    if (fs.existsSync(localCredPath)) {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = localCredPath;
+      tryInitFirebase('local file (project root)', () => {
+        admin.initializeApp({ credential: admin.credential.applicationDefault() });
       });
-      if (admin.apps.length > 0) {
-        db = admin.firestore();
-        console.log('[Firebase] Firebase Admin initialized successfully from FIREBASE_SERVICE_ACCOUNT.');
-      }
-    } catch (parseError) {
-      console.warn('[Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:', parseError.message);
     }
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    try {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault()
-      });
-      if (admin.apps.length > 0) {
-        db = admin.firestore();
-        console.log('[Firebase] Firebase Admin initialized successfully from GOOGLE_APPLICATION_CREDENTIALS.');
-      }
-    } catch (credError) {
-      console.warn('[Firebase] Failed to initialize with GOOGLE_APPLICATION_CREDENTIALS:', credError.message);
-    }
-  } else {
-    // Try to initialize with default credentials (for local development)
-    try {
+  }
+  // 4) Default credentials (e.g. gcloud auth application-default login)
+  if (!db) {
+    tryInitFirebase('default credentials', () => {
       admin.initializeApp();
-      if (admin.apps.length > 0) {
-        db = admin.firestore();
-        console.log('[Firebase] Firebase Admin initialized successfully with default credentials.');
-      }
-    } catch (e) {
-      console.warn('[Firebase] Could not initialize Firebase Admin. Game data will not be saved. Set FIREBASE_SERVICE_ACCOUNT or GOOGLE_APPLICATION_CREDENTIALS environment variable.');
-    }
+    });
+  }
+  if (!db) {
+    console.warn('[Firebase] Could not initialize Firebase Admin. Game data will NOT be saved to Firestore.');
+    console.warn('[Firebase] Set GOOGLE_APPLICATION_CREDENTIALS, FIREBASE_SERVICE_ACCOUNT, or run with ./start-server.sh');
   }
 } catch (error) {
   console.warn('[Firebase] Firebase Admin SDK not available. Game data will not be saved. Error:', error.message);
-  // Continue without Firebase - server should still start
 }
 
 // Game Constants
@@ -323,10 +335,16 @@ function updateGlobalActivity() {
 
 // --- NEW: Function to save game data to Firestore ---
 async function saveGameDataToFirestore(game, summaryData) {
+  console.log('[saveGameDataToFirestore] Called. Checking Firebase initialization...');
+  console.log('[saveGameDataToFirestore] admin is null:', admin === null);
+  console.log('[saveGameDataToFirestore] db is null:', db === null);
   if (!db || !admin) {
-    console.log('[saveGameDataToFirestore] Firestore not initialized. Skipping data save.');
+    console.error('[saveGameDataToFirestore] ❌ Firestore not initialized. Skipping data save.');
+    console.error('[saveGameDataToFirestore] Check server startup logs for Firebase initialization errors.');
+    console.error('[saveGameDataToFirestore] Make sure GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT is set.');
     return;
   }
+  console.log('[saveGameDataToFirestore] ✅ Firebase initialized. Proceeding with save...');
 
   try {
     const FieldValue = admin.firestore.FieldValue;
@@ -444,7 +462,9 @@ async function saveGameDataToFirestore(game, summaryData) {
 
     console.log(`[saveGameDataToFirestore] Successfully saved game data and player stats.`);
   } catch (error) {
-    console.error('[saveGameDataToFirestore] Error saving game data:', error);
+    console.error('[saveGameDataToFirestore] ❌ Error saving game data:', error.message);
+    console.error('[saveGameDataToFirestore] Stack:', error.stack);
+    if (error.code) console.error('[saveGameDataToFirestore] Code:', error.code);
   }
 }
 
@@ -535,7 +555,11 @@ app.get('/api/status', (req, res) => {
     rooms: activeRooms,
     totalTokens: Object.keys(tokenStore).length,
     uptime: process.uptime(),
-    memory: process.memoryUsage()
+    memory: process.memoryUsage(),
+    firebase: {
+      initialized: !!(admin && db),
+      credentialsSource: firebaseCredentialsSource
+    }
   });
 });
 
@@ -586,11 +610,15 @@ function calculateDynamicLoanAmount(game) {
     const averageWealth = playerCount > 0 ? totalWealth / playerCount : 0;
     
     // Dynamic loan calculation with two approaches:
-    // 1. Round-based exponential growth: grows by 50% per round
-    const roundBasedLoan = BASE_LOAN * Math.pow(1.5, totalRound - 1);
+    // 1. Round-based growth: gentler exponent so loan reaches 50L in ~11–12 rounds (not 4)
+    //    Growth rate ~1.4: 1L at round 1, ~4L at round 11, cap at 50L by round 12
+    const GROWTH_RATE = 1.4;
+    const roundBasedLoan = BASE_LOAN * Math.pow(GROWTH_RATE, totalRound - 1);
     
-    // 2. Wealth-based loan: 15% of average player wealth (minimum base loan)
-    const wealthBasedLoan = Math.max(BASE_LOAN, averageWealth * 0.15);
+    // 2. Wealth-based loan: 15% of average player wealth, but capped relative to round-based
+    //    so early-game wealth cannot push loan to 50L in round 4
+    const rawWealthBased = Math.max(BASE_LOAN, averageWealth * 0.15);
+    const wealthBasedLoan = Math.min(rawWealthBased, roundBasedLoan * 1.5);
     
     // Use the higher of the two approaches, but cap at 50L (5 million) to prevent abuse
     const dynamicLoan = Math.min(Math.max(roundBasedLoan, wealthBasedLoan), 5000000);
@@ -1412,6 +1440,12 @@ io.on('connection', socket => {
     
     // Save game data to Firestore
     console.log(`[adminEndGameRequest] Attempting to save game data to Firestore for room ${roomID}`);
+    console.log(`[adminEndGameRequest] Firebase Admin initialized: ${admin ? 'Yes' : 'No'}`);
+    console.log(`[adminEndGameRequest] Firestore DB available: ${db ? 'Yes' : 'No'}`);
+    console.log(`[adminEndGameRequest] Players in game: ${game.players.length}`);
+    game.players.forEach((p, idx) => {
+      console.log(`[adminEndGameRequest] Player ${idx + 1}: name="${p.name}", uuid="${p.uuid}", firebaseUid="${p.firebaseUid || 'null (guest)'}"`);
+    });
     saveGameDataToFirestore(game, summaryData).catch(err => {
       console.error('[adminEndGameRequest] Error saving game data:', err);
       console.error('[adminEndGameRequest] Error details:', err.message, err.stack);
