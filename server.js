@@ -587,38 +587,21 @@ function calculatePlayerTotalWorth(player, marketPrices) {
 function calculateDynamicLoanAmount(game) {
     // Base loan amount (1 lakh)
     const BASE_LOAN = 100000;
-    
+    const MAX_LOAN = 5000000; // 50L cap
+
     // Get current round information
     const currentPeriod = game.period || 1;
     const currentRound = game.state.roundNumberInPeriod || 1;
-    // Calculate total round number across all periods (assuming 3 rounds per period)
     const totalRound = (currentPeriod - 1) * MAX_ROUNDS_PER_PERIOD + currentRound;
-    
-    // Calculate average player wealth
-    let totalWealth = 0;
-    let playerCount = game.players.length;
-    
-    if (playerCount > 0) {
-        game.players.forEach(player => {
-            totalWealth += calculatePlayerTotalWorth(player, game.state.prices);
-        });
-    }
-    const averageWealth = playerCount > 0 ? totalWealth / playerCount : 0;
-    
-    // Dynamic loan calculation with two approaches:
-    // 1. Round-based growth: gentler exponent so loan reaches 50L in ~11–12 rounds (not 4)
-    //    Growth rate ~1.4: 1L at round 1, ~4L at round 11, cap at 50L by round 12
-    const GROWTH_RATE = 1.4;
+
+    // Pure round-based growth only (no wealth-based). Growth tuned so:
+    // - Round 1: 1L, Round 5: ~2.5L, Round 10: ~15L, Round 12: ~30L, Round 13: hits 50L cap
+    // r^12 = 50 => r ≈ 1.36
+    const GROWTH_RATE = 1.36;
     const roundBasedLoan = BASE_LOAN * Math.pow(GROWTH_RATE, totalRound - 1);
-    
-    // 2. Wealth-based loan: 15% of average player wealth, but capped relative to round-based
-    //    so early-game wealth cannot push loan to 50L in round 4
-    const rawWealthBased = Math.max(BASE_LOAN, averageWealth * 0.15);
-    const wealthBasedLoan = Math.min(rawWealthBased, roundBasedLoan * 1.5);
-    
-    // Use the higher of the two approaches, but cap at 50L (5 million) to prevent abuse
-    const dynamicLoan = Math.min(Math.max(roundBasedLoan, wealthBasedLoan), 5000000);
-    
+
+    const dynamicLoan = Math.min(roundBasedLoan, MAX_LOAN);
+
     // Round to nearest 10,000 for cleaner numbers
     return Math.round(dynamicLoan / 10000) * 10000;
 }
