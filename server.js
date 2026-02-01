@@ -476,22 +476,18 @@ function checkIdleAndShutdown() {
   
   console.log(`[Idle Check] Time since last activity: ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes, Active rooms: ${activeRooms}`);
   
-  // Check if any active rooms have been idle for too long
-  let allRoomsIdle = true;
+  // Shutdown ONLY when there are zero rooms. Never shut down while any rooms exist
+  // (e.g. 4 rooms with 5 people each) — avoids killing active games due to "idle" logic.
   if (activeRooms > 0) {
-    for (const [roomID, game] of Object.entries(games)) {
-      const roomIdleTime = now - (game.lastActivity || game.createdAt || now);
-      if (roomIdleTime < IDLE_TIMEOUT) {
-        allRoomsIdle = false;
-        break;
-      }
-    }
+    // Log load so we can correlate with crashes (OOM / bandwidth under load)
+    const socketCount = typeof io !== 'undefined' && io.engine ? io.engine.clientsCount : 0;
+    const mem = process.memoryUsage();
+    const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
+    console.log(`[Load] rooms=${activeRooms} connections=${socketCount} heapMB=${heapMB} rssMB=${Math.round(mem.rss / 1024 / 1024)}`);
+    return; // Never idle-shutdown when there are active rooms
   }
-  
-  // Shutdown if no activity for IDLE_TIMEOUT and (no active games OR all rooms are idle)
-  if (timeSinceLastActivity > IDLE_TIMEOUT && (activeRooms === 0 || allRoomsIdle)) {
-    console.log(`[Idle Shutdown] No activity for ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes. Active rooms: ${activeRooms}, All idle: ${allRoomsIdle}. Initiating graceful shutdown...`);
-    // Give a brief moment for any pending requests to complete
+  if (timeSinceLastActivity > IDLE_TIMEOUT) {
+    console.log(`[Idle Shutdown] No activity for ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes and no active rooms. Initiating graceful shutdown...`);
     setTimeout(() => {
       console.log('[Idle Shutdown] Graceful shutdown initiated due to inactivity');
       process.exit(0);
