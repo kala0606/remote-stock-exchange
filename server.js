@@ -268,8 +268,8 @@ const WINDFALL_MESSAGES = {
   ]
 };
 
-const TRANSACTIONS_PER_PERIOD = 3;
-const MAX_ROUNDS_PER_PERIOD = 3; // Define max rounds
+const TRANSACTIONS_PER_PERIOD = 4;
+const MAX_ROUNDS_PER_PERIOD = 4; // Define max rounds (turns per player per period)
 const CHAIRMAN_SHARE_THRESHOLD = 100000; // Threshold for chairman
 const PRESIDENT_SHARE_THRESHOLD = 50000; // Threshold for president
 
@@ -595,10 +595,10 @@ function calculateDynamicLoanAmount(game) {
     const currentRound = game.state.roundNumberInPeriod || 1;
     const totalRound = (currentPeriod - 1) * MAX_ROUNDS_PER_PERIOD + currentRound;
 
-    // Pure round-based growth only (no wealth-based). Growth tuned so:
-    // - Round 1: 1L, Round 5: ~2.5L, Round 10: ~15L, Round 12: ~30L, Round 13: hits 50L cap
-    // r^12 = 50 => r ≈ 1.36
-    const GROWTH_RATE = 1.36;
+    // Pure round-based growth only. Tuned so 50L is reached around period 10–12, not period 5.
+    // Period 5 = totalRound 13–15 → should stay ~4–5L. Period 10–11 = totalRound 28–33 → reach 50L.
+    // r^30 ≈ 50 => r ≈ 1.14
+    const GROWTH_RATE = 1.14;
     const roundBasedLoan = BASE_LOAN * Math.pow(GROWTH_RATE, totalRound - 1);
 
     const dynamicLoan = Math.min(roundBasedLoan, MAX_LOAN);
@@ -833,7 +833,8 @@ function emitGameState(game, context = 'normal') {
         awaitingAdminDecision: game.state.awaitingAdminDecision,
         pricesResolvedThisCycle: game.state.pricesResolvedThisCycle,
         periodStarter: game.state.periodStarter,
-        marketSentiment: game.state.marketSentiment || 'neutral'
+        marketSentiment: game.state.marketSentiment || 'neutral',
+        maxTransactionsPerTurn: TRANSACTIONS_PER_PERIOD
       } : {
         // Minimal state for pre-game lobby
         companyNames: companyNameMapping,

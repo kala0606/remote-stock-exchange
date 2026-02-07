@@ -1332,7 +1332,7 @@ function updateUI(state) {
         console.log(`[updateUI] Admin Decision Logic: awaitingAdminDecision=${state.state.awaitingAdminDecision}, pricesResolvedThisCycle=${state.state.pricesResolvedThisCycle}, isAdmin=${isAdmin}`);
 
         if (isAdmin) {
-            adminDecisionMessage.textContent = 'The 3-round mark has been reached. Please choose an action.';
+            adminDecisionMessage.textContent = 'The 4-round mark has been reached. Please choose an action.';
             adminResolvePricesBtn.style.display = 'inline-block';
             adminAdvanceNewPeriodBtn.style.display = 'inline-block';
 
@@ -3337,19 +3337,17 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
         tdName.innerHTML = nameHTML;
         tr.appendChild(tdName);
 
-        // Add Turns Remaining Dots Cell
+        // Add Turns Remaining Dots Cell (use server-sent max so dot count and ghost first-dot stay in sync)
         const tdTurns = document.createElement('td');
         tdTurns.classList.add('turns-dots-cell');
-        
-        const totalAllowedTransactions = 3; // Assuming max 3 transactions per round for display
-        const turnsRemaining = player.transactionsRemaining;
-        const turnsUsed = totalAllowedTransactions - turnsRemaining;
+        const totalAllowedTransactions = Math.max(1, (currentGameState?.state?.maxTransactionsPerTurn ?? 4));
+        const turnsRemaining = typeof player.transactionsRemaining === 'number' ? player.transactionsRemaining : totalAllowedTransactions;
+        const turnsUsed = Math.max(0, totalAllowedTransactions - turnsRemaining);
 
         // Create dots for all turns (grey for used, green for remaining)
         for (let i = 0; i < totalAllowedTransactions; i++) {
             const dot = document.createElement('span');
             dot.classList.add('turn-dot-indicator');
-            // If dot index is less than the number of USED turns, it's grey
             if (i < turnsUsed) {
                 dot.classList.add('turn-dot-grey');
             } else {
