@@ -276,12 +276,13 @@ const PRESIDENT_SHARE_THRESHOLD = 50000; // Threshold for president
 // Setup Express and Socket.IO
 const app = express();
 const server = http.createServer(app);
+// When not on Fly.io, allow any origin so local/LAN hosting works (multiple PCs, same WiFi)
+const isFly = !!process.env.FLY_APP_NAME;
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "https://remote-stock-exchange.fly.dev"
-    ],
+    origin: isFly
+      ? ["http://localhost:3000", "https://remote-stock-exchange.fly.dev"]
+      : true,
     methods: ["GET", "POST"],
     credentials: true
   },

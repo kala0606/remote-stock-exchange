@@ -1,7 +1,6 @@
-// Dynamic socket server configuration
-const SOCKET_SERVER = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000' 
-    : `https://${window.location.hostname}`;
+// Dynamic socket server configuration: use current origin so LAN play works
+// (e.g. http://192.168.1.5:3000 from another device connects to same host:port)
+const SOCKET_SERVER = window.location.origin;
 
 // Silence all console output
 try {
