@@ -1,374 +1,364 @@
 <!DOCTYPE html>
-<html>
+<html data-theme="light">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Remote Stock Exchange</title>
-  <!-- <base href="/remote-stock-exchange/"> -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css"/>
-  <style>
-    .connection-status {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 10px 0;
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      font-size: 0.9em;
-    }
-    
-    .status-indicator {
-      margin-right: 8px;
-      font-size: 1.2em;
-    }
-    
-    .status-indicator.connected {
-      color: #4CAF50;
-    }
-    
-    .status-indicator.connecting {
-      color: #FF9800;
-      animation: pulse 1.5s infinite;
-    }
-    
-    .status-indicator.disconnected {
-      color: #f44336;
-    }
-    
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-  </style>
 </head>
 <body>
+  <!-- Title Bar -->
   <div id="title-bar">
-    <img src="/logo.svg" alt="Logo" class="app-logo-titlebar" style="height:18px; margin-right:8px; vertical-align:middle;" />
-    <span id="game-title-text">Remote Stock Exchange</span>
-    <button id="helpButton" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); padding:0; font-size:16px; background:none; color:#000000; border:none; cursor:pointer; width:20px; height:20px; display:flex; align-items:center; justify-content:center; z-index:2001;">?</button>
+    <div class="titlebar-left">
+      <img src="/logo.svg" alt="Logo" class="app-logo-titlebar" />
+      <span id="game-title-text">RSE</span>
+    </div>
+    <div class="titlebar-right">
+      <button id="themeToggle" class="btn-icon" title="Toggle theme">
+        <span id="theme-icon">&#9790;</span>
+      </button>
+      <button id="helpButton" class="btn-icon" title="Help">?</button>
+    </div>
   </div>
 
   <!-- Authentication Screen -->
   <div id="auth-screen" class="screen">
-    <img src="/logo.svg" alt="Logo" class="app-logo-lobby" style="height:48px; margin-bottom:20px; display:block; margin-left:auto; margin-right:auto;" />
-    <h1>Remote Stock Exchange</h1>
-    <div style="margin: 20px 0; text-align: center;">
-      <h3>Choose Your Mode</h3>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; max-width: 400px; margin: 0 auto;">
-        <button id="loginModeBtn" style="padding: 15px 24px; font-size: 16px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 320px; text-align: center;">
-          🔐 Login Mode
-          <div style="font-size: 12px; margin-top: 5px; opacity: 0.9;">Track your stats & view dashboard</div>
+    <div class="auth-card">
+      <img src="/logo.svg" alt="Logo" class="app-logo-lobby" />
+      <h1>Remote Stock Exchange</h1>
+      <p class="auth-subtitle">Multiplayer stock trading simulation</p>
+      <div class="auth-modes">
+        <button id="loginModeBtn" class="auth-mode-btn">
+          <span class="auth-mode-icon">&#128274;</span>
+          <span class="auth-mode-label">Login Mode</span>
+          <span class="auth-mode-desc">Track your stats &amp; view dashboard</span>
         </button>
-        <button id="guestModeBtn" style="padding: 15px 24px; font-size: 16px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 320px; text-align: center;">
-          👤 Guest Mode
-          <div style="font-size: 12px; margin-top: 5px; opacity: 0.9;">Play without account</div>
+        <button id="guestModeBtn" class="auth-mode-btn guest">
+          <span class="auth-mode-icon">&#128100;</span>
+          <span class="auth-mode-label">Guest Mode</span>
+          <span class="auth-mode-desc">Play without account</span>
         </button>
       </div>
-    </div>
-    
-    <!-- Login Form (hidden by default) -->
-    <div id="login-form" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
-      <h3>Login / Sign Up</h3>
-      <div style="display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; max-width: 320px; margin: 0 auto;">
-        <input type="email" id="emailInput" placeholder="Email" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box;">
-        <input type="password" id="passwordInput" placeholder="Password" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box;">
-        <button id="loginBtn" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; text-align: center;">Login</button>
-        <button id="signupBtn" style="padding: 10px 20px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; text-align: center;">Sign Up</button>
-        <button id="backToModeBtn" style="padding: 10px 20px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; text-align: center;">Back</button>
-        <div id="auth-error" style="color: red; font-size: 14px; margin-top: 10px; display: none;"></div>
+
+      <!-- Login Form -->
+      <div id="login-form" style="display: none;">
+        <h3>Login / Sign Up</h3>
+        <div class="auth-form-fields">
+          <input type="email" id="emailInput" placeholder="Email">
+          <input type="password" id="passwordInput" placeholder="Password">
+          <button id="loginBtn" class="btn-primary">Login</button>
+          <button id="signupBtn" class="btn-secondary">Sign Up</button>
+          <button id="backToModeBtn" class="btn-ghost">Back</button>
+          <div id="auth-error" class="auth-error" style="display: none;"></div>
+        </div>
       </div>
-    </div>
-    
-    <!-- User Info (when logged in) -->
-    <div id="user-info" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
-      <p>Logged in as: <strong id="user-email"></strong></p>
-      <button id="logoutBtn" style="padding: 8px 15px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">Logout</button>
-      <button id="viewDashboardBtn" style="padding: 8px 15px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; margin-left: 10px;">View Dashboard</button>
+
+      <!-- User Info -->
+      <div id="user-info" style="display: none;">
+        <p class="user-email-display">Logged in as: <strong id="user-email"></strong></p>
+        <div class="auth-user-actions">
+          <button id="logoutBtn" class="btn-ghost btn-danger-text">Logout</button>
+          <button id="viewDashboardBtn" class="btn-secondary">Dashboard</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <div id="main-content-wrapper">
+    <!-- Lobby Screen -->
     <div id="lobby" class="screen" style="display: none;">
-      <img src="/logo.svg" alt="Logo" class="app-logo-lobby" style="height:48px; margin-bottom:10px; display:block; margin-left:auto; margin-right:auto;" />
+      <img src="/logo.svg" alt="Logo" class="app-logo-lobby" />
       <h1>Remote Stock Exchange</h1>
-      
+
       <div class="connection-status" id="connectionStatus">
-        <span class="status-indicator" id="statusIndicator">●</span>
+        <span class="status-indicator" id="statusIndicator">&#9679;</span>
         <span id="statusText">Connecting...</span>
       </div>
-      
-      <div id="user-mode-indicator" style="margin: 10px 0; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; font-size: 0.9em;">
+
+      <div id="user-mode-indicator" class="mode-indicator">
         <span id="mode-text">Mode: Guest</span>
-        <button id="switchToDashboardBtn" style="display: none; margin-left: 10px; padding: 4px 8px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Dashboard</button>
+        <button id="switchToDashboardBtn" class="btn-sm" style="display: none;">Dashboard</button>
       </div>
-      
+
       <div class="lobby-input-group">
-        <label for="playerName">Your Name:</label>
+        <label for="playerName">Your Name</label>
         <input type="text" id="playerName" placeholder="Enter your name">
       </div>
 
       <div class="controls">
         <div class="create-room-section">
-          <button id="createRoom">Create Room</button>
+          <button id="createRoom" class="btn-primary btn-lg">Create Room</button>
         </div>
         <div class="join-section">
-          <p>Or Join an Existing Room:</p>
+          <p class="join-label">Or join an existing room</p>
           <div class="join-controls">
-            <input type="text" id="roomCode" placeholder="4-digit code (e.g., 1234)" maxlength="4" pattern="[0-9]{4}">
-            <button id="joinRoom">Join Room</button>
+            <input type="text" id="roomCode" placeholder="4-digit code" maxlength="4" pattern="[0-9]{4}">
+            <button id="joinRoom" class="btn-secondary">Join</button>
           </div>
         </div>
       </div>
       <div id="playerList"></div>
-      <button id="startGame" style="display: none;">Start Game</button>
+      <button id="startGame" class="btn-accent btn-lg" style="display: none;">Start Game</button>
     </div>
 
+    <!-- Game Screen -->
     <div id="game" class="screen" style="display: none;">
-      <div class="game-layout">
-        <div class="game-left">
-          <div id="info-bar">
-            <span id="period">Period 1</span>
-            <span id="turn-timer" style="display: none; font-weight: bold; color: #ffffff; background-color: #4CAF50; padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">
-              <span id="timer-display">00:00</span>
-            </span>
-            <button id="my-stats-btn" style="display: none; margin-left: 10px; padding: 6px 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">📊 My Stats</button>
+      <!-- Info Bar -->
+      <div id="info-bar">
+        <div class="info-bar-left">
+          <span id="period" class="chip">Period 1</span>
+          <span id="turn-timer" class="chip timer-chip" style="display: none;">
+            <span id="timer-display">00:00</span>
+          </span>
+        </div>
+        <div id="controls" class="info-bar-actions">
+          <div class="action-buttons">
+            <button id="buy" class="btn-action">Buy</button>
+            <button id="sell" class="btn-action">Sell</button>
+            <button id="shortSell" class="btn-action">Short</button>
+            <button id="endTurn" class="btn-action btn-accent">End Turn</button>
           </div>
-          
-          <!-- Player Turn Indicator and Activity Log Container -->
-          <div id="turn-indicator-activity-log-container">
-            <!-- Player Turn Order Table will be inserted here by JavaScript -->
-            <!-- Activity Log Panel -->
-            <div id="activity-log-panel" class="panel">
-                <div class="activity-log-header" style="cursor: pointer;" onclick="
-                    const logContent = this.nextElementSibling;
-                    const logIcon = this.querySelector('.expand-icon');
-                    if (logContent.style.display === 'none') {
-                        logContent.style.display = 'block';
-                        logIcon.textContent = '▼';
-                    } else {
-                        logContent.style.display = 'none';
-                        logIcon.textContent = '▶';
-                    }
-                ">
-                    <h4>Activity Log <span class="expand-icon">▼</span></h4>
-                </div>
-                <div class="activity-log-content" style="display: block; max-height: 250px; overflow-y: auto; font-size: 0.9em; line-height: 1.4;">
-                    <!-- Log entries will be added here by client.js -->
-                </div>
-            </div>
+          <div class="admin-action-buttons">
+            <button id="advancePeriod" class="btn-action btn-admin" style="display: none;">Advance</button>
+            <button id="adminEndGameBtn" class="btn-action btn-danger" style="display: none;">End Game</button>
           </div>
-          
-          <div id="portfolio-hand-summary-container">
-            <div id="portfolio-panel" class="panel">
-              <h4>Your Portfolio</h4>
+        </div>
+        <div class="info-bar-right">
+          <button id="my-stats-btn" class="btn-sm" style="display: none;">Stats</button>
+        </div>
+      </div>
+
+      <!-- Dashboard Grid -->
+      <div class="dash-grid">
+        <!-- Left Column -->
+        <div class="dash-col dash-col-left">
+          <!-- Portfolio Card -->
+          <div class="dash-card">
+            <div id="portfolio-panel">
+              <div class="card-hdr"><h3>Portfolio</h3></div>
               <div id="portfolio-content">
                 <div id="portfolio-summary">
                   <div class="portfolio-item">
-                    <span class="portfolio-label">Cash:</span>
-                    <span id="portfolio-cash" class="portfolio-value">₹600k</span>
+                    <span class="portfolio-label">Cash</span>
+                    <span id="portfolio-cash" class="portfolio-value">&#8377;6.0L</span>
                   </div>
                   <div class="portfolio-item">
-                    <span class="portfolio-label">Portfolio:</span>
-                    <span id="portfolio-value" class="portfolio-value">₹0</span>
+                    <span class="portfolio-label">Portfolio</span>
+                    <span id="portfolio-value" class="portfolio-value">&#8377;0</span>
                   </div>
-                  <div class="portfolio-item">
-                    <span class="portfolio-label">Total:</span>
-                    <span id="portfolio-total" class="portfolio-value">₹600k</span>
+                  <div class="portfolio-item total">
+                    <span class="portfolio-label">Net Worth</span>
+                    <span id="portfolio-total" class="portfolio-value highlight">&#8377;6.0L</span>
                   </div>
                 </div>
-                <div id="portfolio-holdings">
-                  <!-- Holdings will be populated by JavaScript -->
-                </div>
+                <div id="portfolio-holdings"></div>
               </div>
             </div>
-            <div id="hand-summary" class="panel" style="display: none;">
-                <h4>Hand Price Impact</h4>
-                <div id="hand-summary-content"></div>
+            <div id="hand-summary" style="display: none;">
+              <div class="card-hdr sub"><h4>Hand Impact</h4></div>
+              <div id="hand-summary-content"></div>
             </div>
           </div>
-          <div id="market-board-container"></div>
-          <div id="controls">
-            <div class="action-buttons">
-              <button id="buy">Buy</button>
-              <button id="sell">Sell</button>
-              <button id="shortSell">Short Sell</button>
-              <!-- <button id="windfall">Play Windfall</button> -->
-              <!-- <button id="pass">Pass</button> -->
-              <button id="endTurn">End Turn</button>
-            </div>
-            <div class="admin-action-buttons">
-              <button id="advancePeriod" style="display: none;">Advance Period</button>
-              <button id="adminEndGameBtn" style="display: none;">End Game</button>
-            </div>
+
+          <!-- Open Shorts -->
+          <div id="open-shorts-panel" class="dash-card" style="display: none;">
+            <div class="card-hdr"><h4>Open Shorts</h4></div>
+            <div id="open-shorts-content"></div>
+            <p id="no-open-shorts-msg">No open short positions.</p>
           </div>
-          <div id="player-hand-container" class="panel">
-              <div class="hand-header" style="cursor: pointer;" onclick="
-                  const handContent = this.nextElementSibling;
-                  const handIcon = this.querySelector('.expand-icon');
-                  if (handContent.style.display === 'none') {
-                      handContent.style.display = 'block';
-                      handIcon.textContent = '▼';
-                  } else {
-                      handContent.style.display = 'none';
-                      handIcon.textContent = '▶';
-                  }
+
+          <!-- Turn Order -->
+          <div id="turn-indicator-activity-log-container" class="dash-card compact-card"></div>
+
+          <!-- Hand Cards -->
+          <div class="dash-card">
+            <div id="player-hand-container">
+              <div class="hand-header card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
+                const c = this.nextElementSibling;
+                const i = this.querySelector('.expand-icon');
+                if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
+                else { c.style.display = 'none'; i.textContent = '\u25B6'; }
               ">
-                  <h4>Your Hand <span class="expand-icon">▼</span></h4>
+                <h3>Your Hand <span class="expand-icon">&#9660;</span></h3>
               </div>
-              <div class="hand-content" style="display: block;">
-                  <!-- Player hand cards will be rendered here -->
-              </div>
+              <div class="hand-content" style="display: block;"></div>
+            </div>
           </div>
 
-          <div id="price-log-panel" class="panel" style="display: block; max-height: 200px; overflow-y: auto; margin-top: 15px;">
-              <h4>Period Price Log</h4>
+          <!-- Activity Log -->
+          <div class="dash-card">
+            <div id="activity-log-panel">
+              <div class="activity-log-header card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
+                const c = this.nextElementSibling;
+                const i = this.querySelector('.expand-icon');
+                if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
+                else { c.style.display = 'none'; i.textContent = '\u25B6'; }
+              ">
+                <h3>Activity Log <span class="expand-icon">&#9660;</span></h3>
+              </div>
+              <div class="activity-log-content" style="display: block; max-height: 150px; overflow-y: auto;"></div>
+            </div>
+          </div>
+
+          <!-- General Rights Offers -->
+          <div id="general-rights-offers-panel" class="dash-card" style="display: none;">
+            <div class="card-hdr"><h4>Rights Offers</h4></div>
+            <p class="text-sm text-muted">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). Uses 1 transaction.</p>
+            <div id="general-rights-list"></div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="dash-col dash-col-right">
+          <!-- Market Overview -->
+          <div class="dash-card market-card">
+            <div class="card-hdr">
+              <h3>Market</h3>
+            </div>
+            <div class="market-indicators">
+              <div class="indicator">
+                <span class="indicator-label">Index</span>
+                <span class="indicator-value" id="market-index-value">--</span>
+                <span class="indicator-change" id="market-index-change"></span>
+              </div>
+              <div class="indicator">
+                <span class="indicator-label">Sentiment</span>
+                <div id="sentiment-box" class="sentiment-box"></div>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="stockPriceChart"></canvas>
+            </div>
+            <div id="market-board-container"></div>
+          </div>
+
+          <!-- Player Progress -->
+          <div class="dash-card">
+            <div class="card-hdr"><h3>Player Progress</h3></div>
+            <div class="chart-wrap">
+              <canvas id="playerProgressChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Leaderboard -->
+          <div class="dash-card">
+            <div id="leaderboard" class="leaderboard">
+              <div class="card-hdr"><h3>Leaderboard</h3></div>
+              <div class="leaderboard-content"></div>
+            </div>
+          </div>
+
+          <!-- Price Log -->
+          <div id="price-log-panel" class="dash-card">
+            <div class="card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
+              const c = this.nextElementSibling;
+              const i = this.querySelector('.expand-icon');
+              if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
+              else { c.style.display = 'none'; i.textContent = '\u25B6'; }
+            ">
+              <h3>Price History <span class="expand-icon">&#9654;</span></h3>
+            </div>
+            <div style="display: none; max-height: 150px; overflow-y: auto;">
               <table id="price-log-table">
-                  <thead>
-                      <tr>
-                          <th>Period</th>
-                          <!-- Company headers will be added dynamically -->
-                      </tr>
-                  </thead>
-                  <tbody id="price-log-table-body">
-                      <!-- Log rows will be added dynamically -->
-                  </tbody>
+                <thead><tr><th>Period</th></tr></thead>
+                <tbody id="price-log-table-body"></tbody>
               </table>
+            </div>
           </div>
-
-          <!-- *** NEW: General Rights Offers Panel *** -->
-          <div id="general-rights-offers-panel" class="panel" style="display: none; margin-top: 15px; padding: 15px; background: rgba(220, 255, 220, 0.7); border: 1px solid #a3d9a5;">
-              <h4>Available Rights Offers</h4>
-              <p style="font-size: 0.9em; margin-bottom: 10px;">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). This uses 1 transaction.</p>
-              <div id="general-rights-list" style="display: flex; flex-direction: column; gap: 8px;">
-                  <!-- Buttons will be added here by client.js -->
-              </div>
-          </div>
-
-
-          <!-- NEW: Open Short Positions Panel -->
-          <div id="open-shorts-panel" class="panel" style="display: none; margin-top: 15px;">
-              <h4>Open Short Positions</h4>
-              <div id="open-shorts-content" style="font-size: 0.9em; line-height: 1.5;">
-                  <!-- Short positions will be listed here by client.js -->
-                  <!-- Example:
-                  <div class="short-position-item">
-                      <span>WIPRO: 1000 @ ₹150 (Current: ₹140) P&L: +₹10,000</span>
-                      <button class="cover-short-btn" data-symbol="WIPRO">Cover</button>
-                  </div>
-                  -->
-              </div>
-              <p id="no-open-shorts-msg" style="display: block;">You have no open short positions.</p>
-          </div>
-
-        </div>
-      </div>
-      
-      <div class="game-right">
-        <div id="leaderboard" class="panel leaderboard">
-          <h2>Leaderboard</h2>
-          <div class="leaderboard-content"></div>
         </div>
       </div>
 
+      <!-- Modals -->
       <div id="transaction-modal" class="modal">
-          <div class="modal-content">
-              <h2 id="transaction-type">Buy/Sell Shares</h2>
-              <select id="company">
-                <option value="" disabled selected>Select a company</option>
-              </select>
-              
-              <!-- Rights Calculator Widget -->
-              <div id="rights-calculator" style="margin: 15px 0; padding: 12px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; display: none;">
-                <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #495057;">🎫 Rights Strategy Calculator</h3>
-                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                  <label for="rightsCardsInput" style="font-size: 0.9em; white-space: nowrap;">Rights cards in hand:</label>
-                  <input type="number" id="rightsCardsInput" min="0" max="10" value="0" style="width: 60px; padding: 4px; border: 1px solid #ced4da; border-radius: 3px;">
-                  <button id="calculateRightsBtn" style="padding: 4px 8px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;">Calculate</button>
-                </div>
-                <div id="rightsCalculation" style="font-size: 0.85em; color: #6c757d;">
-                  Enter number of rights cards and click Calculate
-                </div>
-              </div>
-              
-              <div class="quantity-input-container">
-                <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
-                <button type="button" class="quantity-btn increment">+</button>
-                <button type="button" class="quantity-btn decrement">-</button>
-              </div>
-              <div id="costInfo" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select a company and enter quantity.</div>
-              <div class="button-group">
-                  <button id="confirm">Confirm</button>
-                  <button id="cancel">Cancel</button>
-              </div>
+        <div class="modal-content">
+          <h2 id="transaction-type">Buy/Sell Shares</h2>
+          <select id="company">
+            <option value="" disabled selected>Select a company</option>
+          </select>
+          <div id="rights-calculator" style="display: none;">
+            <h3 class="calc-title">Rights Strategy Calculator</h3>
+            <div class="calc-row">
+              <label for="rightsCardsInput">Rights cards in hand:</label>
+              <input type="number" id="rightsCardsInput" min="0" max="10" value="0" class="input-sm">
+              <button id="calculateRightsBtn" class="btn-sm btn-accent">Calculate</button>
+            </div>
+            <div id="rightsCalculation" class="calc-result">Enter number of rights cards and click Calculate</div>
           </div>
+          <div class="quantity-input-container">
+            <input type="number" id="quantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+            <button type="button" class="quantity-btn increment">+</button>
+            <button type="button" class="quantity-btn decrement">-</button>
+          </div>
+          <div id="costInfo" class="cost-info">Select a company and enter quantity.</div>
+          <div class="button-group">
+            <button id="cancel" class="btn-ghost">Cancel</button>
+            <button id="confirm" class="btn-primary">Confirm</button>
+          </div>
+        </div>
       </div>
 
       <div id="rights-issue-modal" class="modal">
-          <div class="modal-content">
-              <h2>Rights Issue</h2>
-              <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price. Shares are issued in multiples of 1000.</p>
-              <select id="rightsCompanySelect"></select>
-              <div style="margin-top: 10px; margin-bottom: 10px;">
-                  <label for="desiredRightsSharesInput">How many shares do you want to try to acquire via rights?</label>
-                  <div class="quantity-input-container">
-                    <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1" style="width: 100%; margin-top: 5px;">
-                    <button type="button" class="quantity-btn increment">+</button>
-                    <button type="button" class="quantity-btn decrement">-</button>
-                  </div>
-              </div>
-              <div id="rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
-              <div class="button-group">
-                  <button id="confirmRightsIssue">Confirm Purchase</button>
-                  <button id="cancelRightsIssue" class="button-cancel">Cancel</button>
-              </div>
+        <div class="modal-content">
+          <h2>Rights Issue</h2>
+          <p>Select a company to purchase rights shares (1 per 2 owned) at half its initial price. Shares are issued in multiples of 1000.</p>
+          <select id="rightsCompanySelect"></select>
+          <div>
+            <label for="desiredRightsSharesInput">How many shares do you want to acquire via rights?</label>
+            <div class="quantity-input-container">
+              <input type="number" id="desiredRightsSharesInput" placeholder="e.g., 2000" min="1">
+              <button type="button" class="quantity-btn increment">+</button>
+              <button type="button" class="quantity-btn decrement">-</button>
+            </div>
           </div>
+          <div id="rights-cost-info" class="cost-info"></div>
+          <div class="button-group">
+            <button id="cancelRightsIssue" class="btn-ghost">Cancel</button>
+            <button id="confirmRightsIssue" class="btn-primary">Confirm Purchase</button>
+          </div>
+        </div>
       </div>
 
-      <!-- *** NEW: General Rights Issue Modal *** -->
       <div id="general-rights-issue-modal" class="modal">
-          <div class="modal-content">
-              <h2>Exercise General Rights Issue</h2>
-              <p>For <strong id="generalRightsCompanyName">[Company]</strong>. Exercise rights (1 share per 2 owned) at <strong id="generalRightsPricePerShare">₹[Price]</strong> per share. Shares are issued in multiples of 1000.</p>
-              <div style="margin-top: 10px; margin-bottom: 10px;">
-                  <label for="desiredGeneralRightsSharesInput">How many shares do you want to acquire via these rights?</label>
-                  <div class="quantity-input-container">
-                    <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1" style="width: 100%; margin-top: 5px;">
-                    <button type="button" class="quantity-btn increment">+</button>
-                    <button type="button" class="quantity-btn decrement">-</button>
-                  </div>
-              </div>
-              <div id="general-rights-cost-info" style="margin-top: 10px; font-size: 0.9em;"></div>
-              <div class="button-group">
-                  <button id="confirmGeneralRightsIssue">Confirm Purchase</button>
-                  <button id="cancelGeneralRightsIssue">Cancel</button>
-              </div>
+        <div class="modal-content">
+          <h2>Exercise General Rights Issue</h2>
+          <p>For <strong id="generalRightsCompanyName">[Company]</strong>. Exercise rights (1 share per 2 owned) at <strong id="generalRightsPricePerShare">&#8377;[Price]</strong> per share. Shares are issued in multiples of 1000.</p>
+          <div>
+            <label for="desiredGeneralRightsSharesInput">How many shares do you want to acquire?</label>
+            <div class="quantity-input-container">
+              <input type="number" id="desiredGeneralRightsSharesInput" placeholder="e.g., 1000, 2000" min="1">
+              <button type="button" class="quantity-btn increment">+</button>
+              <button type="button" class="quantity-btn decrement">-</button>
+            </div>
           </div>
+          <div id="general-rights-cost-info" class="cost-info"></div>
+          <div class="button-group">
+            <button id="cancelGeneralRightsIssue" class="btn-ghost">Cancel</button>
+            <button id="confirmGeneralRightsIssue" class="btn-primary">Confirm Purchase</button>
+          </div>
+        </div>
       </div>
 
-      <!-- NEW: Short Sell Modal -->
       <div id="short-sell-modal" class="modal">
-          <div class="modal-content">
-              <h2 id="shortSellTitle">Initiate Short Sell</h2>
-              <div class="modal-details">
-                  <p style="font-size:0.9em; margin-bottom:10px;">Select a company to short. You will borrow its shares and sell them, hoping the price drops so you can buy them back cheaper to cover. This uses 1 transaction.</p>
-              </div>
-              <select id="shortCompanySelect">
-                <option value="" disabled selected>Select a company</option>
-                <!-- Options populated by JS -->
-              </select>
-              <div class="quantity-input-container">
-                <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
-                <button type="button" class="quantity-btn increment">+</button>
-                <button type="button" class="quantity-btn decrement">-</button>
-              </div>
-              <div id="shortSellInfoDiv" style="margin-top: 10px; margin-bottom: 10px; min-height: 40px; font-size: 0.9em;">Select company and quantity.</div>
-              <div class="button-group">
-                  <button id="confirmShortSellBtn">Confirm Short</button>
-                  <button id="cancelShortSellBtn">Cancel</button>
-              </div>
+        <div class="modal-content">
+          <h2 id="shortSellTitle">Initiate Short Sell</h2>
+          <p class="text-sm text-muted">Select a company to short. You borrow shares and sell them, hoping the price drops so you can cover cheaper. Uses 1 transaction.</p>
+          <select id="shortCompanySelect">
+            <option value="" disabled selected>Select a company</option>
+          </select>
+          <div class="quantity-input-container">
+            <input type="number" id="shortQuantityInput" placeholder="Quantity (multiples of 1000)" min="1000" step="1000">
+            <button type="button" class="quantity-btn increment">+</button>
+            <button type="button" class="quantity-btn decrement">-</button>
           </div>
+          <div id="shortSellInfoDiv" class="cost-info">Select company and quantity.</div>
+          <div class="button-group">
+            <button id="cancelShortSellBtn" class="btn-ghost">Cancel</button>
+            <button id="confirmShortSellBtn" class="btn-primary">Confirm Short</button>
+          </div>
+        </div>
       </div>
 
       <!-- My Stats Modal -->
@@ -376,164 +366,120 @@
         <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
           <h2>My Game Statistics</h2>
           <div id="my-stats-content">
-            <div id="my-stats-loading" style="text-align: center; padding: 40px; color: #666;">
-              Loading your statistics...
-            </div>
+            <div id="my-stats-loading" class="loading-msg">Loading your statistics...</div>
             <div id="my-stats-data" style="display: none;">
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0;">
-                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Games Played</div>
-                  <div style="font-size: 2em; font-weight: bold; color: #2196F3;" id="modal-stat-games">0</div>
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="stat-label">Games Played</div>
+                  <div class="stat-number accent" id="modal-stat-games">0</div>
                 </div>
-                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Total Wins</div>
-                  <div style="font-size: 2em; font-weight: bold; color: #4CAF50;" id="modal-stat-wins">0</div>
+                <div class="stat-card">
+                  <div class="stat-label">Total Wins</div>
+                  <div class="stat-number success" id="modal-stat-wins">0</div>
                 </div>
-                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Total Losses</div>
-                  <div style="font-size: 2em; font-weight: bold; color: #f44336;" id="modal-stat-losses">0</div>
+                <div class="stat-card">
+                  <div class="stat-label">Total Losses</div>
+                  <div class="stat-number danger" id="modal-stat-losses">0</div>
                 </div>
-                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center;">
-                  <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Win Rate</div>
-                  <div style="font-size: 2em; font-weight: bold; color: #FF9800;" id="modal-stat-winrate">0%</div>
-                </div>
-              </div>
-              <div style="margin: 20px 0;">
-                <h3 style="margin-bottom: 10px;">Performance</h3>
-                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
-                  <span>Best Final Worth:</span>
-                  <strong id="modal-stat-best">₹0</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
-                  <span>Average Final Worth:</span>
-                  <strong id="modal-stat-avg">₹0</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 10px 0;">
-                  <span>Total Final Worth:</span>
-                  <strong id="modal-stat-total">₹0</strong>
+                <div class="stat-card">
+                  <div class="stat-label">Win Rate</div>
+                  <div class="stat-number warning" id="modal-stat-winrate">0%</div>
                 </div>
               </div>
-              <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-                <button id="view-full-dashboard-modal-btn" style="width: 100%; padding: 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em;">View Full Dashboard with Charts</button>
+              <div class="stats-performance">
+                <h3>Performance</h3>
+                <div class="perf-row"><span>Best Final Worth:</span><strong id="modal-stat-best">&#8377;0</strong></div>
+                <div class="perf-row"><span>Average Final Worth:</span><strong id="modal-stat-avg">&#8377;0</strong></div>
+                <div class="perf-row"><span>Total Final Worth:</span><strong id="modal-stat-total">&#8377;0</strong></div>
               </div>
+              <button id="view-full-dashboard-modal-btn" class="btn-secondary btn-lg" style="width:100%; margin-top:16px;">View Full Dashboard</button>
             </div>
-            <div id="my-stats-error" style="display: none; text-align: center; padding: 40px; color: #f44336;">
-              Unable to load statistics. Please try again later.
-            </div>
+            <div id="my-stats-error" style="display: none;" class="error-msg">Unable to load statistics.</div>
           </div>
           <div class="button-group" style="margin-top: 20px;">
-            <button id="close-my-stats-btn">Close</button>
+            <button id="close-my-stats-btn" class="btn-ghost">Close</button>
           </div>
         </div>
       </div>
 
       <!-- Help Modal -->
       <div id="help-modal" class="modal">
-          <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
-              <h2>How to Play</h2>
-              <div class="help-content" style="line-height:1.5;">
-                  <h3>Objective</h3>
-                  <p>Grow your total worth (Cash + Portfolio Value) to top the leaderboard by game end.</p>
-                  <h3>Setup</h3>
-                  <ul>
-                    <li>Starting cash: ₹600,000</li>
-                    <li>Companies: 6 listed stocks with distinct profiles</li>
-                    <li>Your hand: 10 cards (Price and Windfall)</li>
-                    <li>Transactions per period: 3</li>
-                    <li>Trade in 1000-share lots</li>
-                  </ul>
-                  <h3>Game Flow</h3>
-                  <ol>
-                    <li>Create or join a room; first player is Admin.</li>
-                    <li>Admin starts the game; a random player goes first.</li>
-                    <li>Players take turns within a Round; up to 4 Rounds per Period.</li>
-                    <li>At checkpoints, Admin resolves prices and advances to the next Period.</li>
-                    <li>Admin ends the game; highest total worth wins.</li>
-                  </ol>
-                  <h3>Your Turn</h3>
-                  <ul>
-                    <li>Buy, Sell, Short Sell</li>
-                    <li>Exercise eligible General Rights (when available)</li>
-                    <li>Play a card (card rules apply)</li>
-                    <li>Pass or End Turn</li>
-                  </ul>
-                  <h3>Actions</h3>
-                  <p><strong>Buy</strong>: Choose a company, enter quantity in 1000s. Pay Current Price × Quantity. Respect share caps.</p>
-                  <p><strong>Sell</strong>: Choose a company you hold, enter quantity in 1000s. Receive Current Price × Quantity.</p>
-                  <p><strong>Short Sell</strong>: Borrow and sell now; buy back later. Collateral equal to Current Price × Quantity is held. Profit/Loss ≈ (Open − Cover) × Quantity. Shorts auto-cover at period end if not covered.</p>
-                  <p><strong>Rights Issue (Personal)</strong>: Playing a RIGHTS card lets you buy at half initial price, 1 right per 2 owned, in 1000s.</p>
-                  <p><strong>General Rights Offer</strong>: When any player triggers RIGHTS, a round-limited offer appears. Same rules as above.</p>
-                  <h3>Turns, Rounds, Periods</h3>
-                  <p>Each Period has up to 4 Rounds. Turn order loops all players. When it returns to the starter, the Round advances. Admin resolves prices at checkpoints and then advances the Period.</p>
-                  <h3>Price Resolution</h3>
-                  <p>Unplayed Price cards in hands contribute to net company price changes when Admin resolves. See the Price Log for snapshots.</p>
-                  <h3>Leadership Roles</h3>
-                  <ul>
-                    <li>President: Own ≥ 50,000 shares in a company</li>
-                    <li>Chairman: Own ≥ 100,000 shares in a company</li>
-                  </ul>
-                  <h3>UI Guide</h3>
-                  <ul>
-                    <li>Info Bar: Period/Round, turn indicator, transactions</li>
-                    <li>Actions: Buy, Sell, Short, End Turn</li>
-                    <li>Portfolio: Cash, Portfolio Value, Total Worth, Holdings</li>
-                    <li>Hand: Your cards (click to read/play)</li>
-                    <li>Price Log & Activity Log</li>
-                    <li>Rights Panel and Open Shorts</li>
-                  </ul>
-                  <h3>Winning</h3>
-                  <p>When Admin ends the game, final standings and worth history are shown. Highest Total Worth wins.</p>
-                  <h3>Strategy Tips</h3>
-                  <ul>
-                    <li>Build positions early in promising companies.</li>
-                    <li>Keep cash for rights and shorts.</li>
-                    <li>Use shorts with a clear bearish view.</li>
-                    <li>Watch 50k/100k share thresholds.</li>
-                    <li>Plan turns to conserve transactions.</li>
-                  </ul>
-                  <div class="button-group">
-                      <button id="closeHelpBtn">Close</button>
-                  </div>
-              </div>
+        <div class="modal-content" style="max-width:650px; max-height: 90vh; overflow-y: auto;">
+          <h2>How to Play</h2>
+          <div class="help-content">
+            <h3>Objective</h3>
+            <p>Grow your total worth (Cash + Portfolio Value) to top the leaderboard by game end.</p>
+            <h3>Setup</h3>
+            <ul>
+              <li>Starting cash: &#8377;600,000</li>
+              <li>Companies: 6 listed stocks with distinct profiles</li>
+              <li>Your hand: 10 cards (Price and Windfall)</li>
+              <li>Transactions per period: 3</li>
+              <li>Trade in 1000-share lots</li>
+            </ul>
+            <h3>Game Flow</h3>
+            <ol>
+              <li>Create or join a room; first player is Admin.</li>
+              <li>Admin starts the game; a random player goes first.</li>
+              <li>Players take turns within a Round; up to 4 Rounds per Period.</li>
+              <li>At checkpoints, Admin resolves prices and advances to the next Period.</li>
+              <li>Admin ends the game; highest total worth wins.</li>
+            </ol>
+            <h3>Your Turn</h3>
+            <ul>
+              <li>Buy, Sell, Short Sell</li>
+              <li>Exercise eligible General Rights (when available)</li>
+              <li>Play a card (card rules apply)</li>
+              <li>Pass or End Turn</li>
+            </ul>
+            <h3>Actions</h3>
+            <p><strong>Buy</strong>: Choose a company, enter quantity in 1000s. Pay Current Price x Quantity.</p>
+            <p><strong>Sell</strong>: Choose a company you hold, enter quantity in 1000s. Receive Current Price x Quantity.</p>
+            <p><strong>Short Sell</strong>: Borrow and sell now; buy back later. Collateral held. Shorts auto-cover at period end.</p>
+            <p><strong>Rights Issue</strong>: Buy at half initial price, 1 right per 2 owned, in 1000s.</p>
+            <h3>Price Resolution</h3>
+            <p>Unplayed Price cards in hands contribute to net company price changes when Admin resolves.</p>
+            <h3>Leadership Roles</h3>
+            <ul>
+              <li>President: Own &#8805; 50,000 shares in a company</li>
+              <li>Chairman: Own &#8805; 100,000 shares in a company</li>
+            </ul>
+            <h3>Winning</h3>
+            <p>When Admin ends the game, final standings and worth history are shown. Highest Total Worth wins.</p>
+            <div class="button-group">
+              <button id="closeHelpBtn" class="btn-ghost">Close</button>
+            </div>
           </div>
+        </div>
       </div>
-
     </div>
 
-    <!-- NEW: Game Over Screen -->
-    <div id="game-over-screen" class="screen" style="display: none; padding: 20px;">
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen" style="display: none;">
       <div class="game-over-header">
-        <img src="/logo.svg" alt="Logo" class="app-logo-endscreen" style="height:48px; margin-bottom:12px;" />
+        <img src="/logo.svg" alt="Logo" class="app-logo-endscreen" />
         <h2>Game Results</h2>
-        <h4 id="winner-announcement" style="margin-bottom: 20px;">Calculating winner...</h4>
+        <h4 id="winner-announcement">Calculating winner...</h4>
       </div>
-
-      <!-- Player Worth Chart -->
       <div class="analytics-section">
         <h3>Net Worth Over Time</h3>
         <div class="chart-container">
           <canvas id="playerWorthChart"></canvas>
         </div>
       </div>
-
-      <!-- Final Standings -->
       <div class="analytics-section">
         <h3>Final Standings</h3>
         <div id="final-standings-table"></div>
       </div>
-
       <div id="wisdom-quote" class="wisdom-quote"></div>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-  <!-- Firebase SDK -->
   <script type="module" src="firebase-config.js"></script>
   <script type="module" src="auth.js"></script>
   <script type="module" src="game-stats.js"></script>
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script> -->
-  <script src="gradient-shader.js"></script>
   <script src="client.js"></script>
 </body>
 </html>

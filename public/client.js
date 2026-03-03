@@ -1096,42 +1096,37 @@ function refreshBackgroundGradient() {
     updateBackgroundGradient(futureSentiment);
 }
 
-// Function to update background gradient based on market sentiment
-function updateBackgroundGradient(sentiment) {
-    // Clamp sentiment to prevent extreme values
-    const clampedSentiment = Math.max(-50, Math.min(50, sentiment));
-    
-    console.log('Fluid Gradient Update (Future Sentiment):', {
-        rawSentiment: sentiment.toFixed(2),
-        clampedSentiment: clampedSentiment.toFixed(2),
-        usingShader: 'WebGL Fluid Gradient'
-    });
-    
-    // Use the fluid gradient shader instead of CSS
-    if (typeof updateFluidGradient === 'function') {
-        updateFluidGradient(clampedSentiment);
+function updateSentimentBoxGradient(sentiment) {
+    const box = document.getElementById('sentiment-box');
+    if (!box) return;
+    const clamped = Math.max(-50, Math.min(50, sentiment));
+    const t = Math.abs(clamped) / 50;
+
+    if (clamped > 0) {
+        const fromR = Math.round(230 - 60 * t);
+        const fromG = Math.round(240 - 10 * t);
+        const fromB = Math.round(230 - 70 * t);
+        const toR = Math.round(200 - 120 * t);
+        const toG = Math.round(240 + 15 * t);
+        const toB = Math.round(200 - 120 * t);
+        box.style.background = `linear-gradient(135deg, rgb(${fromR},${fromG},${fromB}), rgb(${toR},${toG},${toB}))`;
+    } else if (clamped < 0) {
+        const fromR = Math.round(240 - 10 * t);
+        const fromG = Math.round(230 - 60 * t);
+        const fromB = Math.round(230 - 60 * t);
+        const toR = Math.round(240 + 15 * t);
+        const toG = Math.round(200 - 120 * t);
+        const toB = Math.round(200 - 120 * t);
+        box.style.background = `linear-gradient(135deg, rgb(${fromR},${fromG},${fromB}), rgb(${toR},${toG},${toB}))`;
     } else {
-        console.warn('Fluid gradient shader not available, falling back to CSS');
-        // Fallback to CSS gradient if shader not available
-        const baseGrey = 240;
-        let finalColor;
-        
-        if (clampedSentiment > 0) {
-            const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6);
-            const greenTint = Math.floor(baseGrey - intensity);
-            finalColor = `rgb(${greenTint}, ${baseGrey}, ${greenTint})`;
-        } else if (clampedSentiment < 0) {
-            const intensity = Math.min(30, Math.abs(clampedSentiment) * 0.6);
-            const redTint = Math.floor(baseGrey - intensity);
-            finalColor = `rgb(${baseGrey}, ${redTint}, ${redTint})`;
-        } else {
-            finalColor = `rgb(${baseGrey}, ${baseGrey}, ${baseGrey})`;
-        }
-        
-        document.body.style.background = `linear-gradient(45deg, ${finalColor}, ${finalColor})`;
-        document.body.style.backgroundSize = '200% 200%';
-        document.body.style.animation = `gradientAnimation 12s ease-in-out infinite`;
+        box.style.background = 'var(--bg-badge)';
     }
+}
+
+// Function to update sentiment visuals based on market sentiment
+function updateBackgroundGradient(sentiment) {
+    const clampedSentiment = Math.max(-50, Math.min(50, sentiment));
+    updateSentimentBoxGradient(clampedSentiment);
 }
 
 // Modify the updateUI function to include sentiment calculation and background update
@@ -1246,11 +1241,11 @@ function updateUI(state) {
     }
 
     const currentPlayerNameForBar = state.players.find(p => p.id === state.state.currentTurnPlayerId)?.name || 'N/A';
-    const yourTurnText = isYourTurn ? ' <span class="your-turn-indicator-dot">●</span>' : '';
     const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
+    const turnDot = isYourTurn ? '<span class="your-turn-indicator-dot" aria-label="Your turn"></span>' : '';
 
       if (periodSpan) {
-          periodSpan.innerHTML = `P${state.state.period} | R${state.state.roundNumberInPeriod} | ${highlightedPlayerName}${yourTurnText}`;
+          periodSpan.innerHTML = `<span class="info-bar-period">P${state.state.period}</span><span class="info-bar-sep"></span><span class="info-bar-round">R${state.state.roundNumberInPeriod}</span><span class="info-bar-sep"></span><span class="info-bar-player">${highlightedPlayerName}</span>${turnDot}`;
           console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
       }
 
@@ -1269,6 +1264,12 @@ function updateUI(state) {
     // Calculate hand deltas and update the summary display
     calculateHandDeltas(playerHandToRender, companiesStaticData);
     updateHandSummaryDisplay();
+
+    // Update live charts, market index, and sentiment
+    updateStockPriceChart();
+    updatePlayerProgressChart();
+    updateMarketIndex();
+    updateSentimentDisplay();
 
     if (lobbyScreen && gameScreen) {
         if (state.state && state.state.gameStarted) {
@@ -1309,9 +1310,9 @@ function updateUI(state) {
         adminAdvanceNewPeriodBtn.style.marginLeft = '10px';
         adminDecisionPanel.appendChild(adminAdvanceNewPeriodBtn);
         
-        const actionButtonsDiv = document.querySelector('.action-buttons');
-        if (actionButtonsDiv) {
-            actionButtonsDiv.parentNode.insertBefore(adminDecisionPanel, actionButtonsDiv);
+        const dashGrid = document.querySelector('.dash-grid') || document.querySelector('.action-buttons');
+        if (dashGrid) {
+            dashGrid.parentNode.insertBefore(adminDecisionPanel, dashGrid);
         } else {
             gameControlsDiv.appendChild(adminDecisionPanel);
         }
@@ -3187,7 +3188,7 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
         // Use gradient color system for player chart colors
         const colorIndex = index % COMPANY_GRADIENT_CLASSES.length;
         // Extract the main color from our gradient system for chart display
-        const chartColors = ['#FF6347', '#4682B4', '#32CD32', '#FFD700', '#6A5ACD', '#FF69B4', '#00CED1', '#FFA500', '#8A2BE2', '#D2691E'];
+        const chartColors = ['#6366f1', '#f97316', '#22c55e', '#ef4444', '#eab308', '#ec4899', '#06b6d4', '#8b5cf6', '#f59e0b', '#dc2680'];
         const playerColor = chartColors[colorIndex] || '#808080';
 
         console.log(`[renderPlayerWorthChart] For player ${player.name} (UUID: ${player.uuid}): Data points:`, playerData, `Assigned Color: ${playerColor}`);
@@ -3202,38 +3203,23 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
         };
     });
 
+    const goTheme = getChartDefaults();
     playerWorthChartInstance = new Chart(playerWorthChartCanvas, {
         type: 'line',
         data: {
-            labels: periods.map(p => `P${p}`), // e.g., P0, P1, P2
+            labels: periods.map(p => `P${p}`),
             datasets: datasets
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true, // Maintain aspect ratio based on canvas size
+            maintainAspectRatio: true,
             plugins: {
-                legend: {
-                    position: 'top',
-                },
-                title: {
-                    display: true,
-                    text: 'Player Net Worth Over Game Periods'
-                }
+                legend: { position: 'top', labels: { color: goTheme.textColor, font: { size: 11 } } },
+                title: { display: false }
             },
             scales: {
-                y: {
-                    beginAtZero: false, // Start y-axis near the lowest value for better differentiation
-                    title: {
-                        display: true,
-                        text: 'Total Worth (₹)'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Game Period'
-                    }
-                }
+                y: { beginAtZero: false, ticks: { color: goTheme.textColor }, grid: { color: goTheme.gridColor }, title: { display: true, text: 'Total Worth (₹)', color: goTheme.textColor } },
+                x: { ticks: { color: goTheme.textColor }, grid: { color: goTheme.gridColor }, title: { display: true, text: 'Game Period', color: goTheme.textColor } }
             }
         }
     });
@@ -3374,7 +3360,7 @@ function renderDeckInfoPanel(numPlayers) {
         if (leaderboard) {
             leaderboard.insertAdjacentElement('afterend', panel);
         } else {
-            const gameRight = document.querySelector('.game-right');
+            const gameRight = document.querySelector('.dash-col-right') || document.querySelector('.game-right');
             gameRight?.appendChild(panel);
         }
     }
@@ -3558,4 +3544,267 @@ function updatePortfolioPanel(player, marketPrices, companiesStaticData) {
             portfolioHoldings.innerHTML = '<div class="no-shares">No positions</div>';
         }
     }
+}
+
+// ============================================
+// THEME TOGGLE
+// ============================================
+(function initTheme() {
+    const saved = localStorage.getItem('rse-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+    updateThemeIcon(saved);
+})();
+
+function updateThemeIcon(theme) {
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.innerHTML = theme === 'dark' ? '&#9788;' : '&#9790;';
+}
+
+const themeToggleBtn = document.getElementById('themeToggle');
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('rse-theme', next);
+        updateThemeIcon(next);
+        // Update chart colors if charts exist
+        updateChartTheme();
+    });
+}
+
+// ============================================
+// LIVE CHARTS - Stock Prices & Player Progress
+// ============================================
+let stockPriceChartInstance = null;
+let playerProgressChartInstance = null;
+
+const CHART_COMPANY_COLORS = [
+    '#f97316', '#3b82f6', '#22c55e', '#eab308', '#8b5cf6', '#ec4899',
+    '#06b6d4', '#f59e0b', '#a855f7', '#dc2680'
+];
+
+const CHART_PLAYER_COLORS = [
+    '#6366f1', '#f97316', '#22c55e', '#ef4444', '#eab308', '#ec4899',
+    '#06b6d4', '#8b5cf6', '#f59e0b', '#dc2680', '#64748b', '#14b8a6'
+];
+
+function getChartDefaults() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+        gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        textColor: isDark ? '#a0a0c0' : '#64648c',
+        bgColor: 'transparent'
+    };
+}
+
+function updateStockPriceChart() {
+    const canvas = document.getElementById('stockPriceChart');
+    if (!canvas || !currentGameState) return;
+
+    const state = currentGameState.state;
+    if (!state || !state.companyList) return;
+
+    const logData = priceLog || [];
+    const initPrices = state.init || initialPrices || {};
+    const companies = state.companyList;
+    const theme = getChartDefaults();
+
+    // Build labels: Initial + each period
+    const labels = ['Start'];
+    const datasets = [];
+
+    companies.forEach((company, i) => {
+        const data = [initPrices[company.id] || 0];
+        logData.forEach((entry, idx) => {
+            if (labels.length <= idx + 1) labels.push('P' + (entry.period || (idx + 1)));
+            data.push(entry.prices && entry.prices[company.id] !== undefined ? entry.prices[company.id] : null);
+        });
+        // Add current prices as last point if different from last log
+        const currentPrice = state.prices ? state.prices[company.id] : null;
+        if (currentPrice !== null && (logData.length === 0 || data[data.length - 1] !== currentPrice)) {
+            if (labels[labels.length - 1] !== 'Now') labels.push('Now');
+            data.push(currentPrice);
+        }
+
+        const color = CHART_COMPANY_COLORS[i % CHART_COMPANY_COLORS.length];
+        datasets.push({
+            label: company.id,
+            data: data,
+            borderColor: color,
+            backgroundColor: color + '20',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 2,
+            pointHoverRadius: 4
+        });
+    });
+
+    if (stockPriceChartInstance) {
+        stockPriceChartInstance.data.labels = labels;
+        stockPriceChartInstance.data.datasets = datasets;
+        stockPriceChartInstance.options.scales.x.ticks.color = theme.textColor;
+        stockPriceChartInstance.options.scales.y.ticks.color = theme.textColor;
+        stockPriceChartInstance.options.scales.x.grid.color = theme.gridColor;
+        stockPriceChartInstance.options.scales.y.grid.color = theme.gridColor;
+        stockPriceChartInstance.options.plugins.legend.labels.color = theme.textColor;
+        stockPriceChartInstance.update('none');
+        return;
+    }
+
+    stockPriceChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 10 }, color: theme.textColor } },
+                title: { display: false }
+            },
+            scales: {
+                x: { ticks: { font: { size: 10 }, color: theme.textColor }, grid: { color: theme.gridColor } },
+                y: { ticks: { font: { size: 10 }, color: theme.textColor, callback: v => '₹' + v }, grid: { color: theme.gridColor } }
+            }
+        }
+    });
+}
+
+function updatePlayerProgressChart() {
+    const canvas = document.getElementById('playerProgressChart');
+    if (!canvas || !currentGameState) return;
+
+    const state = currentGameState.state;
+    const players = currentGameState.players;
+    if (!state || !players || !state.historicalWorthData) return;
+
+    const historicalData = state.historicalWorthData;
+    if (!historicalData || historicalData.length === 0) return;
+
+    const theme = getChartDefaults();
+    const periods = [...new Set(historicalData.map(d => d.period))].sort((a, b) => a - b);
+    const labels = periods.map(p => 'P' + p);
+    const datasets = [];
+
+    players.forEach((player, i) => {
+        const data = periods.map(p => {
+            const record = historicalData.find(d => d.period === p && d.playerId === player.uuid);
+            return record ? record.totalWorth : null;
+        });
+        const color = CHART_PLAYER_COLORS[i % CHART_PLAYER_COLORS.length];
+        datasets.push({
+            label: player.name,
+            data: data,
+            borderColor: color,
+            backgroundColor: color + '15',
+            fill: true,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5
+        });
+    });
+
+    if (playerProgressChartInstance) {
+        playerProgressChartInstance.data.labels = labels;
+        playerProgressChartInstance.data.datasets = datasets;
+        playerProgressChartInstance.options.scales.x.ticks.color = theme.textColor;
+        playerProgressChartInstance.options.scales.y.ticks.color = theme.textColor;
+        playerProgressChartInstance.options.scales.x.grid.color = theme.gridColor;
+        playerProgressChartInstance.options.scales.y.grid.color = theme.gridColor;
+        playerProgressChartInstance.options.plugins.legend.labels.color = theme.textColor;
+        playerProgressChartInstance.update('none');
+        return;
+    }
+
+    playerProgressChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 10 }, color: theme.textColor } },
+                title: { display: false }
+            },
+            scales: {
+                x: { ticks: { font: { size: 10 }, color: theme.textColor }, grid: { color: theme.gridColor } },
+                y: { beginAtZero: false, ticks: { font: { size: 10 }, color: theme.textColor, callback: v => '₹' + formatIndianNumber(v) }, grid: { color: theme.gridColor } }
+            }
+        }
+    });
+}
+
+function updateChartTheme() {
+    if (stockPriceChartInstance) {
+        const theme = getChartDefaults();
+        stockPriceChartInstance.options.scales.x.ticks.color = theme.textColor;
+        stockPriceChartInstance.options.scales.y.ticks.color = theme.textColor;
+        stockPriceChartInstance.options.scales.x.grid.color = theme.gridColor;
+        stockPriceChartInstance.options.scales.y.grid.color = theme.gridColor;
+        stockPriceChartInstance.options.plugins.legend.labels.color = theme.textColor;
+        stockPriceChartInstance.update();
+    }
+    if (playerProgressChartInstance) {
+        const theme = getChartDefaults();
+        playerProgressChartInstance.options.scales.x.ticks.color = theme.textColor;
+        playerProgressChartInstance.options.scales.y.ticks.color = theme.textColor;
+        playerProgressChartInstance.options.scales.x.grid.color = theme.gridColor;
+        playerProgressChartInstance.options.scales.y.grid.color = theme.gridColor;
+        playerProgressChartInstance.options.plugins.legend.labels.color = theme.textColor;
+        playerProgressChartInstance.update();
+    }
+}
+
+// ============================================
+// MARKET INDEX & SENTIMENT DISPLAY
+// ============================================
+let previousMarketIndex = null;
+
+function updateMarketIndex() {
+    if (!currentGameState || !currentGameState.state) return;
+    const state = currentGameState.state;
+    const prices = state.prices;
+    const initPrices = state.init || initialPrices || {};
+    if (!prices) return;
+
+    const companies = state.companyList || [];
+    if (companies.length === 0) return;
+
+    // Calculate weighted index (average of all current prices)
+    let totalCurrent = 0;
+    let totalInitial = 0;
+    let count = 0;
+
+    companies.forEach(c => {
+        if (prices[c.id] !== undefined) {
+            totalCurrent += prices[c.id];
+            totalInitial += (initPrices[c.id] || c.initial || 0);
+            count++;
+        }
+    });
+
+    if (count === 0) return;
+
+    const indexValue = totalCurrent / count;
+    const initialIndex = totalInitial / count;
+    const changePercent = initialIndex > 0 ? ((indexValue - initialIndex) / initialIndex * 100) : 0;
+
+    const indexEl = document.getElementById('market-index-value');
+    const changeEl = document.getElementById('market-index-change');
+
+    if (indexEl) indexEl.textContent = '₹' + indexValue.toFixed(1);
+    if (changeEl) {
+        const sign = changePercent >= 0 ? '+' : '';
+        changeEl.textContent = sign + changePercent.toFixed(1) + '%';
+        changeEl.className = 'indicator-change ' + (changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'flat');
+    }
+
+    previousMarketIndex = indexValue;
+}
+
+function updateSentimentDisplay() {
 }

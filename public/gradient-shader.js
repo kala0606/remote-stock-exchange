@@ -637,7 +637,7 @@ function initFluidGradient() {
     fluidGradient = new FluidGradient();
 }
 
-// Update gradient with sentiment (only affects title bar)
+// Update gradient with sentiment (title bar only; sentiment box uses CSS gradient in client.js)
 function updateFluidGradient(sentiment) {
     if (fluidGradient) {
         fluidGradient.updateSentiment(sentiment);
