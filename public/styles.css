@@ -358,17 +358,26 @@ input:focus, select:focus {
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 110px);
+  width: 100%;
+  padding: 24px 16px;
+  box-sizing: border-box;
+}
+
+#auth-screen.screen {
+  max-width: none; /* allow full width so flex centering works */
 }
 
 .auth-card {
   max-width: 420px;
   width: 100%;
+  margin: 0 auto;
   padding: 40px 32px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(20px);
+  flex-shrink: 0;
 }
 
 .app-logo-lobby {
@@ -703,18 +712,45 @@ input:focus, select:focus {
   gap: 8px;
 }
 
-/* --- Dashboard Grid --- */
-.dash-grid {
+/* --- Dashboard Widgets (drag-and-drop grid) --- */
+.dash-widgets {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   width: 100%;
 }
 
-.dash-col {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.dash-widget {
+  min-height: 0;
+}
+
+.dash-widget.widget-full {
+  grid-column: 1 / -1;
+}
+
+.dash-widget.dragging {
+  opacity: 0.4;
+}
+
+.dash-widget.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.drag-handle {
+  cursor: grab;
+  opacity: 0.4;
+  margin-right: 8px;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  opacity: 1;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 /* --- Dashboard Card --- */
@@ -738,7 +774,8 @@ input:focus, select:focus {
 .card-hdr {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 8px;
   margin-bottom: 6px;
   cursor: default;
 }
@@ -954,6 +991,19 @@ input:focus, select:focus {
   transition: width 0.4s ease;
 }
 
+/* --- Combined Leaderboard & Turn Order table (name once, turns + worth side by side) --- */
+.combined-leaderboard-turn-table .turns-dots-cell {
+  white-space: nowrap;
+}
+
+.combined-leaderboard-turn-table .turn-dot-indicator {
+  margin-right: 2px;
+}
+
+.combined-leaderboard-turn-table .turn-dot-indicator:last-child {
+  margin-right: 0;
+}
+
 /* --- Leaderboard --- */
 .leaderboard { width: 100%; }
 
@@ -1124,8 +1174,94 @@ input:focus, select:focus {
 .log-entry[data-action-type="CHAIRMAN_POWER"] { border-left: 3px solid var(--success); padding-left: 8px; }
 .log-entry[data-action-type="PRESIDENT_POWER"] { border-left: 3px solid var(--accent); padding-left: 8px; }
 
-/* --- Hand Cards --- */
-.hand-content { padding-top: 4px; }
+/* --- Hand Cards (compact grid) --- */
+.hand-content { padding-top: 2px; padding-bottom: 2px; }
+
+.cards-wrapper {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 901px) {
+  .cards-wrapper { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .cards-wrapper { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+}
+
+@media (max-width: 600px) {
+  .cards-wrapper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+}
+
+/* Hand card content (structure for desktop + mobile overrides) */
+.hand-card-inner {
+  padding: 4px;
+  text-align: center;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hand-card-company {
+  font-weight: bold;
+  font-size: 0.95em;
+  margin-bottom: 2px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hand-card-body {
+  font-size: 0.88em;
+  line-height: 1.25;
+  opacity: 0.95;
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  max-height: 2.6em;
+}
+
+.hand-card-price {
+  flex-shrink: 0;
+  line-height: 1.3;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .cards-wrapper .hand-card {
+    aspect-ratio: 4/3;
+    min-height: 0;
+  }
+  .hand-card-inner {
+    padding: 3px 2px;
+  }
+  .hand-card-company {
+    font-size: 0.7rem;
+    margin-bottom: 1px;
+  }
+  .hand-card-body {
+    font-size: 0.65rem;
+    line-height: 1.2;
+    max-height: 2.2em;
+  }
+  .hand-card-price {
+    font-size: 0.75rem;
+  }
+}
 
 .card {
   padding: 12px;
@@ -1217,8 +1353,25 @@ input:focus, select:focus {
 }
 
 /* --- Price Log Table --- */
+/* --- Price History (single horizontal row, scroll) --- */
+.price-history-panel .price-history-inner {
+  max-height: 140px;
+  overflow: hidden;
+}
+
+.price-history-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.price-history-scroll #price-log-table {
+  white-space: nowrap;
+}
+
 #price-log-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
 }
@@ -1274,29 +1427,54 @@ input:focus, select:focus {
   gap: 6px;
 }
 
-/* --- Hand Summary --- */
-#hand-summary-content table {
+/* --- Hand Summary (subtle separators like market indicators) --- */
+#hand-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#hand-summary-content .hand-impact-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 6px;
   font-size: 0.8rem;
 }
 
-#hand-summary-content th, #hand-summary-content td {
-  padding: 4px 8px;
+#hand-summary-content .hand-impact-table thead th {
+  padding: 4px 0;
+  text-align: left;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#hand-summary-content .hand-impact-table tbody tr {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+#hand-summary-content .hand-impact-table tbody td {
+  padding: 6px 10px;
   text-align: left;
   border: none;
   color: var(--text-primary);
 }
 
-#hand-summary-content th {
-  font-weight: 600;
-  color: var(--text-muted);
-  font-size: 0.75rem;
+#hand-summary-content .hand-impact-table tbody td:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 
-#hand-summary-content td.summary-up { color: var(--success-text); }
-#hand-summary-content td.summary-down { color: var(--danger-text); }
-#hand-summary-content td.summary-no-change { color: var(--text-muted); }
+#hand-summary-content .hand-impact-table tbody td:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+#hand-summary-content .hand-impact-table td.summary-up { color: var(--success-text); }
+#hand-summary-content .hand-impact-table td.summary-down { color: var(--danger-text); }
+#hand-summary-content .hand-impact-table td.summary-no-change { color: var(--text-muted); }
 
 /* --- Modals --- */
 .modal {
@@ -1744,11 +1922,9 @@ input:focus, select:focus {
 
 /* --- Responsive --- */
 @media (max-width: 900px) {
-  .dash-grid {
+  .dash-widgets {
     grid-template-columns: 1fr;
   }
-
-  .dash-col-right { order: -1; }
 
   body { padding-top: 110px; font-size: 13px; }
 
@@ -1762,20 +1938,66 @@ input:focus, select:focus {
 }
 
 @media (max-width: 600px) {
-  body { padding-top: 100px; }
+  body { padding-top: 120px; }
 
   #info-bar {
-    padding: 6px 8px;
-    gap: 4px;
+    width: 100%;
+    max-width: 100%;
+    left: 0;
+    right: 0;
+    transform: none;
+    padding: 8px 10px;
+    gap: 8px;
     flex-direction: column;
     align-items: stretch;
   }
 
-  .info-bar-left, .info-bar-right { justify-content: center; }
-  .info-bar-actions { justify-content: center; }
+  .info-bar-left {
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-height: 36px;
+  }
 
-  .action-buttons { justify-content: center; }
-  .btn-action { flex: 1; min-width: 0; padding: 10px 8px; font-size: 0.8rem; }
+  .info-bar-left #period.chip {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    min-height: 32px;
+  }
+
+  .info-bar-right {
+    justify-content: flex-end;
+    flex-shrink: 0;
+    order: 1;
+  }
+
+  .info-bar-left { order: 0; }
+  .info-bar-actions {
+    order: 2;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .admin-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn-action {
+    min-height: 44px;
+    padding: 12px 8px;
+    font-size: 0.85rem;
+    margin: 0;
+  }
 
   .dash-card { padding: 8px 10px; }
 

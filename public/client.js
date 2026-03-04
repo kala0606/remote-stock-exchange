@@ -1253,9 +1253,11 @@ function updateUI(state) {
     renderPlayerHand(playerHandToRender, companiesStaticData); 
 
     updatePlayerList(state.players, state.state.currentTurnPlayerId); 
-    updateLeaderboard(state.players, currentMarketPrices, companiesStaticData); 
+    updateLeaderboard(state.players, currentMarketPrices, companiesStaticData);
     updatePriceLogTable(); 
-    renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
+    if (!document.getElementById('combined-leaderboard-turn-content')) {
+        renderPlayerTurnOrderTable(state.players, state.state.currentTurnPlayerId, state.state.period, state.state.gameStarted);
+    }
     
     // Background is now updated by our future sentiment calculation above
     // updateMarketSentimentBackground(state.state.marketSentiment || 'neutral');
@@ -1376,8 +1378,115 @@ function updateUI(state) {
     if(adminEndGameBtn) adminEndGameBtn.style.display = isAdmin && state.state && state.state.gameStarted ? 'inline-block' : 'none'; // NEW: Show/hide End Game button
 }
 
+// Combined Leaderboard & Turn Order: one table, name once, turns + worth side by side
+function renderCombinedLeaderboardTurnOrder(players, currentTurnPlayerId, marketPrices, companiesStaticData) {
+    const container = document.getElementById('combined-leaderboard-turn-content');
+    if (!container) return;
+
+    const gameStarted = currentGameState?.state?.gameStarted;
+    if (!gameStarted || !players || players.length === 0 || !marketPrices || !companiesStaticData || companiesStaticData.length === 0) {
+        container.innerHTML = '<p class="text-muted">Leaderboard &amp; turn data when game starts.</p>';
+        return;
+    }
+
+    const historicalWorthData = currentGameState?.state?.historicalWorthData || [];
+    const periodStarterId = currentGameState?.state?.periodStarter;
+    const totalAllowedTransactions = Math.max(1, currentGameState?.state?.maxTransactionsPerTurn ?? 4);
+
+    const playersWithWorth = players.map(player => {
+        let portfolioValue = 0;
+        const portfolioDetails = [];
+        if (player.portfolio) {
+            for (const companyId in player.portfolio) {
+                const shares = player.portfolio[companyId];
+                if (shares > 0) {
+                    const currentPrice = marketPrices[companyId] !== undefined ? marketPrices[companyId] : 0;
+                    const value = shares * currentPrice;
+                    portfolioValue += value;
+                    const companyName = getCompanyName(companyId, companiesStaticData);
+                    const colorIndex = companyColors[companyId] || 0;
+                    const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
+                    portfolioDetails.push({ name: companyName, shares: formatIndianNumber(shares), value: formatIndianNumber(value), textClass, type: 'long' });
+                }
+            }
+        }
+        if (player.shortPositions) {
+            for (const companyId in player.shortPositions) {
+                const shortPosition = player.shortPositions[companyId];
+                const currentPrice = marketPrices[companyId] !== undefined ? marketPrices[companyId] : 0;
+                const value = shortPosition.quantity * currentPrice;
+                portfolioValue -= value;
+                const companyName = getCompanyName(companyId, companiesStaticData);
+                const colorIndex = companyColors[companyId] || 0;
+                const textClass = COMPANY_TEXT_CLASSES[colorIndex] || 'company-text-0';
+                const unrealizedPnl = (shortPosition.priceOpened - currentPrice) * shortPosition.quantity;
+                portfolioDetails.push({ name: companyName, shares: `-${formatIndianNumber(shortPosition.quantity)}`, value: formatIndianNumber(value), textClass, type: 'short', unrealizedPnl });
+            }
+        }
+        const overallWorth = player.cash + portfolioValue;
+        let worthChangeText = '';
+        const playerHistory = historicalWorthData.filter(d => d.playerId === player.uuid).sort((a, b) => b.period - a.period);
+        if (playerHistory.length >= 2) {
+            const curr = playerHistory[0].totalWorth;
+            const prev = playerHistory[1].totalWorth;
+            const prevPeriod = playerHistory[1].period;
+            if (prev !== 0) {
+                const pct = ((curr - prev) / prev) * 100;
+                worthChangeText = ` <span class="leaderboard-worth-change ${pct >= 0 ? 'positive' : 'negative'}">(vs P${prevPeriod}: ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span>`;
+            } else if (curr > 0) worthChangeText = ` <span class="leaderboard-worth-change positive">(vs P${prevPeriod}: +Inf%)</span>`;
+            else worthChangeText = ` <span class="leaderboard-worth-change">(vs P${prevPeriod}: 0.0%)</span>`;
+        } else if (playerHistory.length === 1 && playerHistory[0].period === 0) worthChangeText = ' <span class="leaderboard-worth-change">(Baseline P0)</span>';
+        else if (playerHistory.length === 1) worthChangeText = ' <span class="leaderboard-worth-change">(New History)</span>';
+        else worthChangeText = ' <span class="leaderboard-worth-change">(N/A)</span>';
+        return { ...player, portfolioValue, overallWorth, portfolioDetails, worthChangeText };
+    });
+
+    let html = '<table class="leaderboard-table combined-leaderboard-turn-table"><thead><tr><th>Player</th><th>Turns</th><th>Worth</th><th>Cash</th><th>Portfolio</th></tr></thead><tbody>';
+    playersWithWorth.forEach(player => {
+        const isCurrentTurn = player.id === currentTurnPlayerId;
+        const isPeriodStarter = player.id === periodStarterId;
+        const turnsRemaining = typeof player.transactionsRemaining === 'number' ? player.transactionsRemaining : totalAllowedTransactions;
+        const turnsUsed = Math.max(0, totalAllowedTransactions - turnsRemaining);
+
+        let nameHtml = '';
+        if (isPeriodStarter) nameHtml += '<span class="round-starter-star">★</span> ';
+        nameHtml += `<strong>${player.name}</strong>`;
+        if (player.isAdmin) nameHtml += ' (Admin)';
+        if (player.id === socket.id) nameHtml += ' (You)';
+
+        let dotsHtml = '';
+        for (let i = 0; i < totalAllowedTransactions; i++) {
+            dotsHtml += `<span class="turn-dot-indicator ${i < turnsUsed ? 'turn-dot-grey' : 'turn-dot-green'}"></span>`;
+        }
+
+        const rowClass = isCurrentTurn ? ' current-turn-highlight-table' : '';
+        html += `<tr class="${rowClass}"><td class="player-name-cell">${nameHtml}</td><td class="turns-dots-cell">${dotsHtml}</td><td>₹${formatIndianNumber(player.overallWorth)}${player.worthChangeText}</td><td>₹${formatIndianNumber(player.cash)}</td><td>₹${formatIndianNumber(player.portfolioValue)}</td></tr>`;
+        html += '<tr class="portfolio-details-row"><td colspan="5">';
+        if (player.portfolioDetails.length > 0) {
+            html += '<ul class="leaderboard-portfolio-details">';
+            player.portfolioDetails.forEach(item => {
+                if (item.type === 'long') {
+                    html += `<li><span class="${item.textClass}">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value})</li>`;
+                } else {
+                    const pnlClass = item.unrealizedPnl >= 0 ? 'positive-pnl' : 'negative-pnl';
+                    html += `<li><span class="${item.textClass}">${item.name}</span>: ${item.shares} shares (Value: ₹${item.value}) <span class="${pnlClass}">P&L: ₹${formatIndianNumber(item.unrealizedPnl)}</span></li>`;
+                }
+            });
+            html += '</ul>';
+        } else html += '<span class="no-shares">No positions</span>';
+        html += '</td></tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
 // NEWLY ADDED: updateLeaderboard function
 function updateLeaderboard(players, marketPrices, companiesStaticData) {
+    const container = document.getElementById('combined-leaderboard-turn-content');
+    if (container) {
+        renderCombinedLeaderboardTurnOrder(players, currentGameState?.state?.currentTurnPlayerId, marketPrices, companiesStaticData);
+        return;
+    }
     if (!leaderboardContent) return;
 
     const historicalWorthData = currentGameState?.state?.historicalWorthData || [];
@@ -2696,35 +2805,25 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
     // Clear existing cards from the content area
     handContent.innerHTML = '';
 
-    // Create a grid container for cards
+    // Create a grid container for cards (5 columns on desktop = 2 full rows for 10 cards)
     const cardsWrapper = document.createElement('div');
     cardsWrapper.className = 'cards-wrapper';
     
-    // Set card size based on screen width
     const screenWidth = window.innerWidth;
-    let cardWidth;
-    if (screenWidth <= 700) { // Mobile
-        cardWidth = 'calc(50% - 8px)'; // 2 cards per row on mobile, considering gap
-    } else if (screenWidth <= 1024) { // iPad
-        cardWidth = '110px';
-    } else { // Desktop
-        cardWidth = '130px';
+    let gridStyle;
+    if (screenWidth <= 600) {
+        gridStyle = `display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; width: 100%; box-sizing: border-box;`;
+    } else if (screenWidth <= 900) {
+        gridStyle = `display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 8px; width: 100%; box-sizing: border-box;`;
+    } else {
+        gridStyle = `display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 8px; width: 100%; box-sizing: border-box;`;
     }
-    
-    cardsWrapper.style.cssText = `
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(${cardWidth}, 1fr));
-        gap: 16px;
-        padding: 16px;
-        width: 100%;
-        box-sizing: border-box;
-        justify-content: center;
-    `;
+    cardsWrapper.style.cssText = gridStyle;
 
     // Add cards to the wrapper
     playerHandArray.forEach((card, index) => {
         const cardElement = document.createElement('div');
-        cardElement.className = 'card';
+        cardElement.className = 'card hand-card';
         
         // Get company gradient class if it's a price card
         let cardClass = ''; // Default for windfall cards
@@ -2742,17 +2841,18 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         }
         
         cardElement.style.cssText = `
-            width: 100%; /* Fill the grid column */
-            aspect-ratio: 2/3; /* Taller to allow longer, funnier copy */
+            width: 100%;
+            aspect-ratio: 2/1;
             position: relative;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             box-sizing: border-box;
+            min-height: 0;
         `;
 
         if (card.played) {
@@ -2762,7 +2862,13 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
         let cardContent = '';
         if (card.type === 'price') {
             const company = companiesStaticData.find(c => c.id === card.company);
-            const changeColor = card.change > 0 ? '#4CAF50' : card.change < 0 ? '#f44336' : '#ffffff';
+            const isUp = card.change > 0;
+            const isDown = card.change < 0;
+            const triStyle = isUp
+                ? 'display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:6px solid #2e7d32;margin-right:3px;vertical-align:middle;'
+                : isDown
+                    ? 'display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #c62828;margin-right:3px;vertical-align:middle;'
+                    : 'display:inline-block;width:6px;height:6px;background:#757575;margin-right:3px;vertical-align:middle;border-radius:1px;';
 
             // Longer, funnier fallback copy for price cards
             const baseCompanyName = company ? company.name : card.company;
@@ -2775,20 +2881,17 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
                 generatedMessage = `${baseCompanyName} goes gloriously sideways — unchanged. Everyone pretends that was the plan.`;
             }
             const wittyMessage = card.message || generatedMessage;
-            // Looser truncation to allow higher letter count
-            const smartTruncated = wittyMessage.length > 120 ? wittyMessage.substring(0, 117) + '...' : wittyMessage;
+            const smartTruncated = wittyMessage.length > 50 ? wittyMessage.substring(0, 47) + '...' : wittyMessage;
             
             // Determine text color based on company - ONGC (yellow cards) should have black text
             const isONGC = card.company === 'ONG';
             const wittyTextColor = isONGC ? '#000000' : 'inherit';
             
             cardContent = `
-                <div style="padding: 4px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0;">
-                    <div style="font-weight: bold; font-size: 0.78em; margin-bottom: 2px;">${company ? company.name : card.company}</div>
-                    <div style="font-size: 0.72em; line-height: 1.25; opacity: 0.95; padding: 2px; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; hyphens: auto; color: ${wittyTextColor};">${smartTruncated}</div>
-                </div>
-                <div style="padding: 3px; text-align: center; background: ${changeColor}; border-radius: 0 0 8px 8px; flex-shrink: 0;">
-                    <div style="font-size: 0.95em; font-weight: bold; color: white;">${card.change > 0 ? '+' : ''}₹${card.change}</div>
+                <div class="hand-card-inner">
+                    <div class="hand-card-company">${company ? company.name : card.company}</div>
+                    <div class="hand-card-body" style="color: ${wittyTextColor}">${smartTruncated}</div>
+                    <div class="hand-card-price"><span style="${triStyle}"></span><span style="color: ${isUp ? '#1b5e20' : isDown ? '#b71c1c' : '#616161'}">${card.change > 0 ? '+' : ''}₹${card.change}</span></div>
                 </div>
             `;
         } else if (card.type === 'windfall') {
@@ -2808,12 +2911,12 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
                     generatedWindfall = `${card.sub} arrives with jazz hands. Side effects may include grins and strategic pivoting.`;
             }
             const wittyMessage = card.message || generatedWindfall;
-            const smartTruncated = wittyMessage.length > 140 ? wittyMessage.substring(0, 137) + '...' : wittyMessage;
+            const smartTruncated = wittyMessage.length > 55 ? wittyMessage.substring(0, 52) + '...' : wittyMessage;
             
             cardContent = `
-                <div style="padding: 6px; text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                    <div style="font-weight: bold; color: #4a90e2; font-size: 1em; margin-bottom: 4px;">${card.sub}</div>
-                    <div style="font-size: 0.72em; line-height: 1.25; color: #555; font-style: italic; flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; word-wrap: break-word; overflow-wrap: break-word; padding: 2px;">${smartTruncated}</div>
+                <div class="hand-card-inner">
+                    <div class="hand-card-company" style="color: #4a90e2">${card.sub}</div>
+                    <div class="hand-card-body" style="color: #555; font-style: italic">${smartTruncated}</div>
                 </div>
             `;
         }
@@ -3226,8 +3329,9 @@ function renderPlayerWorthChart(historicalData, playersInfo) {
 }
 
 
-// NEW: Function to render Player Turn Order Table
+// NEW: Function to render Player Turn Order Table (no-op when combined leaderboard/turn panel is used)
 function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameStarted) {
+    if (document.getElementById('combined-leaderboard-turn-content')) return;
     const container = document.getElementById('turn-indicator-activity-log-container');
     const wrapperPanel = document.getElementById('player-turn-indicator-panel');
     
@@ -3247,14 +3351,16 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
     
     // Create wrapper panel if it doesn't exist
     if (!wrapperPanel) {
+        const contentSlot = document.getElementById('turn-order-content');
         const newWrapperPanel = document.createElement('div');
         newWrapperPanel.className = 'panel';
         newWrapperPanel.id = 'player-turn-indicator-panel';
         
-        // Create header for the panel
-        const header = document.createElement('h4');
-        header.textContent = 'Player Turn Order';
-        newWrapperPanel.appendChild(header);
+        if (!contentSlot) {
+            const header = document.createElement('h4');
+            header.textContent = 'Player Turn Order';
+            newWrapperPanel.appendChild(header);
+        }
         
         // Create table
         playerTurnOrderTableElement = document.createElement('table');
@@ -3279,8 +3385,11 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
         // Append table to wrapper panel
         newWrapperPanel.appendChild(playerTurnOrderTableElement);
         
-        // Insert wrapper panel at the beginning of the container (before activity log)
-        container.insertBefore(newWrapperPanel, container.firstChild);
+        if (contentSlot) {
+            contentSlot.appendChild(newWrapperPanel);
+        } else {
+            container.insertBefore(newWrapperPanel, container.firstChild);
+        }
     } else {
         // Show the wrapper panel if it exists
         wrapperPanel.style.display = 'block';
@@ -3349,19 +3458,24 @@ function renderPlayerTurnOrderTable(players, currentTurnPlayerId, period, gameSt
 }
 
 function renderDeckInfoPanel(numPlayers) {
+    const container = document.getElementById('deck-info-container');
     let panel = document.getElementById('deck-info-panel');
     if (!panel) {
         panel = document.createElement('div');
         panel.id = 'deck-info-panel';
-        panel.className = 'panel deck-info-panel'; // Re-add old classes for styling
-        panel.style.marginTop = '20px';
+        panel.className = 'panel deck-info-panel';
+        panel.style.marginTop = '0';
 
-        const leaderboard = document.querySelector('.leaderboard');
-        if (leaderboard) {
-            leaderboard.insertAdjacentElement('afterend', panel);
+        if (container) {
+            container.appendChild(panel);
         } else {
-            const gameRight = document.querySelector('.dash-col-right') || document.querySelector('.game-right');
-            gameRight?.appendChild(panel);
+            const leaderboard = document.querySelector('.leaderboard');
+            if (leaderboard) {
+                leaderboard.insertAdjacentElement('afterend', panel);
+            } else {
+                const gameRight = document.querySelector('.dash-col-right') || document.querySelector('.game-right');
+                gameRight?.appendChild(panel);
+            }
         }
     }
 
@@ -3447,7 +3561,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('[DOMContentLoaded] Fluid gradient shader not available');
     }
-    
+
+    if (typeof initDashboardLayout === 'function') {
+        initDashboardLayout();
+    }
+
     // Initial background will be set when game starts
     // updateMarketSentimentBackground('neutral');
     

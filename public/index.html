@@ -127,147 +127,146 @@
           </div>
         </div>
         <div class="info-bar-right">
+          <button type="button" id="reset-layout-btn" class="btn-sm btn-ghost" title="Reset dashboard layout">Reset layout</button>
           <button id="my-stats-btn" class="btn-sm" style="display: none;">Stats</button>
         </div>
       </div>
 
-      <!-- Dashboard Grid -->
-      <div class="dash-grid">
-        <!-- Left Column -->
-        <div class="dash-col dash-col-left">
-          <!-- Portfolio Card -->
-          <div class="dash-card">
-            <div id="portfolio-panel">
-              <div class="card-hdr"><h3>Portfolio</h3></div>
-              <div id="portfolio-content">
-                <div id="portfolio-summary">
-                  <div class="portfolio-item">
-                    <span class="portfolio-label">Cash</span>
-                    <span id="portfolio-cash" class="portfolio-value">&#8377;6.0L</span>
-                  </div>
-                  <div class="portfolio-item">
-                    <span class="portfolio-label">Portfolio</span>
-                    <span id="portfolio-value" class="portfolio-value">&#8377;0</span>
-                  </div>
-                  <div class="portfolio-item total">
-                    <span class="portfolio-label">Net Worth</span>
-                    <span id="portfolio-total" class="portfolio-value highlight">&#8377;6.0L</span>
-                  </div>
-                </div>
-                <div id="portfolio-holdings"></div>
-              </div>
-            </div>
-            <div id="hand-summary" style="display: none;">
-              <div class="card-hdr sub"><h4>Hand Impact</h4></div>
-              <div id="hand-summary-content"></div>
-            </div>
-          </div>
-
-          <!-- Open Shorts -->
-          <div id="open-shorts-panel" class="dash-card" style="display: none;">
-            <div class="card-hdr"><h4>Open Shorts</h4></div>
-            <div id="open-shorts-content"></div>
-            <p id="no-open-shorts-msg">No open short positions.</p>
-          </div>
-
-          <!-- Turn Order -->
-          <div id="turn-indicator-activity-log-container" class="dash-card compact-card"></div>
-
-          <!-- Hand Cards -->
-          <div class="dash-card">
-            <div id="player-hand-container">
-              <div class="hand-header card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
-                const c = this.nextElementSibling;
-                const i = this.querySelector('.expand-icon');
-                if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
-                else { c.style.display = 'none'; i.textContent = '\u25B6'; }
-              ">
-                <h3>Your Hand <span class="expand-icon">&#9660;</span></h3>
-              </div>
-              <div class="hand-content" style="display: block;"></div>
-            </div>
-          </div>
-
-          <!-- Activity Log -->
-          <div class="dash-card">
-            <div id="activity-log-panel">
-              <div class="activity-log-header card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
-                const c = this.nextElementSibling;
-                const i = this.querySelector('.expand-icon');
-                if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
-                else { c.style.display = 'none'; i.textContent = '\u25B6'; }
-              ">
-                <h3>Activity Log <span class="expand-icon">&#9660;</span></h3>
-              </div>
-              <div class="activity-log-content" style="display: block; max-height: 150px; overflow-y: auto;"></div>
-            </div>
-          </div>
-
-          <!-- General Rights Offers -->
-          <div id="general-rights-offers-panel" class="dash-card" style="display: none;">
-            <div class="card-hdr"><h4>Rights Offers</h4></div>
-            <p class="text-sm text-muted">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). Uses 1 transaction.</p>
-            <div id="general-rights-list"></div>
-          </div>
-        </div>
-
-        <!-- Right Column -->
-        <div class="dash-col dash-col-right">
-          <!-- Market Overview -->
-          <div class="dash-card market-card">
-            <div class="card-hdr">
-              <h3>Market</h3>
-            </div>
-            <div class="market-indicators">
-              <div class="indicator">
-                <span class="indicator-label">Index</span>
-                <span class="indicator-value" id="market-index-value">--</span>
-                <span class="indicator-change" id="market-index-change"></span>
-              </div>
-              <div class="indicator">
-                <span class="indicator-label">Sentiment</span>
-                <div id="sentiment-box" class="sentiment-box"></div>
-              </div>
-            </div>
-            <div class="chart-wrap">
-              <canvas id="stockPriceChart"></canvas>
-            </div>
-            <div id="market-board-container"></div>
-          </div>
-
-          <!-- Player Progress -->
-          <div class="dash-card">
-            <div class="card-hdr"><h3>Player Progress</h3></div>
-            <div class="chart-wrap">
-              <canvas id="playerProgressChart"></canvas>
-            </div>
-          </div>
-
-          <!-- Leaderboard -->
-          <div class="dash-card">
-            <div id="leaderboard" class="leaderboard">
-              <div class="card-hdr"><h3>Leaderboard</h3></div>
-              <div class="leaderboard-content"></div>
-            </div>
-          </div>
-
-          <!-- Price Log -->
-          <div id="price-log-panel" class="dash-card">
-            <div class="card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
+      <!-- Dashboard widgets (drag to reorder) -->
+      <div id="dash-widgets" class="dash-widgets">
+        <!-- Activity Log -->
+        <div class="dash-card dash-widget widget-full" data-widget-id="activity-log">
+          <div id="activity-log-panel">
+            <div class="activity-log-header card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
               const c = this.nextElementSibling;
               const i = this.querySelector('.expand-icon');
               if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
               else { c.style.display = 'none'; i.textContent = '\u25B6'; }
             ">
-              <h3>Price History <span class="expand-icon">&#9654;</span></h3>
+              <span class="drag-handle" title="Drag to reorder">&#9776;</span>
+              <h3>Activity Log <span class="expand-icon">&#9660;</span></h3>
             </div>
-            <div style="display: none; max-height: 150px; overflow-y: auto;">
+            <div class="activity-log-content" style="display: block; max-height: 150px; overflow-y: auto;"></div>
+          </div>
+        </div>
+
+        <!-- Hand Cards -->
+        <div class="dash-card dash-widget widget-full" data-widget-id="hand">
+          <div id="player-hand-container">
+            <div class="hand-header card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
+              const c = this.nextElementSibling;
+              const i = this.querySelector('.expand-icon');
+              if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
+              else { c.style.display = 'none'; i.textContent = '\u25B6'; }
+            ">
+              <span class="drag-handle" title="Drag to reorder">&#9776;</span>
+              <h3>Your Hand <span class="expand-icon">&#9660;</span></h3>
+            </div>
+            <div class="hand-content" style="display: block;"></div>
+          </div>
+        </div>
+
+        <!-- Portfolio -->
+        <div class="dash-card dash-widget" data-widget-id="portfolio">
+          <div id="portfolio-panel">
+            <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h3>Portfolio</h3></div>
+            <div id="portfolio-content">
+              <div id="portfolio-summary">
+                <div class="portfolio-item">
+                  <span class="portfolio-label">Cash</span>
+                  <span id="portfolio-cash" class="portfolio-value">&#8377;6.0L</span>
+                </div>
+                <div class="portfolio-item">
+                  <span class="portfolio-label">Portfolio</span>
+                  <span id="portfolio-value" class="portfolio-value">&#8377;0</span>
+                </div>
+                <div class="portfolio-item total">
+                  <span class="portfolio-label">Net Worth</span>
+                  <span id="portfolio-total" class="portfolio-value highlight">&#8377;6.0L</span>
+                </div>
+              </div>
+              <div id="portfolio-holdings"></div>
+            </div>
+          </div>
+          <div id="hand-summary" style="display: none;">
+            <div class="card-hdr sub"><h4>Hand Impact</h4></div>
+            <div id="hand-summary-content"></div>
+          </div>
+        </div>
+
+        <!-- Market Overview (side by side with Portfolio) -->
+        <div class="dash-card dash-widget market-card" data-widget-id="market">
+          <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h3>Market</h3></div>
+          <div class="market-indicators">
+            <div class="indicator">
+              <span class="indicator-label">Index</span>
+              <span class="indicator-value" id="market-index-value">--</span>
+              <span class="indicator-change" id="market-index-change"></span>
+            </div>
+            <div class="indicator">
+              <span class="indicator-label">Sentiment</span>
+              <div id="sentiment-box" class="sentiment-box"></div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="stockPriceChart"></canvas>
+          </div>
+          <div id="market-board-container"></div>
+        </div>
+
+        <!-- Leaderboard & Turn Order (one table: name once, turns + worth side by side) -->
+        <div id="turn-indicator-activity-log-container" class="dash-card dash-widget widget-full" data-widget-id="leaderboard-turn-order">
+          <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h3>Leaderboard &amp; Turn Order</h3></div>
+          <div id="combined-leaderboard-turn-content"></div>
+        </div>
+
+        <!-- Price History (single horizontal row, scroll) -->
+        <div id="price-log-panel" class="dash-card dash-widget widget-full price-history-panel" data-widget-id="price-history">
+          <div class="card-hdr collapsible-hdr" style="cursor:pointer;" onclick="
+            const c = this.nextElementSibling;
+            const i = this.querySelector('.expand-icon');
+            if (c.style.display === 'none') { c.style.display = 'block'; i.textContent = '\u25BC'; }
+            else { c.style.display = 'none'; i.textContent = '\u25B6'; }
+          ">
+            <span class="drag-handle" title="Drag to reorder">&#9776;</span>
+            <h3>Price History <span class="expand-icon">&#9660;</span></h3>
+          </div>
+          <div class="price-history-inner" style="display: block;">
+            <div class="price-history-scroll">
               <table id="price-log-table">
                 <thead><tr><th>Period</th></tr></thead>
                 <tbody id="price-log-table-body"></tbody>
               </table>
             </div>
           </div>
+        </div>
+
+        <!-- Open Shorts -->
+        <div id="open-shorts-panel" class="dash-card dash-widget" data-widget-id="open-shorts" style="display: none;">
+          <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h4>Open Shorts</h4></div>
+          <div id="open-shorts-content"></div>
+          <p id="no-open-shorts-msg">No open short positions.</p>
+        </div>
+
+        <!-- General Rights Offers -->
+        <div id="general-rights-offers-panel" class="dash-card dash-widget" data-widget-id="rights-offers" style="display: none;">
+          <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h4>Rights Offers</h4></div>
+          <p class="text-sm text-muted">Click a company to exercise rights (1 per 2 owned @ half initial price, 1000s lots). Uses 1 transaction.</p>
+          <div id="general-rights-list"></div>
+        </div>
+
+        <!-- Player Progress -->
+        <div class="dash-card dash-widget" data-widget-id="player-progress">
+          <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h3>Player Progress</h3></div>
+          <div class="chart-wrap">
+            <canvas id="playerProgressChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Deck Info (detached from leaderboard) -->
+        <div class="dash-card dash-widget" data-widget-id="deck-info">
+          <div class="card-hdr"><span class="drag-handle" title="Drag to reorder">&#9776;</span><h3>Deck Info</h3></div>
+          <div id="deck-info-container"></div>
         </div>
       </div>
 
@@ -480,6 +479,7 @@
   <script type="module" src="firebase-config.js"></script>
   <script type="module" src="auth.js"></script>
   <script type="module" src="game-stats.js"></script>
+  <script src="dashboard-layout.js"></script>
   <script src="client.js"></script>
 </body>
 </html>
