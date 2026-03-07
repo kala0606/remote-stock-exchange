@@ -1240,12 +1240,20 @@ function updateUI(state) {
         updatePortfolioPanel(null, currentMarketPrices, companiesStaticData);
     }
 
-    const currentPlayerNameForBar = state.players.find(p => p.id === state.state.currentTurnPlayerId)?.name || 'N/A';
+    const currentTurnPlayer = state.players.find(p => p.id === state.state.currentTurnPlayerId);
+    const currentPlayerNameForBar = currentTurnPlayer?.name || 'N/A';
     const highlightedPlayerName = isYourTurn ? `<span class="current-turn-player-name-highlight">${currentPlayerNameForBar}</span>` : currentPlayerNameForBar;
-    const turnDot = isYourTurn ? '<span class="your-turn-indicator-dot" aria-label="Your turn"></span>' : '';
+    const totalAllowedTransactions = Math.max(1, currentGameState?.state?.maxTransactionsPerTurn ?? 4);
+    const turnsRemaining = typeof currentTurnPlayer?.transactionsRemaining === 'number' ? currentTurnPlayer.transactionsRemaining : totalAllowedTransactions;
+    const turnsUsed = Math.max(0, totalAllowedTransactions - turnsRemaining);
+    let turnDotsHtml = '';
+    for (let i = 0; i < totalAllowedTransactions; i++) {
+        turnDotsHtml += `<span class="turn-dot-indicator ${i < turnsUsed ? 'turn-dot-grey' : 'turn-dot-green'}" aria-hidden="true"></span>`;
+    }
+    const turnDotsSpan = `<span class="info-bar-turn-dots">${turnDotsHtml}</span>`;
 
       if (periodSpan) {
-          periodSpan.innerHTML = `<span class="info-bar-period">P${state.state.period}</span><span class="info-bar-sep"></span><span class="info-bar-round">R${state.state.roundNumberInPeriod}</span><span class="info-bar-sep"></span><span class="info-bar-player">${highlightedPlayerName}</span>${turnDot}`;
+          periodSpan.innerHTML = `<span class="info-bar-period">P${state.state.period}</span><span class="info-bar-sep"></span><span class="info-bar-round">R${state.state.roundNumberInPeriod}</span><span class="info-bar-sep"></span><span class="info-bar-player">${highlightedPlayerName}</span>${turnDotsSpan}`;
           console.log(`[updateUI] Updated period display - Current Turn: ${currentPlayerNameForBar}, Is Your Turn: ${isYourTurn}`);
       }
 

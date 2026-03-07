@@ -674,6 +674,20 @@ input:focus, select:focus {
   box-shadow: 0 0 0 2px var(--success-soft);
 }
 
+.info-bar-turn-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.info-bar-turn-dots .turn-dot-indicator {
+  width: 6px;
+  height: 6px;
+  margin-left: 0;
+}
+
 .info-bar-actions {
   display: flex;
   align-items: center;
@@ -1355,13 +1369,12 @@ input:focus, select:focus {
 /* --- Price Log Table --- */
 /* --- Price History (single horizontal row, scroll) --- */
 .price-history-panel .price-history-inner {
-  max-height: 140px;
-  overflow: hidden;
+  /* No overflow here so scroll + sticky live in .price-history-scroll */
 }
 
 .price-history-scroll {
-  overflow-x: auto;
-  overflow-y: auto;
+  max-height: 200px;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1383,7 +1396,7 @@ input:focus, select:focus {
   border: none;
 }
 
-#price-log-table th {
+#price-log-table thead th {
   font-weight: 600;
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -1393,6 +1406,7 @@ input:focus, select:focus {
   background: var(--bg-card);
   z-index: 10;
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 var(--border);
 }
 
 #price-log-table tbody tr { border-bottom: 1px solid var(--border); }
