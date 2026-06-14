@@ -6,35 +6,43 @@
 
 /* --- Theme Variables --- */
 :root {
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Bricolage Grotesque', var(--font);
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-full: 9999px;
   --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Glassmorphism engine — shared knobs */
+  --glass-blur: 20px;
+  --glass-saturate: 165%;
 }
 
 [data-theme="light"] {
-  --bg-primary: #f5f6fa;
+  --bg-primary: #eef1f8;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f0f2f5;
-  --bg-card: rgba(255, 255, 255, 0.75);
-  --bg-card-hover: rgba(255, 255, 255, 0.9);
-  --bg-input: #f0f2f5;
-  --bg-input-focus: #ffffff;
-  --bg-overlay: rgba(15, 15, 30, 0.6);
-  --bg-modal: #ffffff;
-  --bg-badge: rgba(0, 0, 0, 0.06);
-  --text-primary: #1a1a2e;
-  --text-secondary: #4a4a6a;
-  --text-muted: #8888a0;
+  --bg-tertiary: rgba(255, 255, 255, 0.55);
+  --bg-card: rgba(255, 255, 255, 0.58);
+  --bg-card-hover: rgba(255, 255, 255, 0.74);
+  --bg-input: rgba(255, 255, 255, 0.55);
+  --bg-input-focus: rgba(255, 255, 255, 0.9);
+  --bg-overlay: rgba(15, 15, 30, 0.45);
+  --bg-modal: rgba(255, 255, 255, 0.82);
+  --bg-badge: rgba(20, 24, 60, 0.06);
+  --text-primary: #14172b;
+  --text-secondary: #424463;
+  --text-muted: #71748f;
   --text-inverse: #ffffff;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.15);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  --border: rgba(255, 255, 255, 0.55);
+  --border-strong: rgba(20, 24, 60, 0.14);
+  --shadow-sm: 0 1px 3px rgba(20,24,60,0.05), 0 1px 2px rgba(20,24,60,0.03);
+  --shadow-md: 0 6px 20px rgba(20,24,60,0.08), 0 2px 6px rgba(20,24,60,0.05);
+  --shadow-lg: 0 18px 48px rgba(20,24,60,0.14), 0 4px 12px rgba(20,24,60,0.08);
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-highlight: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 1px rgba(255,255,255,0.18);
   --accent: #6366f1;
   --accent-soft: rgba(99, 102, 241, 0.1);
   --accent-text: #4f46e5;
@@ -47,35 +55,37 @@
   --warning: #f59e0b;
   --warning-soft: rgba(245, 158, 11, 0.1);
   --warning-text: #d97706;
-  --chart-grid: rgba(0, 0, 0, 0.06);
-  --chart-text: #64648c;
-  --titlebar-bg: #1a1a2e;
-  --titlebar-text: #e8e8f0;
-  --infobar-bg: rgba(255, 255, 255, 0.85);
-  --scrollbar-thumb: rgba(0,0,0,0.15);
+  --chart-grid: rgba(20, 24, 60, 0.07);
+  --chart-text: #5a5d80;
+  --titlebar-bg: rgba(20, 22, 44, 0.55);
+  --titlebar-text: #f3f4fb;
+  --infobar-bg: rgba(255, 255, 255, 0.62);
+  --scrollbar-thumb: rgba(20,24,60,0.2);
   --scrollbar-track: transparent;
 }
 
 [data-theme="dark"] {
-  --bg-primary: #0c0c1d;
-  --bg-secondary: #161630;
-  --bg-tertiary: #1e1e3a;
-  --bg-card: rgba(30, 30, 55, 0.75);
-  --bg-card-hover: rgba(40, 40, 70, 0.9);
-  --bg-input: #1e1e3a;
-  --bg-input-focus: #252545;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
-  --bg-modal: #1e1e3a;
-  --bg-badge: rgba(255, 255, 255, 0.08);
-  --text-primary: #e8e8f0;
-  --text-secondary: #a0a0c0;
-  --text-muted: #606080;
-  --text-inverse: #1a1a2e;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.15);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2);
+  --bg-primary: #06060f;
+  --bg-secondary: #12122a;
+  --bg-tertiary: rgba(38, 40, 72, 0.5);
+  --bg-card: rgba(26, 28, 54, 0.5);
+  --bg-card-hover: rgba(40, 42, 78, 0.66);
+  --bg-input: rgba(20, 22, 46, 0.6);
+  --bg-input-focus: rgba(34, 36, 66, 0.85);
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-modal: rgba(22, 23, 48, 0.8);
+  --bg-badge: rgba(255, 255, 255, 0.09);
+  --text-primary: #f0f1fb;
+  --text-secondary: #b3b5d6;
+  --text-muted: #797ca6;
+  --text-inverse: #14172b;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg: 0 22px 56px rgba(0,0,0,0.55), 0 6px 16px rgba(0,0,0,0.4);
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  --glass-highlight: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.04);
   --accent: #818cf8;
   --accent-soft: rgba(129, 140, 248, 0.15);
   --accent-text: #a5b4fc;
@@ -88,17 +98,19 @@
   --warning: #fbbf24;
   --warning-soft: rgba(251, 191, 36, 0.15);
   --warning-text: #fde68a;
-  --chart-grid: rgba(255, 255, 255, 0.06);
-  --chart-text: #a0a0c0;
-  --titlebar-bg: #0a0a18;
-  --titlebar-text: #e8e8f0;
-  --infobar-bg: rgba(22, 22, 48, 0.9);
-  --scrollbar-thumb: rgba(255,255,255,0.15);
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-text: #b3b5d6;
+  --titlebar-bg: rgba(8, 9, 22, 0.55);
+  --titlebar-text: #f0f1fb;
+  --infobar-bg: rgba(16, 17, 38, 0.62);
+  --scrollbar-thumb: rgba(255,255,255,0.18);
   --scrollbar-track: transparent;
 }
 
 /* --- Base Reset & Typography --- */
 *, *::before, *::after { box-sizing: border-box; }
+
+html { background: var(--bg-primary); overflow-x: hidden; }
 
 body {
   font-family: var(--font);
@@ -106,20 +118,47 @@ body {
   min-height: 100vh;
   padding: 0;
   padding-top: 110px;
-  background: var(--bg-primary);
+  /* Transparent so the WebGL market backdrop (fixed, z-index:-1) shows through */
+  background: transparent;
   color: var(--text-primary);
-  transition: background var(--transition), color var(--transition);
+  transition: color var(--transition);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
   font-size: 14px;
 }
 
-h1, h2, h3, h4 { color: var(--text-primary); margin: 0; font-weight: 600; }
-h1 { font-size: 1.75rem; text-align: center; margin-bottom: 8px; }
-h2 { font-size: 1.25rem; }
+/* Fallback atmosphere when WebGL is unavailable */
+body.no-webgl-bg {
+  background:
+    radial-gradient(1200px 800px at 18% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+    radial-gradient(1000px 700px at 110% 20%, color-mix(in srgb, var(--success) 12%, transparent), transparent 55%),
+    var(--bg-primary);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4 { color: var(--text-primary); margin: 0; font-weight: 600; font-family: var(--font-display); letter-spacing: -0.01em; }
+h1 { font-size: 1.85rem; text-align: center; margin-bottom: 8px; font-weight: 700; }
+h2 { font-size: 1.3rem; font-weight: 700; }
 h3 { font-size: 1rem; }
 h4 { font-size: 0.875rem; }
+
+/* Monospace, tabular numerals for all live market figures — sharper to scan
+   and they hold alignment as values change. */
+#timer-display,
+.portfolio-value,
+.indicator-value,
+.indicator-change,
+.chip,
+#price-log-table td,
+#market-board-container .price-cell,
+.leaderboard-worth,
+.hand-card-price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
 p { margin: 0 0 8px 0; color: var(--text-secondary); }
 a { color: var(--accent); }
 
@@ -147,9 +186,10 @@ a { color: var(--accent); }
   justify-content: space-between;
   padding: 0 16px;
   z-index: 2000;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(var(--glass-saturate));
+  border-bottom: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-highlight);
 }
 
 .titlebar-left {
@@ -315,19 +355,46 @@ button:disabled {
   padding: 10px 22px;
   font-size: 0.9rem;
   font-weight: 700;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
 }
 
+/* Semantic tinted-glass for the core trade actions — color-coded so they're
+   instantly readable, frosted so they stay on-theme over the backdrop. */
+#buy.btn-action {
+  background: var(--success-soft);
+  color: var(--success-text);
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
+}
+#sell.btn-action {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
+}
+#shortSell.btn-action {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+}
+#buy.btn-action:hover { background: color-mix(in srgb, var(--success) 22%, transparent); }
+#sell.btn-action:hover { background: color-mix(in srgb, var(--danger) 20%, transparent); }
+#shortSell.btn-action:hover { background: color-mix(in srgb, var(--warning) 22%, transparent); }
+
+/* End Turn is the primary CTA — solid accent so it stands apart from the trades. */
 .btn-action.btn-accent {
-  box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-sm);
+  border-color: transparent;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent), var(--glass-highlight);
 }
 .btn-action.btn-admin {
-  box-shadow: 0 0 0 2px var(--warning-soft), var(--shadow-sm);
+  border-color: transparent;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--warning) 38%, transparent), var(--glass-highlight);
 }
 .btn-action.btn-danger {
-  box-shadow: 0 0 0 2px var(--danger-soft), var(--shadow-sm);
+  border-color: transparent;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--danger) 38%, transparent), var(--glass-highlight);
 }
 
 /* --- Inputs --- */
@@ -373,10 +440,11 @@ input:focus, select:focus {
   margin: 0 auto;
   padding: 40px 32px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
+  backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-saturate));
   flex-shrink: 0;
 }
 
@@ -445,10 +513,11 @@ input:focus, select:focus {
   margin: 0 auto;
   padding: 32px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
+  backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-saturate));
 }
 
 .connection-status {
@@ -611,11 +680,12 @@ input:focus, select:focus {
   gap: 14px;
   padding: 10px 20px;
   background: var(--infobar-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-edge);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
   flex-wrap: wrap;
 }
 
@@ -736,6 +806,9 @@ input:focus, select:focus {
 
 .dash-widget {
   min-height: 0;
+  /* Allow grid items to shrink below content size so wide children (tables,
+     long log lines) scroll internally instead of stretching the page. */
+  min-width: 0;
 }
 
 .dash-widget.widget-full {
@@ -770,17 +843,19 @@ input:focus, select:focus {
 /* --- Dashboard Card --- */
 .dash-card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: box-shadow var(--transition), background var(--transition);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-md), var(--glass-highlight);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  transition: box-shadow var(--transition), background var(--transition), transform var(--transition);
 }
 
 .dash-card:hover {
-  box-shadow: var(--shadow-md);
+  background: var(--bg-card-hover);
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
+  transform: translateY(-2px);
 }
 
 .compact-card { padding: 6px 10px; }
@@ -1197,6 +1272,9 @@ input:focus, select:focus {
   padding: 8px;
   width: 100%;
   box-sizing: border-box;
+  /* Let each card honor its aspect-ratio instead of stretching to the
+     tallest sibling in the row (keeps the hand compact, esp. on phones). */
+  align-items: start;
 }
 
 @media (min-width: 901px) {
@@ -1210,6 +1288,25 @@ input:focus, select:focus {
 @media (max-width: 600px) {
   .cards-wrapper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
 }
+
+/* Card shell — tinted glass that lets the market backdrop glow through.
+   aspect-ratio is responsive so cards always have room for their text. */
+.hand-card {
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  transition: transform var(--transition), box-shadow var(--transition);
+  overflow: hidden;
+}
+.hand-card:not([class*="company-color"]) { background: var(--bg-card); }
+.hand-card:hover {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow: var(--shadow-md), var(--glass-highlight);
+}
+@media (max-width: 900px) { .hand-card { aspect-ratio: 3 / 2; } }
 
 /* Hand card content (structure for desktop + mobile overrides) */
 .hand-card-inner {
@@ -1357,15 +1454,6 @@ input:focus, select:focus {
 }
 .card-html.played-card:hover { transform: none; box-shadow: var(--shadow-sm); }
 
-.cards-wrapper {
-  display: flex;
-  overflow-x: auto;
-  gap: 6px;
-  padding: 4px 2px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* --- Price Log Table --- */
 /* --- Price History (single horizontal row, scroll) --- */
 .price-history-panel .price-history-inner {
@@ -1503,7 +1591,8 @@ input:focus, select:focus {
   background-color: var(--bg-overlay);
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
 }
 
 .modal[style*="flex"] { display: flex !important; }
@@ -1512,14 +1601,16 @@ input:focus, select:focus {
   background: var(--bg-modal);
   margin: 0;
   padding: 28px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-edge);
   width: 90%;
   max-width: 480px;
   border-radius: var(--radius-xl);
   position: relative;
   text-align: left;
   color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-lg), var(--glass-highlight);
 }
 
 .modal-content h2 {
@@ -1940,19 +2031,64 @@ input:focus, select:focus {
     grid-template-columns: 1fr;
   }
 
-  body { padding-top: 110px; font-size: 13px; }
+  /* Compact top status strip + room for the floating bottom action dock. */
+  body { padding-top: 96px; padding-bottom: calc(96px + env(safe-area-inset-bottom)); font-size: 13px; }
 
   #info-bar {
     padding: 8px 12px;
     gap: 8px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .info-bar-left { flex: 1 1 auto; min-width: 0; }
+  .info-bar-right { flex: 0 0 auto; }
+
+  /* #controls remains in the top bar but now only carries admin buttons —
+     the core trade actions are docked at the bottom (see below). */
+  .info-bar-actions { flex: 0 0 auto; width: auto; }
+
+  /* PRIMARY ACTIONS — a thumb-reachable floating glass dock. On tablets it's a
+     centered pill; on phones (below) it goes edge-to-edge. */
+  .action-buttons {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 14px;
+    width: calc(100% - 28px);
+    max-width: 600px;
+    z-index: 1500;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--infobar-bg);
+    backdrop-filter: blur(calc(var(--glass-blur) + 12px)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 12px)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.22), var(--glass-highlight);
+  }
+  .action-buttons .btn-action {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 50px;
+    padding: 12px 6px;
+    font-size: 0.82rem;
+    letter-spacing: 0.2px;
   }
 
-  .action-buttons { flex-wrap: wrap; gap: 6px; }
-  .btn-action { padding: 8px 16px; font-size: 0.8rem; }
+  /* Admin actions: small chips in the top bar (occasional, not the turn loop). */
+  .admin-action-buttons { display: flex; gap: 6px; }
+  .admin-action-buttons .btn-action {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+  }
 }
 
 @media (max-width: 600px) {
-  body { padding-top: 120px; }
+  /* Phones: top strip full-width, bottom dock goes edge-to-edge. */
+  body { padding-top: 98px; padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
 
   #info-bar {
     width: 100%;
@@ -1960,57 +2096,54 @@ input:focus, select:focus {
     left: 0;
     right: 0;
     transform: none;
-    padding: 8px 10px;
+    padding: 7px 10px;
     gap: 8px;
-    flex-direction: column;
-    align-items: stretch;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
   }
 
   .info-bar-left {
-    justify-content: space-between;
     align-items: center;
     flex-wrap: nowrap;
-    min-height: 36px;
+    min-width: 0;
+    gap: 8px;
   }
 
   .info-bar-left #period.chip {
-    padding: 6px 10px;
-    font-size: 0.8rem;
+    padding: 5px 10px;
+    font-size: 0.78rem;
     min-height: 32px;
   }
 
-  .info-bar-right {
-    justify-content: flex-end;
-    flex-shrink: 0;
-    order: 1;
-  }
+  /* Reset-layout is a desktop drag-reorder helper; reclaim the space on phones
+     so the status + timer + admin button never collide. */
+  .info-bar-right { display: none; }
 
-  .info-bar-left { order: 0; }
-  .info-bar-actions {
-    order: 2;
-    width: 100%;
-    justify-content: stretch;
-  }
-
+  /* Edge-to-edge bottom dock */
   .action-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    left: 0;
+    right: 0;
+    transform: none;
     width: 100%;
+    max-width: none;
+    bottom: 0;
+    gap: 6px;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    border: none;
+    border-top: 1px solid var(--glass-edge);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.18), var(--glass-highlight);
   }
-
-  .admin-action-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    width: 100%;
-  }
-
-  .btn-action {
-    min-height: 44px;
-    padding: 12px 8px;
-    font-size: 0.85rem;
+  .action-buttons .btn-action {
+    min-height: 48px;
+    padding: 10px 4px;
+    font-size: 0.74rem;
     margin: 0;
+  }
+
+  .admin-action-buttons .btn-action {
+    min-height: 32px;
+    padding: 5px 9px;
+    font-size: 0.66rem;
   }
 
   .dash-card { padding: 8px 10px; }

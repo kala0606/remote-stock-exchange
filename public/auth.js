@@ -144,15 +144,23 @@ function showAuthError(message) {
 }
 
 function showAuthScreen() {
-  if (authScreen) authScreen.style.display = 'block';
-  if (lobby) lobby.style.display = 'none';
+  // Logout / "not signed in" — always return to the auth screen.
+  if (window.setActiveScreen) window.setActiveScreen('auth');
+  else if (authScreen) authScreen.style.display = 'block';
   loginForm.style.display = 'none';
   userInfo.style.display = 'none';
 }
 
 function showLobby() {
-  if (authScreen) authScreen.style.display = 'none';
-  if (lobby) lobby.style.display = 'block';
+  // Never downgrade an active (or finished) game back to the lobby — this
+  // guards against the Firebase auth callback racing with a session rejoin.
+  const current = window.getActiveScreen && window.getActiveScreen();
+  if (current === 'game' || current === 'gameover') {
+    updateModeIndicator();
+    return;
+  }
+  if (window.setActiveScreen) window.setActiveScreen('lobby');
+  else if (authScreen) { authScreen.style.display = 'none'; if (lobby) lobby.style.display = 'block'; }
   loginForm.style.display = 'none';
   userInfo.style.display = 'none';
   updateModeIndicator();
@@ -176,12 +184,13 @@ function updateModeIndicator() {
   }
 }
 
-// Initialize: Show auth screen by default
-// onAuthStateChanged will handle the actual display logic
-// But we need to ensure auth screen is visible initially
-if (authScreen) {
+// Initialize: Show auth screen by default (unless a session rejoin has already
+// put us into a game/lobby). onAuthStateChanged refines this once Firebase loads.
+if (window.getActiveScreen && (window.getActiveScreen() === 'game' || window.getActiveScreen() === 'gameover')) {
+  // Already in a game via session rejoin — leave it alone.
+} else if (window.setActiveScreen) {
+  window.setActiveScreen('auth');
+} else if (authScreen) {
   authScreen.style.display = 'block';
-}
-if (lobby) {
-  lobby.style.display = 'none';
+  if (lobby) lobby.style.display = 'none';
 }

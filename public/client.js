@@ -368,6 +368,58 @@ const activityLogPanel = document.getElementById('activity-log-panel');
 const activityLogContent = document.getElementById('activity-log-content');
 const adminEndGameBtn = document.getElementById('adminEndGameBtn'); // NEW: End Game Button
 const gameOverScreen = document.getElementById('game-over-screen'); // NEW: Game Over Screen
+
+// --- Single source of truth for which top-level screen is visible ---
+// Exactly one of auth / lobby / game / gameover is shown at a time, so the
+// game UI (and its fixed info-bar) can never overlap the auth/login screen.
+const SCREEN_ELEMENT_IDS = {
+    auth: 'auth-screen',
+    lobby: 'lobby',
+    game: 'game',
+    gameover: 'game-over-screen'
+};
+let activeScreen = 'auth';
+function setActiveScreen(name) {
+    activeScreen = name;
+    Object.entries(SCREEN_ELEMENT_IDS).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (key === name) ? 'block' : 'none';
+    });
+    if (name === 'game' && typeof syncActionDockPlacement === 'function') {
+        syncActionDockPlacement();
+    }
+}
+// Pre-game screen depends on whether a mode (guest/login) has been chosen.
+function showPreGameScreen() {
+    const mode = window.authState && window.authState.mode;
+    setActiveScreen(mode ? 'lobby' : 'auth');
+}
+window.setActiveScreen = setActiveScreen;
+window.getActiveScreen = () => activeScreen;
+
+// The primary action buttons become a fixed bottom dock on small screens.
+// Because #info-bar has a backdrop-filter/transform (which makes it the
+// containing block for position:fixed descendants), the dock must live OUTSIDE
+// the info-bar to anchor to the viewport. We reparent it into #game on mobile
+// and back into the top bar (#controls) on desktop. Moving the node preserves
+// its event listeners, so no rebinding is needed.
+function syncActionDockPlacement() {
+    const actions = document.querySelector('.action-buttons');
+    const controls = document.getElementById('controls');
+    const game = document.getElementById('game');
+    if (!actions || !controls || !game) return;
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    if (isMobile) {
+        if (actions.parentElement !== game) game.appendChild(actions);
+    } else if (actions.parentElement !== controls) {
+        const admin = controls.querySelector('.admin-action-buttons');
+        if (admin) controls.insertBefore(actions, admin);
+        else controls.appendChild(actions);
+    }
+}
+window.syncActionDockPlacement = syncActionDockPlacement;
+window.addEventListener('resize', syncActionDockPlacement);
+window.addEventListener('DOMContentLoaded', syncActionDockPlacement);
 const playerWorthChartCanvas = document.getElementById('playerWorthChart'); // NEW: Chart Canvas
 const winnerAnnouncementElement = document.getElementById('winner-announcement'); // NEW: Winner announcement
 const wisdomQuoteElement = document.getElementById('wisdom-quote'); // NEW: Wisdom quote
@@ -491,8 +543,7 @@ socket.on('connect', () => {
                 history.replaceState(null, '', window.location.pathname);
                 currentSessionToken = null;
                 isRejoining = false;
-                if (lobbyScreen) lobbyScreen.style.display = 'block';
-                if (gameScreen) gameScreen.style.display = 'none';
+                showPreGameScreen();
                 return;
             }
             currentRoom = response.roomID;
@@ -502,8 +553,7 @@ socket.on('connect', () => {
         });
     } else {
         console.log('[connect] No session token found. Fresh connection.');
-        if (lobbyScreen) lobbyScreen.style.display = 'block';
-        if (gameScreen) gameScreen.style.display = 'none';
+        showPreGameScreen();
     }
 });
 
@@ -941,13 +991,7 @@ socket.on('gameState', state => {
         }
     }
     
-    if (lobbyScreen && gameScreen && lobbyScreen.style.display !== 'none') {
-        lobbyScreen.style.display = 'none';
-        gameScreen.style.display = 'block';
-    } else {
-        lobbyScreen.style.display = 'block'; // MODIFIED FROM flex
-        gameScreen.style.display = 'none';
-    }
+    // Screen visibility is decided authoritatively below (based on gameStarted).
     
     updateUI(state);
 });
@@ -1127,6 +1171,10 @@ function updateSentimentBoxGradient(sentiment) {
 function updateBackgroundGradient(sentiment) {
     const clampedSentiment = Math.max(-50, Math.min(50, sentiment));
     updateSentimentBoxGradient(clampedSentiment);
+    // Drive the full-screen fluid market backdrop with the same sentiment.
+    if (typeof updateFluidGradient === 'function') {
+        updateFluidGradient(clampedSentiment);
+    }
 }
 
 // Modify the updateUI function to include sentiment calculation and background update
@@ -1161,8 +1209,7 @@ function updateUI(state) {
 
     if (!state || !state.players || !state.state) {
         console.error("[updateUI] Invalid or incomplete game state received (missing players or state.state).");
-        if (lobbyScreen) lobbyScreen.style.display = 'flex';
-        if (gameScreen) gameScreen.style.display = 'none';
+        showPreGameScreen();
         return;
     }
 
@@ -1281,14 +1328,13 @@ function updateUI(state) {
     updateMarketIndex();
     updateSentimentDisplay();
 
-    if (lobbyScreen && gameScreen) {
-        if (state.state && state.state.gameStarted) {
-            lobbyScreen.style.display = 'none';
-            gameScreen.style.display = 'block';
-        } else {
-            lobbyScreen.style.display = 'block';
-            gameScreen.style.display = 'none';
-        }
+    // Authoritative screen decision: in-game players see the game; everyone
+    // else sees the lobby. This also hides the auth screen so the game's
+    // fixed info-bar can never overlap the login UI.
+    if (state.state && state.state.gameStarted) {
+        setActiveScreen('game');
+    } else {
+        setActiveScreen('lobby');
     }
 
     // Admin Decision Panel Logic
@@ -2813,20 +2859,11 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
     // Clear existing cards from the content area
     handContent.innerHTML = '';
 
-    // Create a grid container for cards (5 columns on desktop = 2 full rows for 10 cards)
+    // Create a grid container for cards. Columns + card aspect-ratio are driven
+    // entirely by CSS media queries (.cards-wrapper) so the hand reflows live on
+    // resize instead of being frozen at the width it was first rendered at.
     const cardsWrapper = document.createElement('div');
     cardsWrapper.className = 'cards-wrapper';
-    
-    const screenWidth = window.innerWidth;
-    let gridStyle;
-    if (screenWidth <= 600) {
-        gridStyle = `display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; width: 100%; box-sizing: border-box;`;
-    } else if (screenWidth <= 900) {
-        gridStyle = `display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 8px; width: 100%; box-sizing: border-box;`;
-    } else {
-        gridStyle = `display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 8px; width: 100%; box-sizing: border-box;`;
-    }
-    cardsWrapper.style.cssText = gridStyle;
 
     // Add cards to the wrapper
     playerHandArray.forEach((card, index) => {
@@ -2848,14 +2885,12 @@ function renderPlayerHand(playerHandArray, companiesStaticData) {
             cardElement.classList.add(cardClass);
         }
         
+        // Visual sizing (aspect-ratio, radius, shadow) lives in CSS so it stays
+        // responsive; keep only structural layout inline.
         cardElement.style.cssText = `
             width: 100%;
-            aspect-ratio: 2/1;
             position: relative;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
             cursor: pointer;
-            transition: all 0.2s ease;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -3110,9 +3145,8 @@ socket.on('gameSummaryReceived', (summaryData) => {
     console.log('[gameSummaryReceived]', summaryData);
     
     // Hide other screens and show analytics
-    if (lobbyScreen) lobbyScreen.style.display = 'none';
+    setActiveScreen('gameover');
     if (gameOverScreen) {
-        gameOverScreen.style.display = 'block'; // Changed from flex to block for full page
         gameOverScreen.scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -3696,6 +3730,10 @@ if (themeToggleBtn) {
         updateThemeIcon(next);
         // Update chart colors if charts exist
         updateChartTheme();
+        // Re-tone the fluid backdrop to match the new theme
+        if (typeof setFluidGradientTheme === 'function') {
+            setFluidGradientTheme(next === 'dark');
+        }
     });
 }
 

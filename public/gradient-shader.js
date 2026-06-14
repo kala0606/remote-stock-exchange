@@ -1,649 +1,317 @@
-// Silence console output for gradient shader
-try {
-    const noop = function(){};
-    const originalConsole = {
-        log: console.log,
-        warn: console.warn,
-        info: console.info,
-        debug: console.debug,
-        error: console.error
-    };
-    console.log = noop;
-    console.warn = noop;
-    console.info = noop;
-    console.debug = noop;
-    console.error = noop;
-} catch (e) {}
+// ============================================================================
+// Remote Stock Exchange — Fluid Market Backdrop
+// A full-screen WebGL fluid gradient whose hue is driven by live market
+// sentiment (green = bullish, red = bearish, neutral = calm) and whose base
+// tone follows the active light/dark theme. Designed as the refractive
+// backdrop for the glassmorphism UI: soft, low-frequency motion that reads
+// beautifully through frosted panels without fighting text legibility.
+// ============================================================================
 
-// Background Fluid Gradient Shader System (Grayscale)
-class BackgroundFluidGradient {
+class MarketBackdrop {
     constructor() {
         this.canvas = null;
         this.gl = null;
         this.program = null;
         this.uniforms = {};
         this.animationId = null;
-        this.startTime = Date.now();
-        
+        this.startTime = performance.now();
+
+        // Eased state — we lerp toward targets so sentiment/theme changes glide.
+        this.sentiment = 0;        // current (eased) sentiment, -50..50
+        this.targetSentiment = 0;  // requested sentiment
+        this.dark = this._isDark();
+        this.base = this._baseFor(this.dark);   // current eased base color
+        this.targetBase = this.base.slice();
+
+        this.reducedMotion = window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
         this.init();
     }
-    
+
+    _isDark() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+
+    // Base canvas tone per theme. Kept deep/neutral so the colored sentiment
+    // accent and the glass panels do the talking.
+    _baseFor(dark) {
+        return dark ? [0.043, 0.043, 0.105] /* #0b0b1b */
+                    : [0.953, 0.961, 0.984] /* #f3f5fb */;
+    }
+
     init() {
-        // Create canvas element for background
         this.canvas = document.createElement('canvas');
-        this.canvas.style.position = 'fixed';
-        this.canvas.style.top = '0';
-        this.canvas.style.left = '0';
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
-        this.canvas.style.zIndex = '-1';
-        this.canvas.style.pointerEvents = 'none';
+        Object.assign(this.canvas.style, {
+            position: 'fixed',
+            inset: '0',
+            width: '100%',
+            height: '100%',
+            zIndex: '-1',
+            pointerEvents: 'none',
+            display: 'block'
+        });
+        this.canvas.id = 'market-backdrop-canvas';
         document.body.appendChild(this.canvas);
-        
-        // Get WebGL context
-        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+
+        this.gl = this.canvas.getContext('webgl', { antialias: false, alpha: false }) ||
+                  this.canvas.getContext('experimental-webgl');
         if (!this.gl) {
-            console.error('WebGL not supported for background shader');
+            // No WebGL: fall back to a CSS gradient so the page still looks intentional.
+            this.canvas.remove();
+            document.body.classList.add('no-webgl-bg');
             return;
         }
-        
-        // Set canvas size
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
-        
-        // Create shader program
+
+        // Pause rendering when the tab is hidden to save battery.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this._stop();
+            } else if (!this.reducedMotion) {
+                this._start();
+            }
+        });
+
         this.createShaderProgram();
-        
-        // Start animation
-        this.animate();
+
+        if (this.reducedMotion) {
+            this._renderFrame(0); // single static frame, no animation loop
+        } else {
+            this._start();
+        }
     }
-    
+
     resize() {
-        const dpr = window.devicePixelRatio || 1;
-        this.canvas.width = window.innerWidth * dpr;
-        this.canvas.height = window.innerHeight * dpr;
+        // Cap DPR for performance — the backdrop is soft, so it doesn't need
+        // full retina density. Lower the cap further on small screens.
+        const small = window.innerWidth < 700;
+        const dpr = Math.min(window.devicePixelRatio || 1, small ? 1.25 : 1.5);
+        const w = Math.floor(window.innerWidth * dpr);
+        const h = Math.floor(window.innerHeight * dpr);
+        this.canvas.width = w;
+        this.canvas.height = h;
         this.canvas.style.width = window.innerWidth + 'px';
         this.canvas.style.height = window.innerHeight + 'px';
-        
-        if (this.gl) {
-            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        }
+        if (this.gl) this.gl.viewport(0, 0, w, h);
     }
-    
+
     createShaderProgram() {
-        const vertexShaderSource = `
+        const vert = `
             attribute vec2 a_position;
-            varying vec2 vTexCoord;
-            
+            varying vec2 vUv;
             void main() {
                 gl_Position = vec4(a_position, 0.0, 1.0);
-                vTexCoord = (a_position + 1.0) * 0.5;
+                vUv = (a_position + 1.0) * 0.5;
             }
         `;
-        
-        const fragmentShaderSource = `
+
+        const frag = `
             precision highp float;
-            
-            varying vec2 vTexCoord;
-            
-            uniform vec2 iResolution;
+            varying vec2 vUv;
+
+            uniform vec2  iResolution;
             uniform float iTime;
-            
-            // Noise functions
-            float rand(vec2 n) { 
+            uniform float u_sentiment;   // -50 .. 50
+            uniform vec3  u_base;        // theme base tone
+            uniform float u_dark;        // 1.0 when dark theme
+
+            float rand(vec2 n) {
                 return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
             }
-            
+
             float noise(vec2 p) {
                 vec2 ip = floor(p);
                 vec2 u = fract(p);
-                u = u*u*u*(u*(u*6.0-15.0)+10.0);
-                
-                float res = mix(
-                    mix(rand(ip), rand(ip+vec2(1.0,0.0)), u.x),
-                    mix(rand(ip+vec2(0.0,1.0)), rand(ip+vec2(1.0,1.0)), u.x), u.y);
-                return res;
+                u = u * u * u * (u * (u * 6.0 - 15.0) + 10.0);
+                return mix(
+                    mix(rand(ip), rand(ip + vec2(1.0, 0.0)), u.x),
+                    mix(rand(ip + vec2(0.0, 1.0)), rand(ip + vec2(1.0, 1.0)), u.x), u.y);
             }
-            
-            float sharpNoise(vec2 p) {
-                float n = noise(p);
-                n = smoothstep(0.2, 0.8, n);
-                return n;
-            }
-            
-            mat2 getRotationMatrix(float time) {
-                float angle = time * 0.2;
-                float c = cos(angle);
-                float s = sin(angle);
+
+            mat2 rot(float a) {
+                float c = cos(a), s = sin(a);
                 return mat2(c, -s, s, c);
             }
-            
+
+            // Soft, slowly churning fractal flow — low frequency on purpose.
             float fbm(vec2 p) {
                 float f = 0.0;
-                mat2 rotMtx = getRotationMatrix(iTime * 0.1);
-                p = rotMtx * p;
-                
-                f += 0.500000 * sharpNoise(p + iTime * 0.3);
-                p = rotMtx * p * 2.02;
-                f += 0.250000 * sharpNoise(p);
-                p = rotMtx * p * 2.01;
-                f += 0.125000 * noise(p);
-                p = rotMtx * p * 2.03;
-                f += 0.062500 * noise(p);
+                mat2 m = rot(iTime * 0.06);
+                p = m * p;
+                f += 0.5000 * noise(p + iTime * 0.10);
+                p = m * p * 2.02;
+                f += 0.2500 * noise(p);
+                p = m * p * 2.01;
+                f += 0.1250 * noise(p);
+                p = m * p * 2.03;
+                f += 0.0625 * noise(p);
                 return f / 0.9375;
             }
-            
+
             float pattern(vec2 p) {
-                float base = fbm(p + fbm(p * 0.5));
-                float layers = sin(base * 6.0) * 0.5 + 0.5;
-                layers = smoothstep(0.3, 0.7, layers);
-                return mix(base, layers, 0.4);
+                return fbm(p + fbm(p * 0.5));
             }
-            
+
             void main() {
-                vec2 uv = vTexCoord;
-                
-                vec2 centered_uv = uv - 0.5;
-                centered_uv.x *= iResolution.x / iResolution.y;
-                
-                mat2 globalRotation = getRotationMatrix(iTime * 0.05);
-                centered_uv = globalRotation * centered_uv;
-                
-                vec2 pattern_uv = centered_uv + 0.5;
-                
-                float shade = pattern(pattern_uv * 2.5);
-                
-                float contours = sin(shade * 8.0) * 0.5 + 0.5;
-                contours = smoothstep(0.3, 0.7, contours);
-                shade = mix(shade, contours, 0.2);
-                
-                // Lighter grayscale colors with white highlights
-                vec3 baseColor = vec3(0.94, 0.94, 0.94); // Much lighter gray base (closer to white)
-                vec3 accentColor = vec3(0.88, 0.88, 0.88); // Light gray accent
-                
-                // Very subtle pattern mixing
-                float patternThreshold = 0.5;
-                float colorMix = smoothstep(patternThreshold - 0.05, patternThreshold + 0.05, shade);
-                
-                vec3 finalColor = mix(baseColor, accentColor, colorMix * 0.3); // Slightly more contrast
-                
-                // Enhanced white highlights
-                vec3 whiteHighlight = vec3(1.0, 1.0, 1.0); // Pure white highlights
-                float highlightPattern = sin(shade * 8.0 + iTime * 0.3) * 0.5 + 0.5;
-                highlightPattern = smoothstep(0.75, 0.9, highlightPattern); // More frequent highlights
-                finalColor = mix(finalColor, whiteHighlight, highlightPattern * 0.08); // Stronger white mixing
-                
-                // Subtle animation
-                float timeWave = sin(iTime * 0.2) * 0.02 + 0.98;
-                finalColor *= timeWave;
-                    
-                gl_FragColor = vec4(finalColor, 1.0);
+                vec2 uv = vUv;
+                vec2 c = uv - 0.5;
+                c.x *= iResolution.x / iResolution.y;
+                c = rot(iTime * 0.03) * c;
+                vec2 puv = c + 0.5;
+
+                float shade = pattern(puv * 1.7);
+
+                // Sentiment → accent color + intensity.
+                float s = u_sentiment;
+                float intensity = clamp(abs(s) / 42.0, 0.0, 1.0);
+
+                // Bullish (green) vs bearish (red) accent, tuned per theme.
+                vec3 bull = (u_dark > 0.5) ? vec3(0.10, 0.62, 0.42) : vec3(0.36, 0.80, 0.55);
+                vec3 bear = (u_dark > 0.5) ? vec3(0.66, 0.18, 0.30) : vec3(0.92, 0.46, 0.50);
+                vec3 accent = (s >= 0.0) ? bull : bear;
+
+                // Blend base toward accent following the fluid shade.
+                float band = smoothstep(0.30, 0.72, shade);
+                vec3 col = mix(u_base, accent, band * intensity * 0.85);
+
+                // Gentle luminous veining for depth (very subtle).
+                float vein = smoothstep(0.74, 0.95, sin(shade * 7.0 + iTime * 0.25) * 0.5 + 0.5);
+                vec3 hi = (u_dark > 0.5) ? vec3(0.16, 0.18, 0.34) : vec3(1.0);
+                col = mix(col, hi, vein * (u_dark > 0.5 ? 0.10 : 0.06));
+
+                // Soft radial vignette to settle the edges and focus the center.
+                float vig = smoothstep(1.15, 0.25, length(uv - 0.5));
+                col *= mix(0.88, 1.0, vig);
+
+                // Breathing motion.
+                col *= 0.97 + 0.03 * sin(iTime * 0.2);
+
+                gl_FragColor = vec4(col, 1.0);
             }
         `;
-        
-        // Create shaders
-        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
-        
-        // Create program
-        this.program = this.gl.createProgram();
-        this.gl.attachShader(this.program, vertexShader);
-        this.gl.attachShader(this.program, fragmentShader);
-        this.gl.linkProgram(this.program);
-        
-        if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
-            console.error('Background shader program failed to link:', this.gl.getProgramInfoLog(this.program));
+
+        const vs = this._compile(this.gl.VERTEX_SHADER, vert);
+        const fs = this._compile(this.gl.FRAGMENT_SHADER, frag);
+        const prog = this.gl.createProgram();
+        this.gl.attachShader(prog, vs);
+        this.gl.attachShader(prog, fs);
+        this.gl.linkProgram(prog);
+        if (!this.gl.getProgramParameter(prog, this.gl.LINK_STATUS)) {
+            this.canvas.remove();
+            document.body.classList.add('no-webgl-bg');
+            this.gl = null;
             return;
         }
-        
-        // Get attribute and uniform locations
-        const positionLocation = this.gl.getAttribLocation(this.program, 'a_position');
-        
+        this.program = prog;
+
+        const pos = this.gl.getAttribLocation(prog, 'a_position');
         this.uniforms = {
-            iResolution: this.gl.getUniformLocation(this.program, 'iResolution'),
-            iTime: this.gl.getUniformLocation(this.program, 'iTime')
+            iResolution: this.gl.getUniformLocation(prog, 'iResolution'),
+            iTime: this.gl.getUniformLocation(prog, 'iTime'),
+            u_sentiment: this.gl.getUniformLocation(prog, 'u_sentiment'),
+            u_base: this.gl.getUniformLocation(prog, 'u_base'),
+            u_dark: this.gl.getUniformLocation(prog, 'u_dark')
         };
-        
-        // Create buffer for full-screen quad
-        const buffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+
+        const buf = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buf);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
-            -1, -1,
-             1, -1,
-            -1,  1,
-            -1,  1,
-             1, -1,
-             1,  1,
+            -1, -1, 1, -1, -1, 1,
+            -1, 1, 1, -1, 1, 1
         ]), this.gl.STATIC_DRAW);
-        
-        this.gl.enableVertexAttribArray(positionLocation);
-        this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(pos);
+        this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
     }
-    
-    createShader(type, source) {
-        const shader = this.gl.createShader(type);
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-        
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error('Background shader compilation error:', this.gl.getShaderInfoLog(shader));
-            this.gl.deleteShader(shader);
+
+    _compile(type, src) {
+        const sh = this.gl.createShader(type);
+        this.gl.shaderSource(sh, src);
+        this.gl.compileShader(sh);
+        if (!this.gl.getShaderParameter(sh, this.gl.COMPILE_STATUS)) {
+            this.gl.deleteShader(sh);
             return null;
         }
-        
-        return shader;
+        return sh;
     }
-    
-    animate() {
+
+    _renderFrame(t) {
         if (!this.gl || !this.program) return;
-        
-        const currentTime = (Date.now() - this.startTime) / 1000.0;
-        
-        // Set uniforms
-        this.gl.useProgram(this.program);
-        this.gl.uniform2f(this.uniforms.iResolution, this.canvas.width, this.canvas.height);
-        this.gl.uniform1f(this.uniforms.iTime, currentTime);
-        
-        // Draw
-        this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
-        
-        this.animationId = requestAnimationFrame(() => this.animate());
+        const gl = this.gl;
+        gl.useProgram(this.program);
+        gl.uniform2f(this.uniforms.iResolution, this.canvas.width, this.canvas.height);
+        gl.uniform1f(this.uniforms.iTime, t);
+        gl.uniform1f(this.uniforms.u_sentiment, this.sentiment);
+        gl.uniform3f(this.uniforms.u_base, this.base[0], this.base[1], this.base[2]);
+        gl.uniform1f(this.uniforms.u_dark, this.dark ? 1.0 : 0.0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
-    
-    destroy() {
+
+    _start() {
+        if (this.animationId) return;
+        const loop = () => {
+            const t = (performance.now() - this.startTime) / 1000.0;
+            // Ease eased-state toward targets for buttery transitions.
+            this.sentiment += (this.targetSentiment - this.sentiment) * 0.05;
+            for (let i = 0; i < 3; i++) {
+                this.base[i] += (this.targetBase[i] - this.base[i]) * 0.08;
+            }
+            this._renderFrame(t);
+            this.animationId = requestAnimationFrame(loop);
+        };
+        this.animationId = requestAnimationFrame(loop);
+    }
+
+    _stop() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
+            this.animationId = null;
         }
-        if (this.canvas && this.canvas.parentNode) {
-            this.canvas.parentNode.removeChild(this.canvas);
+    }
+
+    // ---- Public API -------------------------------------------------------
+    setSentiment(value) {
+        const v = Math.max(-50, Math.min(50, Number(value) || 0));
+        this.targetSentiment = v;
+        if (this.reducedMotion) { // no loop running — snap + draw once
+            this.sentiment = v;
+            this._renderFrame((performance.now() - this.startTime) / 1000.0);
         }
+    }
+
+    setTheme(isDark) {
+        this.dark = !!isDark;
+        this.targetBase = this._baseFor(this.dark);
+        if (this.reducedMotion) {
+            this.base = this.targetBase.slice();
+            this._renderFrame((performance.now() - this.startTime) / 1000.0);
+        }
+    }
+
+    destroy() {
+        this._stop();
+        if (this.canvas && this.canvas.parentNode) this.canvas.remove();
     }
 }
 
-// Title Bar Fluid Gradient Shader System
-class FluidGradient {
-    constructor() {
-        this.canvas = null;
-        this.gl = null;
-        this.program = null;
-        this.uniforms = {};
-        this.animationId = null;
-        this.startTime = Date.now();
-        
-        this.init();
-    }
-    
-    init() {
-        // Get the title bar element
-        const titleBar = document.getElementById('title-bar');
-        if (!titleBar) {
-            console.error('Title bar element not found');
-            return;
-        }
-        
-        // Create canvas element
-        this.canvas = document.createElement('canvas');
-        this.canvas.style.position = 'absolute';
-        this.canvas.style.top = '0';
-        this.canvas.style.left = '0';
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
-        this.canvas.style.zIndex = '1999';
-        this.canvas.style.pointerEvents = 'none';
-        
-        // Append to title bar instead of body
-        titleBar.appendChild(this.canvas);
-        
-        // Get WebGL context
-        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
-        if (!this.gl) {
-            console.error('WebGL not supported');
-            return;
-        }
-        
-        // Set canvas size
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-        
-        // Create shader program
-        this.createShaderProgram();
-        
-        // Start animation
-        this.animate();
-    }
-    
-    resize() {
-        const titleBar = document.getElementById('title-bar');
-        if (!titleBar) return;
-        
-        const dpr = window.devicePixelRatio || 1;
-        const rect = titleBar.getBoundingClientRect();
-        
-        this.canvas.width = rect.width * dpr;
-        this.canvas.height = rect.height * dpr;
-        this.canvas.style.width = rect.width + 'px';
-        this.canvas.style.height = rect.height + 'px';
-        
-        if (this.gl) {
-            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        }
-    }
-    
-    createShaderProgram() {
-        const vertexShaderSource = `
-            attribute vec2 a_position;
-            varying vec2 vTexCoord;
-            
-            void main() {
-                gl_Position = vec4(a_position, 0.0, 1.0);
-                vTexCoord = (a_position + 1.0) * 0.5;
-            }
-        `;
-        
-        const fragmentShaderSource = `
-            precision highp float;
-            
-            varying vec2 vTexCoord;
-            
-            uniform vec2 iResolution;
-            uniform float iTime;
-            uniform float u_sentiment;
-            uniform vec3 u_baseColor;
-            uniform vec3 u_accentColor;
-            
-            // Noise functions
-            float rand(vec2 n) { 
-                return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
-            }
-            
-            float noise(vec2 p) {
-                vec2 ip = floor(p);
-                vec2 u = fract(p);
-                // Make transitions sharper for water-like effect
-                u = u*u*u*(u*(u*6.0-15.0)+10.0);
-                
-                float res = mix(
-                    mix(rand(ip), rand(ip+vec2(1.0,0.0)), u.x),
-                    mix(rand(ip+vec2(0.0,1.0)), rand(ip+vec2(1.0,1.0)), u.x), u.y);
-                return res;
-            }
-            
-            // Softer noise for water-like contours
-            float sharpNoise(vec2 p) {
-                float n = noise(p);
-                // Create softer contours with gentle transitions
-                n = smoothstep(0.2, 0.8, n);
-                return n;
-            }
-            
-            // Create rotation matrix
-            mat2 getRotationMatrix(float time) {
-                float angle = time * 0.2;
-                float c = cos(angle);
-                float s = sin(angle);
-                return mat2(c, -s, s, c);
-            }
-            
-            // Fractal Brownian Motion with water-like characteristics
-            float fbm(vec2 p) {
-                float f = 0.0;
-                mat2 rotMtx = getRotationMatrix(iTime * 0.1);
-                p = rotMtx * p;
-                
-                // Use sharper noise for water-like contours
-                f += 0.500000 * sharpNoise(p + iTime * 0.3);
-                p = rotMtx * p * 2.02;
-                f += 0.250000 * sharpNoise(p);
-                p = rotMtx * p * 2.01;
-                f += 0.125000 * noise(p); // Keep some regular noise for detail
-                p = rotMtx * p * 2.03;
-                f += 0.062500 * noise(p);
-                return f / 0.9375;
-            }
-            
-            // Water-like pattern function with softer contours
-            float pattern(vec2 p) {
-                float base = fbm(p + fbm(p * 0.5));
-                // Create softer water-like layers
-                float layers = sin(base * 6.0) * 0.5 + 0.5;
-                layers = smoothstep(0.3, 0.7, layers);
-                return mix(base, layers, 0.4);
-            }
-            
-            // Smooth color interpolation
-            vec3 smoothColorMix(vec3 color1, vec3 color2, float t) {
-                t = clamp(t, 0.0, 1.0);
-                return mix(color1, color2, smoothstep(0.0, 1.0, t));
-            }
-            
-            void main() {
-                vec2 uv = vTexCoord;
-                
-                // Center coordinates for rotation
-                vec2 centered_uv = uv - 0.5;
-                centered_uv.x *= iResolution.x / iResolution.y;
-                
-                // Apply global rotation
-                mat2 globalRotation = getRotationMatrix(iTime * 0.05);
-                centered_uv = globalRotation * centered_uv;
-                
-                // Move back to UV space
-                vec2 pattern_uv = centered_uv + 0.5;
-                
-            // Generate water-like pattern with multiple scales - zoomed in more
-            float shade = pattern(pattern_uv * 1.2);
-            
-            // Add subtle water-like contours with soft edges - adjusted for new scale
-            float contours = sin(shade * 6.0) * 0.5 + 0.5;
-            contours = smoothstep(0.3, 0.7, contours); // Softer edges
-            shade = mix(shade, contours, 0.2);
-            
-            // Create gradient based on sentiment
-            vec3 baseColor = u_baseColor; // Grey base
-            vec3 accentColor = u_accentColor; // Green or red accent
-            
-            // Add subtle white highlights for depth
-            vec3 whiteHighlight = vec3(1.0, 1.0, 1.0);
-            float highlightPattern = sin(shade * 7.0 + iTime * 0.5) * 0.5 + 0.5;
-            highlightPattern = smoothstep(0.7, 0.9, highlightPattern);
-            
-            // Mix colors based on pattern and sentiment intensity
-            float intensity = abs(u_sentiment) / 50.0; // Normalize sentiment to 0-1
-            intensity = clamp(intensity, 0.0, 1.0);
-            
-            // Create softer transitions with subtle blur
-            float patternThreshold = 0.4;
-            float colorMix = smoothstep(patternThreshold - 0.15, patternThreshold + 0.15, shade);
-            
-            // Create stronger contrast between base and accent colors
-            vec3 finalColor;
-            if (intensity > 0.1) {
-                // When there's sentiment, create visible 40% white / 60% accent split with enhanced saturation
-                vec3 enhancedAccent = accentColor;
-                
-                // Boost saturation by increasing the difference from grey
-                if (u_sentiment > 0.0) {
-                    // Green: enhance green channel more aggressively and reduce red/blue
-                    enhancedAccent.r = max(0.0, accentColor.r - 0.15);
-                    enhancedAccent.g = min(1.0, accentColor.g + 0.15);
-                    enhancedAccent.b = max(0.0, accentColor.b - 0.15);
-                } else {
-                    // Red: enhance red channel and reduce green/blue (keep current level)
-                    enhancedAccent.r = min(1.0, accentColor.r + 0.1);
-                    enhancedAccent.g = max(0.0, accentColor.g - 0.1);
-                    enhancedAccent.b = max(0.0, accentColor.b - 0.1);
-                }
-                
-                finalColor = mix(baseColor, enhancedAccent, colorMix * intensity);
-                
-                // Add subtle white highlights for depth and interest
-                finalColor = mix(finalColor, whiteHighlight, highlightPattern * 0.15 * intensity);
-            } else {
-                // When neutral, use base color with subtle white highlights
-                finalColor = mix(baseColor, whiteHighlight, highlightPattern * 0.1);
-            }
-            
-            // Add subtle animation based on time
-            float timeWave = sin(iTime * 0.3) * 0.05 + 0.95;
-            finalColor *= timeWave;
-                
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `;
-        
-        // Create shaders
-        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
-        
-        // Create program
-        this.program = this.gl.createProgram();
-        this.gl.attachShader(this.program, vertexShader);
-        this.gl.attachShader(this.program, fragmentShader);
-        this.gl.linkProgram(this.program);
-        
-        if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
-            console.error('Shader program failed to link:', this.gl.getProgramInfoLog(this.program));
-            return;
-        }
-        
-        // Get attribute and uniform locations
-        const positionLocation = this.gl.getAttribLocation(this.program, 'a_position');
-        
-        this.uniforms = {
-            iResolution: this.gl.getUniformLocation(this.program, 'iResolution'),
-            iTime: this.gl.getUniformLocation(this.program, 'iTime'),
-            u_sentiment: this.gl.getUniformLocation(this.program, 'u_sentiment'),
-            u_baseColor: this.gl.getUniformLocation(this.program, 'u_baseColor'),
-            u_accentColor: this.gl.getUniformLocation(this.program, 'u_accentColor')
-        };
-        
-        // Create buffer for full-screen quad
-        const buffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
-            -1, -1,
-             1, -1,
-            -1,  1,
-            -1,  1,
-             1, -1,
-             1,  1,
-        ]), this.gl.STATIC_DRAW);
-        
-        this.gl.enableVertexAttribArray(positionLocation);
-        this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 0, 0);
-    }
-    
-    createShader(type, source) {
-        const shader = this.gl.createShader(type);
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-        
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error('Shader compilation error:', this.gl.getShaderInfoLog(shader));
-            this.gl.deleteShader(shader);
-            return null;
-        }
-        
-        return shader;
-    }
-    
-    updateSentiment(sentiment) {
-        this.sentiment = sentiment;
-    }
-    
-    animate() {
-        if (!this.gl || !this.program) return;
-        
-        const currentTime = (Date.now() - this.startTime) / 1000.0;
-        
-        // Set uniforms
-        this.gl.useProgram(this.program);
-        this.gl.uniform2f(this.uniforms.iResolution, this.canvas.width, this.canvas.height);
-        this.gl.uniform1f(this.uniforms.iTime, currentTime);
-        this.gl.uniform1f(this.uniforms.u_sentiment, this.sentiment || 0);
-        
-        // Set colors based on sentiment
-        const baseColor = [250/255, 250/255, 250/255]; // More white base (less grey)
-        
-        let accentColor;
-        if (this.sentiment > 0) {
-            // Green accent for positive sentiment - much more saturated
-            const intensity = Math.min(100, Math.abs(this.sentiment) * 2.0); // Even higher intensity for green
-            accentColor = [
-                Math.max(0, (240 - intensity)/255), 
-                240/255, 
-                Math.max(0, (240 - intensity)/255)
-            ];
-        } else if (this.sentiment < 0) {
-            // Red accent for negative sentiment - keep current intensity
-            const intensity = Math.min(80, Math.abs(this.sentiment) * 1.5); // Keep red intensity as is
-            accentColor = [
-                240/255, 
-                Math.max(0, (240 - intensity)/255), 
-                Math.max(0, (240 - intensity)/255)
-            ];
-        } else {
-            // Neutral grey
-            accentColor = baseColor;
-        }
-        
-        this.gl.uniform3f(this.uniforms.u_baseColor, baseColor[0], baseColor[1], baseColor[2]);
-        this.gl.uniform3f(this.uniforms.u_accentColor, accentColor[0], accentColor[1], accentColor[2]);
-        
-        // Debug logging
-        if (Math.abs(this.sentiment) > 1) {
-            const greenIntensity = this.sentiment > 0 ? Math.min(100, Math.abs(this.sentiment) * 2.0) : Math.min(80, Math.abs(this.sentiment) * 1.5);
-            console.log('Fluid Gradient Debug:', {
-                sentiment: this.sentiment,
-                baseColor: baseColor.map(c => Math.round(c * 255)),
-                accentColor: accentColor.map(c => Math.round(c * 255)),
-                intensity: greenIntensity,
-                saturationBoost: this.sentiment > 0 ? 'Enhanced Green' : 'Enhanced Red'
-            });
-        }
-        
-        // Draw
-        this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
-        
-        this.animationId = requestAnimationFrame(() => this.animate());
-    }
-    
-    destroy() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-        if (this.canvas && this.canvas.parentNode) {
-            this.canvas.parentNode.removeChild(this.canvas);
-        }
-    }
-}
+// ---- Globals & wiring -------------------------------------------------------
+let marketBackdrop = null;
 
-// Global instances
-let fluidGradient = null;
-let backgroundFluidGradient = null;
-
-// Initialize fluid gradient system
 function initFluidGradient() {
-    // Background shader removed - using CSS gradient instead
-    // if (backgroundFluidGradient) {
-    //     backgroundFluidGradient.destroy();
-    // }
-    // backgroundFluidGradient = new BackgroundFluidGradient();
-    
-    // Initialize title bar shader (sentiment-responsive)
-    if (fluidGradient) {
-        fluidGradient.destroy();
-    }
-    fluidGradient = new FluidGradient();
+    if (marketBackdrop) marketBackdrop.destroy();
+    marketBackdrop = new MarketBackdrop();
 }
 
-// Update gradient with sentiment (title bar only; sentiment box uses CSS gradient in client.js)
 function updateFluidGradient(sentiment) {
-    if (fluidGradient) {
-        fluidGradient.updateSentiment(sentiment);
-    }
+    if (marketBackdrop) marketBackdrop.setSentiment(sentiment);
 }
 
-// Export for use in client.js
+function setFluidGradientTheme(isDark) {
+    if (marketBackdrop) marketBackdrop.setTheme(isDark);
+}
+
 window.initFluidGradient = initFluidGradient;
 window.updateFluidGradient = updateFluidGradient;
+window.setFluidGradientTheme = setFluidGradientTheme;
