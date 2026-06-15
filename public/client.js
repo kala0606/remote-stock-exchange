@@ -408,7 +408,7 @@ function syncActionDockPlacement() {
     const controls = document.getElementById('controls');
     const game = document.getElementById('game');
     if (!actions || !controls || !game) return;
-    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    const isMobile = window.matchMedia('(max-width: 1100px)').matches;
     if (isMobile) {
         if (actions.parentElement !== game) game.appendChild(actions);
     } else if (actions.parentElement !== controls) {

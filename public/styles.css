@@ -2026,11 +2026,17 @@ input:focus, select:focus {
 }
 
 /* --- Responsive --- */
+/* Stack dashboard widgets on smaller tablets & phones (wide tablets keep 2-col). */
 @media (max-width: 900px) {
   .dash-widgets {
     grid-template-columns: 1fr;
   }
+}
 
+/* Device split: dock the primary trade actions at the bottom on tablets & phones.
+   Cutoff is 1100px so iPad Pro 12.9" portrait (1024px) is covered — at the old
+   900px cutoff its top bar overflowed and END GAME wrapped over the content. */
+@media (max-width: 1100px) {
   /* Compact top status strip + room for the floating bottom action dock. */
   body { padding-top: 96px; padding-bottom: calc(96px + env(safe-area-inset-bottom)); font-size: 13px; }
 
