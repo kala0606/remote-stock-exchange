@@ -1189,7 +1189,6 @@ input:focus, select:focus {
      scroll (same pattern as price history) so Cash + Portfolio stay visible. */
   #combined-leaderboard-turn-content { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .leaderboard-table { display: table; min-width: 480px; }
-  .portfolio-details-row { display: none; }
 }
 
 /* --- Player Turn Order Table --- */
