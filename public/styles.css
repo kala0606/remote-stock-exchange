@@ -1184,7 +1184,15 @@ input:focus, select:focus {
 
 @media (min-width: 701px) { .leaderboard-card { display: none; } }
 @media (max-width: 700px) {
-  .leaderboard-table { display: none; }
+  /* On mobile portrait the JS only renders a table, never .leaderboard-card,
+     so hiding the table left the widget empty. Show a compact 3-column view:
+     Player | Turns | Worth. Hide Cash and Portfolio to fit narrow viewports. */
+  .leaderboard-table { display: table; }
+  .leaderboard-table th:nth-child(4),
+  .leaderboard-table td:nth-child(4),
+  .leaderboard-table th:nth-child(5),
+  .leaderboard-table td:nth-child(5) { display: none; }
+  #combined-leaderboard-turn-content { overflow-x: auto; }
   .portfolio-details-row { display: none; }
 }
 
