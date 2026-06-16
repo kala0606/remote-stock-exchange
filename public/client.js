@@ -1242,6 +1242,26 @@ function updateUI(state) {
         console.log('New period or round detected, resetting hand signature');
         lastHandSignature = '';
     }
+
+    // Long beep for admin when all players' turns are done and admin action is needed.
+    // Detects awaitingAdminDecision flipping from false → true.
+    const wasAwaiting = currentGameState?.state?.awaitingAdminDecision;
+    const nowAwaiting = state.state?.awaitingAdminDecision;
+    if (!wasAwaiting && nowAwaiting && isAdmin) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, ctx.currentTime);
+            gain.gain.setValueAtTime(0.35, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.8);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 1.8);
+        } catch (e) { /* audio not available */ }
+    }
     
     // Also check if we have a significant number of price cards (indicating new cards were dealt)
     const hasSignificantPriceCards = playerHandToRender.filter(card => card.type === 'price' && !card.played).length >= 5;
@@ -1486,12 +1506,10 @@ function renderCombinedLeaderboardTurnOrder(players, currentTurnPlayerId, market
             const prevPeriod = playerHistory[1].period;
             if (prev !== 0) {
                 const pct = ((curr - prev) / prev) * 100;
-                worthChangeText = ` <span class="leaderboard-worth-change ${pct >= 0 ? 'positive' : 'negative'}">(vs P${prevPeriod}: ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span>`;
-            } else if (curr > 0) worthChangeText = ` <span class="leaderboard-worth-change positive">(vs P${prevPeriod}: +Inf%)</span>`;
-            else worthChangeText = ` <span class="leaderboard-worth-change">(vs P${prevPeriod}: 0.0%)</span>`;
-        } else if (playerHistory.length === 1 && playerHistory[0].period === 0) worthChangeText = ' <span class="leaderboard-worth-change">(Baseline P0)</span>';
-        else if (playerHistory.length === 1) worthChangeText = ' <span class="leaderboard-worth-change">(New History)</span>';
-        else worthChangeText = ' <span class="leaderboard-worth-change">(N/A)</span>';
+                worthChangeText = ` <span class="leaderboard-worth-change ${pct >= 0 ? 'positive' : 'negative'}">${pct >= 0 ? '↑' : '↓'}${Math.abs(pct).toFixed(1)}%</span>`;
+            } else if (curr > 0) worthChangeText = ` <span class="leaderboard-worth-change positive">↑∞%</span>`;
+            else worthChangeText = '';
+        } else worthChangeText = '';
         return { ...player, portfolioValue, overallWorth, portfolioDetails, worthChangeText };
     });
 
