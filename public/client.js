@@ -61,6 +61,9 @@ let priceLog = [];
 // Turn notification beep tracking
 let wasMyTurn = false;
 let beepInterval = null;
+// Tracks awaitingAdminDecision across gameState updates for the admin period-end beep.
+// Kept separate from currentGameState, which is replaced before updateUI compares values.
+let prevAwaitingAdminDecision = false;
 
 // Function to play double beep sound
 function playTurnBeep() {
@@ -937,15 +940,7 @@ socket.on('playerList', players => {
 });
 
 socket.on('gameState', state => {
-    if (isRejoining) {
-        console.log('[gameState after Rejoin] Received state:', JSON.parse(JSON.stringify(state)));
-        isRejoining = false;
-    }
-    
-    console.log('[gameState] Received state:', JSON.parse(JSON.stringify(state)));
-    console.log('[gameState] Current turn player ID:', state.state?.currentTurnPlayerId);
-    console.log('[gameState] Is your turn:', state.isYourTurn);
-    console.log('[gameState] Current player ID:', socket.id);
+    if (isRejoining) isRejoining = false;
     
     currentGameState = state; // Central update
     
@@ -1243,26 +1238,30 @@ function updateUI(state) {
         lastHandSignature = '';
     }
 
-    // Long beep for admin when all players' turns are done and admin action is needed.
+    // Triple beep for admin when all players' turns are done and admin action is needed.
     // Detects awaitingAdminDecision flipping from false → true.
-    const wasAwaiting = currentGameState?.state?.awaitingAdminDecision;
-    const nowAwaiting = state.state?.awaitingAdminDecision;
-    if (!wasAwaiting && nowAwaiting && isAdmin) {
+    const nowAwaiting = !!state.state?.awaitingAdminDecision;
+    if (!prevAwaitingAdminDecision && nowAwaiting && isAdmin) {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(520, ctx.currentTime);
-            gain.gain.setValueAtTime(0.35, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.8);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 1.8);
+            if (ctx.state === 'suspended') ctx.resume();
+            for (let i = 0; i < 3; i++) {
+                const startAt = ctx.currentTime + i * 0.35;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, startAt);
+                gain.gain.setValueAtTime(0.35, startAt);
+                gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.25);
+                osc.start(startAt);
+                osc.stop(startAt + 0.25);
+            }
         } catch (e) { /* audio not available */ }
     }
-    
+    prevAwaitingAdminDecision = nowAwaiting;
+
     // Also check if we have a significant number of price cards (indicating new cards were dealt)
     const hasSignificantPriceCards = playerHandToRender.filter(card => card.type === 'price' && !card.played).length >= 5;
     const shouldForceUpdate = hasSignificantPriceCards && lastHandSignature !== '';
